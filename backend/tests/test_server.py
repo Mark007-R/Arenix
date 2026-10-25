@@ -30,8 +30,7 @@ def recv_until(ws, msg_type: str, limit: int = 200) -> dict:  # type: ignore[no-
 
 def test_practice_session_welcome_and_movement(client: TestClient) -> None:
     with client.websocket_connect("/ws/practice?name=Tester&archetype=wizard&bots=1") as ws:
-        welcome = json.loads(ws.receive_text())
-        assert welcome["type"] == "welcome"
+        welcome = recv_until(ws, "welcome")
         assert welcome["you"] == "p1"
         assert welcome["map"]["id"] == "emerald_isle"
         assert {c["id"] for c in welcome["snapshot"]["contestants"]} == {"p1", "bot1"}

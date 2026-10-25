@@ -34,11 +34,53 @@ class PingMsg(_Msg):
     t: float = Field(allow_inf_nan=False)
 
 
-ClientMessage = Annotated[InputMsg | InteractMsg | PingMsg, Field(discriminator="type")]
-client_message_adapter: TypeAdapter[InputMsg | InteractMsg | PingMsg] = TypeAdapter(ClientMessage)
+class ReadyMsg(_Msg):
+    type: Literal["ready"]
+    ready: bool
+
+
+class SetArchetypeMsg(_Msg):
+    type: Literal["set_archetype"]
+    archetype: str = Field(min_length=1, max_length=20, pattern=r"^[a-z]+$")
+
+
+class SetFillMsg(_Msg):
+    type: Literal["set_fill"]
+    fill_to: int = Field(ge=1, le=10)
+
+
+class StartMsg(_Msg):
+    type: Literal["start"]
+
+
+AnyClientMessage = InputMsg | InteractMsg | PingMsg | ReadyMsg | SetArchetypeMsg | SetFillMsg | StartMsg
+ClientMessage = Annotated[AnyClientMessage, Field(discriminator="type")]
+client_message_adapter: TypeAdapter[AnyClientMessage] = TypeAdapter(ClientMessage)
+
+PlayerName = Annotated[str, Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 _\-]+$")]
+Archetype = Annotated[str, Field(min_length=1, max_length=20, pattern=r"^[a-z]+$")]
 
 
 class JoinParams(_Msg):
-    name: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 _\-]+$")
-    archetype: str = Field(min_length=1, max_length=20)
+    name: PlayerName
+    archetype: Archetype
     bots: int = Field(default=2, ge=0, le=7)
+
+
+class CreateRoomRequest(_Msg):
+    name: PlayerName
+    archetype: Archetype
+    fill_to: int = Field(default=6, ge=1, le=10)
+
+
+class JoinRoomRequest(_Msg):
+    name: PlayerName
+    archetype: Archetype
+
+
+class SeatGrant(BaseModel):
+    """Returned once to the joining player. The token is the reconnect credential; keep it private."""
+
+    code: str
+    player_id: str
+    token: str

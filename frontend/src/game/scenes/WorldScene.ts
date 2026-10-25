@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { ARCHETYPES, FRAME, FRAME_H, buildCharacterSheet } from "../art/characters";
+import { ARCHETYPES, FRAME, FRAME_H, buildCharacterSheet, cosmeticKey } from "../art/characters";
 import * as Obj from "../art/objects";
 import { TILE, renderTiles } from "../art/tiles";
 import type { GameClient } from "../net/client";
@@ -140,13 +140,14 @@ export class WorldScene extends Phaser.Scene {
   private ensureActor(c: ContestantDTO): ActorView {
     let a = this.actors.get(c.id);
     if (a) return a;
-    const sheetKey = `char-${c.archetype}`;
+    const look = cosmeticKey(c.archetype, c.cosmetics);
+    const sheetKey = `char-${look}`;
     if (!this.textures.exists(sheetKey)) {
-      const tex = this.textures.addCanvas(sheetKey, buildCharacterSheet(c.archetype))!;
+      const tex = this.textures.addCanvas(sheetKey, buildCharacterSheet(c.archetype, c.cosmetics))!;
       for (let i = 0; i < 9; i++) tex.add(i, 0, i * FRAME, 0, FRAME, FRAME_H);
       for (let d = 0; d < 3; d++) {
         this.anims.create({
-          key: `${c.archetype}-walk-${d}`,
+          key: `${look}-walk-${d}`,
           frames: [1, 0, 2, 0].map((f) => ({ key: sheetKey, frame: d * 3 + f })),
           frameRate: 10,
           repeat: -1,
@@ -163,7 +164,7 @@ export class WorldScene extends Phaser.Scene {
     this.texture("icon-wood", () => Obj.resourceIcon("wood"));
     this.texture("icon-stone", () => Obj.resourceIcon("stone"));
     const carry = [0, 1, 2].map(() => this.add.image(0, 0, "icon-wood").setOrigin(0.5, 1).setVisible(false));
-    a = { sprite, shadow, label, carry, archetype: c.archetype, lastX: c.x, lastY: c.y, bubble: null, bubbleUntil: 0 };
+    a = { sprite, shadow, label, carry, archetype: look, lastX: c.x, lastY: c.y, bubble: null, bubbleUntil: 0 };
     this.actors.set(c.id, a);
     if (isMe) this.cameras.main.startFollow(sprite, true, 0.2, 0.2, 0, 8);
     return a;
@@ -409,10 +410,12 @@ export class WorldScene extends Phaser.Scene {
     if (ev.type === "resource_gathered" || ev.type === "resources_delivered") {
       const actor = this.actors.get(String(ev.data.contestant));
       if (!actor) return;
-      const text = ev.type === "resource_gathered" ? `+1 ${String(ev.data.resource)}` : `+${String(ev.data.points)}`;
+      const effect = client.contestant(String(ev.data.contestant))?.cosmetics?.effect;
+      const base = ev.type === "resource_gathered" ? `+1 ${String(ev.data.resource)}` : `+${String(ev.data.points)}`;
+      const text = effect && ev.type === "resources_delivered" ? `${effect.glyph} ${base} ${effect.glyph}` : base;
       const isMe = ev.data.contestant === client.you;
       if (!isMe && ev.type === "resource_gathered") return;
-      this.floatText(actor.sprite.x, actor.sprite.y - FRAME_H - 8, text, isMe ? "#ffe066" : "#d9f0ff");
+      this.floatText(actor.sprite.x, actor.sprite.y - FRAME_H - 8, text, effect?.color ?? (isMe ? "#ffe066" : "#d9f0ff"));
     }
     if (ev.type === "mission_completed" && this.tower) {
       this.floatText(this.tower.x, this.tower.y - 72, "Repaired!", "#86d35f");

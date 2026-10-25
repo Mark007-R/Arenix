@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CharacterPicker } from "@/components/CharacterPicker";
+import { ensureAccount } from "@/lib/account";
 import { cleanName, joinRoom, loadPrefs, loadSeat, normalizeCode, savePrefs } from "@/lib/rooms";
 import type { SeatGrant } from "@/shared/protocol";
 
@@ -40,6 +41,7 @@ export default function RoomPage() {
     setError(null);
     try {
       savePrefs({ ...loadPrefs(), name: n, archetype });
+      await ensureAccount(n).catch(() => null);
       setSeat(await joinRoom(code, n, archetype));
     } catch (e) {
       setError((e as Error).message);

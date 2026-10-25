@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { LobbyMsg, MapDTO, MatchResult, SnapshotDTO } from "@/shared/protocol";
+import type { LobbyMsg, MapDTO, MatchResult, RewardsMsg, SnapshotDTO } from "@/shared/protocol";
 
 export interface FeedItem {
   id: number;
@@ -45,6 +45,7 @@ export interface HudState {
   toast: { id: number; text: string } | null;
   result: MatchResult | null;
   lastVote: VoteReveal | null;
+  rewards: RewardsMsg | null;
   pingMs: number | null;
   reducedMotion: boolean;
 }
@@ -85,6 +86,7 @@ export const initialHud = (): HudState => ({
   toast: null,
   result: null,
   lastVote: null,
+  rewards: null,
   pingMs: null,
   reducedMotion: false,
 });

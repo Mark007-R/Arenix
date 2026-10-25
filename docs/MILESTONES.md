@@ -94,10 +94,38 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ⬜ Live-model evaluation: no API credentials were available while building this. The Claude
   request shape and parsing are unit-tested against a fake SDK client only.
 
-## Milestone 5: Progression and crates ⬜
-- ⬜ PostgreSQL, SQLAlchemy, Alembic schema; idempotent currency ledger
-- ⬜ Game Points, Diamonds (mock payments), five crate tiers, odds shown, server RNG, audit log
-- ⬜ Inventory, equipping cosmetics, profiles
+## Milestone 5: Progression and crates ✅
+- ✅ PostgreSQL with async SQLAlchemy; one Alembic migration creates all 18 tables (FKs, indexes,
+  CHECK and UNIQUE constraints). `game_events` is append-only: a trigger rejects UPDATE and DELETE.
+- ✅ Finished matches are persisted in one transaction: match row with seed and rules version,
+  participants, phase spans, every event with its visibility, agent states, protocol messages,
+  decision records and LLM traces. Progression is awarded in that same transaction.
+- ✅ Guest accounts with sha256-hashed bearer tokens; profiles (level, XP, stats, achievements,
+  equipped loadout)
+- ✅ Ledger: every balance change has a unique idempotency key and is written together with the
+  locked profile balance; negative balances are impossible (application check plus CHECK
+  constraints)
+- ✅ Rewards: Game Points per match (participation, score, win, survival) and five achievements
+  (some grant Diamonds). Rewards are idempotent per match and user and pushed to the player at
+  match end.
+- ✅ Five crate tiers configured server-side (Bronze, Silver, Gold for Game Points; Platinum,
+  Diamond for Diamonds), with per-item basis-point odds that must sum to exactly 100%. The API and
+  UI show every item's exact probability before opening.
+- ✅ Opening: explicit confirmation; `secrets.randbelow` on the server; idempotent per
+  `Idempotency-Key`; records the roll and reward-table version; duplicates convert to Game Points
+  by rarity. Tested: exact odds over all 10 000 rolls, concurrent overspend, concurrent same-key.
+- ✅ Diamonds: mock purchase provider with clear real-money prices, explicit confirmation and an
+  adult confirmation; no payment data is ever collected. Paid random crates can be disabled per
+  deployment (`ARENIX_PAID_RANDOM_CRATES=disabled`).
+- ✅ Cosmetics: 10 skins, 5 hats, 4 chat packs, 2 effects, all original and cosmetic only. They are
+  loaded server-side into room seats, visible to everyone in lobbies and matches, and chat packs
+  unlock extra validated quick-chat phrases.
+- ✅ UI: collection page (crates with full odds, confirmation, skippable reveal that respects
+  reduced motion, inventory and equip, store, history) and rewards on the results screen
+- 🟡 Events are persisted when a match *ends*. A server crash mid-match loses that match (no
+  incremental event persistence yet).
+- ⬜ Real payment provider, regional detection and direct-purchase shop (for regions where paid
+  random crates are disabled), parental controls and spending limits beyond the adult check
 
 ## Milestone 6: Agent Lab ⬜
 - ⬜ Interaction graph, timeline, decision inspector, replay from the event log, metrics

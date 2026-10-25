@@ -1,4 +1,5 @@
 import { apiUrl } from "@/game/net/client";
+import { loadAccount } from "./account";
 import type { SeatGrant } from "@/shared/protocol";
 
 const seatKey = (code: string) => `arenix.seat.${code.toUpperCase()}`;
@@ -58,6 +59,7 @@ const MESSAGES: Record<string, string> = {
   not_found: "That room doesn't exist (check the code).",
   room_full: "That room is full.",
   in_progress: "That room's match has already started. Try again when it returns to the lobby.",
+  already_joined: "You already have a seat in that room (open it from the tab you joined in).",
   rate_limited: "You're creating rooms too quickly. Wait a moment.",
   busy: "The server is busy. Try again shortly.",
 };
@@ -66,10 +68,15 @@ export class RoomRequestError extends Error {}
 
 async function post(path: string, body: unknown): Promise<SeatGrant> {
   let res: Response;
+  const account = loadAccount();
   try {
     res = await fetch(`${apiUrl()}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Optional: links the seat to your account for rewards and equipped cosmetics.
+        ...(account ? { Authorization: `Bearer ${account.token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
   } catch {

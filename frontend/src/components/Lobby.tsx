@@ -52,7 +52,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
           <ul className="grid gap-2 sm:grid-cols-2">
             {lobby.seats.map((s) => (
               <li key={s.player_id} className={`flex items-center gap-3 border-[3px] p-2 ${s.player_id === you ? "border-gold" : "border-ink"} bg-[#120c1c]`}>
-                <Portrait archetype={s.archetype} scale={2} />
+                <Portrait archetype={s.archetype} scale={2} cosmetics={s.cosmetics} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold">
                     {s.name} {s.is_host && <span title="Host">👑</span>} {s.player_id === you && <span className="text-xs text-gold">(you)</span>}

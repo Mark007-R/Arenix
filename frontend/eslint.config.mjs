@@ -5,6 +5,7 @@ const config = [
   ...nextVitals,
   ...nextTs,
   { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
+  { files: ["e2e/**/*.cjs"], rules: { "@typescript-eslint/no-require-imports": "off" } },
 ];
 
 export default config;

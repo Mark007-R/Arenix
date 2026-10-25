@@ -58,6 +58,16 @@ export function renderTiles(map: MapDTO): HTMLCanvasElement {
     return map.tiles[y * map.width + x] as T;
   };
   const isWater = (x: number, y: number) => at(x, y) === T.WATER;
+  const woodsy = (x: number, y: number) => {
+    let n = 0;
+    for (let oy = -1; oy <= 1; oy++)
+      for (let ox = -1; ox <= 1; ox++) {
+        if (ox === 0 && oy === 0) continue;
+        const t = at(x + ox, y + oy);
+        if (t === T.TREE || t === T.FOREST_FLOOR) n++;
+      }
+    return n;
+  };
 
   // Pass 1: ground
   for (let ty = 0; ty < map.height; ty++) {
@@ -84,7 +94,8 @@ export function renderTiles(map: MapDTO): HTMLCanvasElement {
           break;
         case T.FOREST_FLOOR:
         case T.TREE:
-          grassBase(ctx, ox, oy, tx, ty, true);
+          // Dark forest floor only inside real woodland; lone trees and clearings blend into grass.
+          grassBase(ctx, ox, oy, tx, ty, woodsy(tx, ty) >= 5);
           break;
         case T.SAND:
           fill(ctx, ox, oy, TILE, TILE, P.sand);

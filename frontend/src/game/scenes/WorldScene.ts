@@ -298,7 +298,7 @@ export class WorldScene extends Phaser.Scene {
     if (best) {
       const label = this.promptLabel(best.o);
       this.promptBubble.setText(`E  ${label}`).setVisible(true)
-        .setPosition((best.o.x + best.o.w / 2) * TILE, best.o.y * TILE - (best.o.kind === "watchtower" ? 40 : 8));
+        .setPosition((best.o.x + best.o.w / 2) * TILE, best.o.kind === "watchtower" ? (best.o.y + best.o.h) * TILE - 48 : best.o.y * TILE - 8);
       const cur = store.get().prompt;
       if (cur?.targetId !== best.o.id || cur.label !== label) store.set({ prompt: { targetId: best.o.id, label } });
       const pressed = Phaser.Input.Keyboard.JustDown(this.keys.e) || Phaser.Input.Keyboard.JustDown(this.keys.space) || this.touch.interact;
@@ -318,7 +318,8 @@ export class WorldScene extends Phaser.Scene {
     this.edgeArrow.setVisible(false);
     if (!target || !active) return;
     const tx = (target.x + target.w / 2) * TILE;
-    const ty = target.y * TILE - 38;
+    // Just above the ruined stump (the repaired tower is taller, but the marker hides by then).
+    const ty = (target.y + target.h) * TILE - 38;
     const bounce = reduced ? 0 : Math.round(Math.sin(now / 250) * 2);
     this.marker.setPosition(tx, ty + bounce);
     const cam = this.cameras.main;

@@ -86,6 +86,8 @@ export interface Constants {
 export interface WelcomeMsg {
   type: "welcome";
   you: string;
+  /** Last input sequence the server has for us; a reconnecting client continues after it. */
+  resume_seq: number;
   match_id: string;
   map: MapDTO;
   constants: Constants;
@@ -110,12 +112,50 @@ export interface PongMsg {
   t: number;
 }
 
-export type ServerMsg = WelcomeMsg | SnapshotMsg | InteractResultMsg | PongMsg;
+export interface SeatDTO {
+  player_id: string;
+  name: string;
+  archetype: string;
+  ready: boolean;
+  connected: boolean;
+  is_host: boolean;
+}
+
+export interface LobbyMsg {
+  type: "lobby";
+  code: string;
+  status: "lobby" | "running";
+  practice: boolean;
+  fill_to: number;
+  capacity: number;
+  map_id: string;
+  seats: SeatDTO[];
+  can_start: boolean;
+  last_result: MatchResult | null;
+}
+
+export interface ErrorMsg {
+  type: "error";
+  code: string;
+  message: string;
+}
+
+export type ServerMsg = WelcomeMsg | SnapshotMsg | InteractResultMsg | PongMsg | LobbyMsg | ErrorMsg;
 
 export type ClientMsg =
   | { type: "input"; seq: number; dx: number; dy: number }
   | { type: "interact"; target_id: string }
-  | { type: "ping"; t: number };
+  | { type: "ping"; t: number }
+  | { type: "ready"; ready: boolean }
+  | { type: "set_archetype"; archetype: string }
+  | { type: "set_fill"; fill_to: number }
+  | { type: "start" };
+
+export interface SeatGrant {
+  code: string;
+  player_id: string;
+  token: string;
+}
 
 export interface MatchResult {
   reason: "mission_completed" | "time_up";

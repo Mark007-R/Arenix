@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 
-const GameView = dynamic(() => import("@/components/GameView"), { ssr: false });
+const PracticeView = dynamic(() => import("@/components/PracticeView"), { ssr: false });
 
 function Play() {
   const sp = useSearchParams();
@@ -16,7 +16,7 @@ function Play() {
     }),
     [sp],
   );
-  return <GameView params={params} />;
+  return <PracticeView params={params} />;
 }
 
 export default function PlayPage() {

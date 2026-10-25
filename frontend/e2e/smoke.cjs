@@ -21,7 +21,7 @@ const fail = (msg) => {
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.goto(`${BASE}/play?name=Smoke&archetype=knight&bots=2`);
-  await page.waitForFunction(() => window.__ARENIX__?.client?.predictor, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__ARENIX__?.client?.predictor && window.__ARENIX__?.game?.scene?.getScene("world"), null, { timeout: 15000 });
 
   // In-page autopilot steering through the same channel as the on-screen touch controls.
   await page.evaluate(() => {

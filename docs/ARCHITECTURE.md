@@ -37,9 +37,9 @@ backend/                Python 3.12+, FastAPI, Pydantic (managed with uv)
     match.py            Match: contestants, input queues, interaction rules, timer, results
     bots.py             rule-based contestant policy (navigation + goal selection)
   arenix/server/
-    protocol.py         Pydantic models for every inbound client message
-    session.py          PracticeSession: 20 Hz tick loop around a Match
-    app.py              FastAPI app: REST endpoints + /ws/practice WebSocket
+    protocol.py         Pydantic models for every inbound client message and REST body
+    rooms.py            Room/RoomManager: codes, seats, lobby, match loop, fan-out, reconnect
+    app.py              FastAPI app: REST endpoints, /ws/rooms/{code}, /ws/practice
   scripts/gen_movement_vectors.py   golden physics vectors for the client
   tests/                pytest (engine, bots, server, parity, property-based physics)
 frontend/               Next.js 16 + React 19 + TypeScript + Tailwind 4 + Phaser 3
@@ -47,8 +47,9 @@ frontend/               Next.js 16 + React 19 + TypeScript + Tailwind 4 + Phaser
   src/game/art/         procedural pixel art (characters, tiles, objects): original assets
   src/game/net/client.ts   socket + prediction + interpolation + HUD store updates
   src/game/scenes/WorldScene.ts   Phaser rendering, input, prompts, markers
-  src/components/       React HUD, minimap, results, touch controls
-  src/app/              routes: / (menu + character select), /play
+  src/components/       React HUD, minimap, lobby, results, touch controls
+  src/app/              routes: / (menu), /play (practice), /room/[code] (join form, lobby, match)
+  e2e/                  browser scripts: smoke.cjs (practice), multiplayer.cjs (two players)
 shared/test-vectors/    movement.json: Python-generated trajectories the TS port must match exactly
 docs/                   this document, milestones
 ```
@@ -138,24 +139,48 @@ Memory + Beliefs ◀─────────────────┤
 * Claims are stored apart from confirmed events. A message is never treated as proof.
 * The rule-based policy stays as the fallback, so the game remains playable with no model at all.
 
-## Realtime protocol (current)
+## Rooms and realtime protocol
 
-`GET /api/health`, `GET /api/maps`, `GET /api/maps/{id}`, `GET /api/archetypes`
+**REST**
 
-`WS /ws/practice?name=&archetype=&bots=`
+| method | path | body / result |
+|---|---|---|
+| GET | `/api/health`, `/api/maps`, `/api/maps/{id}`, `/api/archetypes` | static data |
+| POST | `/api/rooms` | `{name, archetype, fill_to}` → `{code, player_id, token}` (rate limited per IP) |
+| POST | `/api/rooms/{code}/join` | `{name, archetype}` → `{code, player_id, token}` (409 when full or in progress) |
+| GET | `/api/rooms/{code}` | public lobby state (never includes tokens) |
+
+The seat **token** is the player's credential for that room. The client keeps it in
+`sessionStorage`, so it survives a reload but not a new tab. Tokens are compared in constant
+time.
+
+**WebSockets.** `WS /ws/rooms/{code}?token=…` for rooms. `WS /ws/practice?name=&archetype=&bots=`
+is a private one-seat room that starts immediately. Invalid credentials are accepted and then
+closed with a code (4401 bad token, 4404 unknown room, 4400 bad practice params, 4408 abuse), so
+browsers can show the reason.
 
 | direction | message | notes |
 |---|---|---|
-| S→C | `welcome` | `you`, `map` (tiles, collision, objects, regions, spawns), physics `constants`, first `snapshot` |
-| S→C | `snapshot` (20 Hz) | `tick`, `status`, `time_left`, `contestants[]`, `nodes`, `mission`, `ack_seq`, new `events[]` |
-| S→C | `interact_result` | `{target_id, ok, reason}` |
-| C→S | `input` | `{seq, dx, dy}` |
-| C→S | `interact` | `{target_id}` |
-| C↔S | `ping` / `pong` | latency display |
+| S→C | `lobby` | code, status, seats (name, archetype, ready, connected, host), `fill_to`, `can_start`, `last_result` |
+| S→C | `welcome` | on match start or reconnect: `you`, `resume_seq`, `map`, physics `constants`, `snapshot` |
+| S→C | `snapshot` | per player at up to 20 Hz: state + own `ack_seq` + events since this connection's cursor |
+| S→C | `interact_result` / `error` / `pong` | `error.code`: `not_host`, `not_ready`, `in_progress`, `replaced`, … |
+| C→S | `ready`, `set_archetype`, `set_fill`, `start` | lobby actions, validated (host-only where relevant) |
+| C→S | `input`, `interact`, `ping` | in match |
 
-Milestone 2 replaces `/ws/practice` with room-based sessions (`POST /api/rooms`, join by code,
-lobby and ready states, reconnect tokens) and adds the named events from the design brief
-(`player_joined`, `mission_completed`, `vote_started`, and so on) as typed messages.
+**Fan-out.** The room tick loop only marks each connection dirty. Every connection has its own
+writer task that, when it gets to send, builds that player's newest snapshot with all events
+since its own cursor. A slow client receives fewer snapshots but never loses events, and never
+slows the room down.
+
+**Reconnects.** When a socket drops, the contestant stays in the match (disconnected, standing
+still) and other players see an event. Reconnecting with the same token resumes the same
+contestant. `resume_seq` tells a reloaded client where its input numbering must continue, since
+the server rejects older numbers as replays. Lobby seats that stay disconnected for 30 s are
+released. A room nobody has been connected to for 2 minutes is removed.
+
+**Scaling note.** Rooms live in the memory of one server process. Running several processes
+will need sticky routing by room code, or Redis-backed room ownership.
 
 ## Visual style
 

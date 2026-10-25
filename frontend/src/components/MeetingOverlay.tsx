@@ -45,7 +45,7 @@ export function MeetingOverlay({ client, store }: { client: GameClient; store: H
                   onClick={() => client.vote(r.id)}
                   className={`flex w-full items-center gap-2 border-[3px] p-2 text-left ${out ? "border-ember" : myVote === r.id ? "border-gold" : "border-ink"} bg-[#120c1c] ${canVote && r.id !== you ? "hover:border-gold" : ""}`}
                 >
-                  <Portrait archetype={r.archetype} scale={2} />
+                  <Portrait archetype={r.archetype} scale={2} cosmetics={r.cosmetics} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">
                       {r.name}

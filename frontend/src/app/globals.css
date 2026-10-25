@@ -97,3 +97,9 @@ canvas {
     transition: none !important;
   }
 }
+
+@keyframes crate-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}

@@ -1,5 +1,7 @@
 /** Wire types mirroring backend/arenix/server (welcome/snapshot) and engine payloads. */
 
+import type { Cosmetics } from "@/game/art/characters";
+
 export type Facing = "up" | "down" | "left" | "right";
 export type Resource = "wood" | "stone";
 
@@ -48,6 +50,7 @@ export interface ContestantDTO {
   score: number;
   alive: boolean;
   connected: boolean;
+  cosmetics?: Cosmetics;
 }
 
 export interface RosterEntry {
@@ -58,6 +61,7 @@ export interface RosterEntry {
   score: number;
   alive: boolean;
   connected: boolean;
+  cosmetics?: Cosmetics;
 }
 
 export interface ObjectiveDTO {
@@ -111,6 +115,7 @@ export interface SnapshotDTO {
     bell_used: boolean;
     vote: string | null;
     delivered: Record<Resource, number>;
+    phrases?: Record<string, string>;
   };
 }
 
@@ -158,6 +163,7 @@ export interface SeatDTO {
   ready: boolean;
   connected: boolean;
   is_host: boolean;
+  cosmetics?: Cosmetics;
 }
 
 export interface LobbyMsg {
@@ -180,7 +186,17 @@ export interface ErrorMsg {
   message: string;
 }
 
-export type ServerMsg = WelcomeMsg | SnapshotMsg | InteractResultMsg | PongMsg | LobbyMsg | ErrorMsg;
+export interface RewardsMsg {
+  type: "rewards";
+  match_id: string;
+  game_points: number;
+  xp: number;
+  level: number;
+  achievements: { id: string; name: string; game_points: number; diamonds: number }[];
+  balance: { game_points: number; diamonds: number };
+}
+
+export type ServerMsg = WelcomeMsg | SnapshotMsg | InteractResultMsg | PongMsg | LobbyMsg | ErrorMsg | RewardsMsg;
 
 export type ClientMsg =
   | { type: "input"; seq: number; dx: number; dy: number }

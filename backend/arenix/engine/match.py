@@ -993,5 +993,6 @@ class Match:
                 "bell_used": me.bell_used,
                 "vote": self.votes.get(viewer),
                 "delivered": dict(me.delivered),
+                "phrases": dict(me.extra_phrases),
             }
         return snap

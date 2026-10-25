@@ -90,7 +90,7 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
               disabled={c.id === you || !c.alive || !meAlive}
               aria-expanded={open === c.id}
             >
-              <Portrait archetype={c.archetype} scale={1} className="h-5 w-4" />
+              <Portrait archetype={c.archetype} scale={1} className="h-5 w-4" cosmetics={c.cosmetics} />
               <span className="flex-1 truncate">
                 {c.name}
                 {c.is_bot && <span className="ml-1 text-[10px] text-sky">AI</span>}

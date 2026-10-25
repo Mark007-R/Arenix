@@ -6,6 +6,7 @@ import { useHud, type HudStore } from "@/lib/store";
 export function ResultModal({ store, actions }: { store: HudStore; actions: ReactNode }) {
   const result = useHud(store, (s) => s.result);
   const you = useHud(store, (s) => s.you);
+  const rewards = useHud(store, (s) => s.rewards);
   if (!result) return null;
   const winner = result.standings.find((s) => s.id === result.winner);
   const youWon = result.winner === you;
@@ -60,6 +61,21 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
             ))}
           </tbody>
         </table>
+        {rewards && (
+          <div className="mt-4 border-[3px] border-gold bg-[#120c1c] p-3 text-sm" role="status">
+            <div className="font-bold text-gold">
+              +{rewards.game_points} Game Points · Level {rewards.level}
+            </div>
+            {rewards.achievements.map((a) => (
+              <div key={a.id} className="text-leaf">
+                🏆 {a.name} (+{a.game_points} GP{a.diamonds ? `, +${a.diamonds} 💎` : ""})
+              </div>
+            ))}
+            <div className="text-xs text-parchment/60">
+              Balance: {rewards.balance.game_points} GP · {rewards.balance.diamonds} 💎
+            </div>
+          </div>
+        )}
         <div className="mt-6 flex justify-center gap-3">{actions}</div>
       </div>
     </div>

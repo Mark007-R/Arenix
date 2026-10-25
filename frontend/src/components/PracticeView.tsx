@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ensureAccount } from "@/lib/account";
 import { practiceUrl, type JoinParams } from "@/game/net/client";
 import { useGameClient } from "@/lib/useGameClient";
 import { useHud } from "@/lib/store";
@@ -11,7 +12,14 @@ import { ResultModal } from "./ResultModal";
 
 export default function PracticeView({ params }: { params: JoinParams }) {
   const [session, setSession] = useState(0);
-  const url = useMemo(() => practiceUrl(params), [params]);
+  const [auth, setAuth] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    // Sign in as a guest so rewards and cosmetics apply; play anonymously if the server can't.
+    ensureAccount(params.name)
+      .then((a) => setAuth(a?.token ?? null))
+      .catch(() => setAuth(null));
+  }, [params.name]);
+  const url = useMemo(() => (auth === undefined ? null : practiceUrl(params, auth ?? undefined)), [params, auth]);
   const { store, client } = useGameClient(url, session);
   const matchId = useHud(store, (s) => s.matchId);
   return (

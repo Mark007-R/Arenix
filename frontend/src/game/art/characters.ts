@@ -6,6 +6,22 @@ import { P } from "./palette";
 import { Pixels, makeCanvas } from "./pixels";
 
 export type Dir = "down" | "up" | "side";
+
+/** Server-validated cosmetic loadout (see backend economy catalog). */
+export interface Cosmetics {
+  skin?: { id: string; tunic: string; tunicDark: string; accent: string };
+  hat?: { id: string; style: string };
+  effect?: { id: string; color: string; glyph: string };
+}
+
+export function cosmeticKey(archetype: string, c?: Cosmetics): string {
+  return `${archetype}~${c?.skin?.id ?? "base"}~${c?.hat?.id ?? "none"}`;
+}
+
+function applySkin(look: Look, c?: Cosmetics): Look {
+  if (!c?.skin) return look;
+  return { ...look, tunic: c.skin.tunic, tunicDark: c.skin.tunicDark, accent: c.skin.accent };
+}
 export const DIRS: Dir[] = ["down", "up", "side"];
 export const FRAME = 16;
 export const FRAME_H = 20;
@@ -64,7 +80,7 @@ export const ARCHETYPES: Record<string, { label: string; blurb: string; look: Lo
   },
 };
 
-function drawFrame(look: Look, dir: Dir, frame: number): Pixels {
+function drawFrame(look: Look, dir: Dir, frame: number, hat?: string): Pixels {
   const p = new Pixels(FRAME, FRAME_H);
   p.offsetY = HEAD_ROOM;
 
@@ -140,8 +156,48 @@ function drawFrame(look: Look, dir: Dir, frame: number): Pixels {
   }
 
   drawHeadgear(p, look, dir, hy);
+  if (hat) drawHat(p, hat, dir, hy);
   p.outline(P.outline);
   return p;
+}
+
+/** Cosmetic hats drawn over any archetype's headgear. */
+function drawHat(p: Pixels, style: string, dir: Dir, hy: number): void {
+  switch (style) {
+    case "party": {
+      const x = dir === "side" ? 7 : 7;
+      p.rect(x, hy - 1, 3, 1, P.flowerPink);
+      p.rect(x, hy - 2, 2, 1, P.flowerYellow);
+      p.px(x + 1, hy - 3, P.flowerPink);
+      p.px(x + 1, hy - 4, P.white);
+      break;
+    }
+    case "flower":
+      for (let x = 4; x <= 11; x++) p.px(x, hy, x % 3 === 0 ? P.leafLight : [P.flowerPink, P.flowerYellow, P.flowerWhite][x % 3]!);
+      break;
+    case "pirate":
+      p.rect(3, hy - 1, 10, 2, P.black);
+      p.rect(5, hy - 3, 6, 2, P.black);
+      p.hline(3, 12, hy, P.gold);
+      if (dir !== "up") p.px(7, hy - 2, P.white);
+      break;
+    case "halo":
+      p.hline(6, 9, hy - 4, P.gold);
+      p.px(5, hy - 3, P.gold);
+      p.px(10, hy - 3, P.gold);
+      p.hline(6, 9, hy - 2, P.goldDark);
+      break;
+    case "horns": {
+      const bone = "#f0e0c0";
+      for (const [x0, lean] of [[4, -1], [11, 1]] as const) {
+        p.px(x0, hy, bone);
+        p.px(x0, hy - 1, bone);
+        p.px(x0 + lean, hy - 2, bone);
+        p.px(x0 + lean, hy - 3, P.red);
+      }
+      break;
+    }
+  }
 }
 
 function drawHeadgear(p: Pixels, look: Look, dir: Dir, hy: number): void {
@@ -235,21 +291,21 @@ function drawHeadgear(p: Pixels, look: Look, dir: Dir, hy: number): void {
 }
 
 /** Builds a 144x20 strip per archetype; frame index = dirIndex * 3 + frame. */
-export function buildCharacterSheet(archetype: string): HTMLCanvasElement {
-  const look = (ARCHETYPES[archetype] ?? ARCHETYPES.knight!).look;
+export function buildCharacterSheet(archetype: string, cosmetics?: Cosmetics): HTMLCanvasElement {
+  const look = applySkin((ARCHETYPES[archetype] ?? ARCHETYPES.knight!).look, cosmetics);
   const [canvas, ctx] = makeCanvas(FRAME * 9, FRAME_H);
   DIRS.forEach((dir, d) => {
-    for (let f = 0; f < 3; f++) drawFrame(look, dir, f).drawTo(ctx, (d * 3 + f) * FRAME, 0);
+    for (let f = 0; f < 3; f++) drawFrame(look, dir, f, cosmetics?.hat?.style).drawTo(ctx, (d * 3 + f) * FRAME, 0);
   });
   return canvas;
 }
 
 /** A single still portrait (front idle) for menus and HUD. */
-export function buildPortrait(archetype: string, scale = 4): HTMLCanvasElement {
-  const look = (ARCHETYPES[archetype] ?? ARCHETYPES.knight!).look;
+export function buildPortrait(archetype: string, scale = 4, cosmetics?: Cosmetics): HTMLCanvasElement {
+  const look = applySkin((ARCHETYPES[archetype] ?? ARCHETYPES.knight!).look, cosmetics);
   const [canvas, ctx] = makeCanvas(FRAME * scale, FRAME_H * scale);
   const [tmp, tctx] = makeCanvas(FRAME, FRAME_H);
-  drawFrame(look, "down", 0).drawTo(tctx, 0, 0);
+  drawFrame(look, "down", 0, cosmetics?.hat?.style).drawTo(tctx, 0, 0);
   ctx.drawImage(tmp, 0, 0, FRAME * scale, FRAME_H * scale);
   return canvas;
 }

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { ARCHETYPE_KEYS, CharacterPicker } from "@/components/CharacterPicker";
 import { Portrait } from "@/components/Portrait";
 import { ARCHETYPES } from "@/game/art/characters";
+import Link from "next/link";
+import { ensureAccount } from "@/lib/account";
 import { cleanName, createRoom, loadPrefs, normalizeCode, savePrefs } from "@/lib/rooms";
 
 export default function Home() {
@@ -45,6 +47,7 @@ export default function Home() {
     setBusy(true);
     setError(null);
     try {
+      await ensureAccount(clean).catch(() => null); // optional: rewards + cosmetics when the server has a DB
       const grant = await createRoom(clean, archetype, fillTo);
       router.push(`/room/${grant.code}`);
     } catch (e) {
@@ -68,6 +71,7 @@ export default function Home() {
         <header className="text-center">
           <h1 className="text-6xl font-bold tracking-widest text-gold drop-shadow-[0_4px_0_#120c1c] sm:text-7xl">ARENIX</h1>
           <p className="mt-2 text-lg text-parchment/85">Explore. Cooperate. Betray. Survive the island.</p>
+          <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>
         </header>
 
         <section className="panel w-full p-5 sm:p-6">

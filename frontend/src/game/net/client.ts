@@ -42,8 +42,9 @@ export function apiUrl(): string {
   return serverUrl().replace(/^ws/, "http");
 }
 
-export function practiceUrl(p: JoinParams): string {
+export function practiceUrl(p: JoinParams, authToken?: string): string {
   const q = new URLSearchParams({ name: p.name, archetype: p.archetype, bots: String(p.bots) });
+  if (authToken) q.set("auth", authToken); // WebSockets can't carry headers from the browser
   return `${serverUrl()}/ws/practice?${q}`;
 }
 
@@ -226,7 +227,7 @@ export class GameClient {
           snapshot: msg.snapshot,
           me: { x: me.x, y: me.y },
           matchId: msg.match_id,
-          ...(isNewMatch ? { result: null, feed: [], chat: [] } : {}),
+          ...(isNewMatch ? { result: null, feed: [], chat: [], rewards: null } : {}),
         });
         break;
       }
@@ -266,6 +267,9 @@ export class GameClient {
         break;
       case "pong":
         this.store.set({ pingMs: Math.round(performance.now() - msg.t) });
+        break;
+      case "rewards":
+        this.store.set({ rewards: msg });
         break;
     }
   }

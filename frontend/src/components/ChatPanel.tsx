@@ -21,6 +21,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
   const chat = useHud(store, (s) => s.chat);
   const ally = useHud(store, (s) => s.snapshot?.me?.ally ?? null);
   const alive = useHud(store, (s) => s.snapshot?.roster.find((r) => r.id === s.you)?.alive ?? true);
+  const unlocked = useHud(store, (s) => s.snapshot?.me?.phrases);
   const [text, setText] = useState("");
   const [whisper, setWhisper] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -66,7 +67,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
       </ul>
       {quickOpen && alive && (
         <div className="panel mb-1 grid max-h-48 grid-cols-2 gap-1 overflow-y-auto p-1 text-xs">
-          {Object.entries(QUICK_CHAT).map(([id, phrase]) => (
+          {Object.entries({ ...QUICK_CHAT, ...(unlocked ?? {}) }).map(([id, phrase]) => (
             <button key={id} className="border-2 border-ink bg-[#120c1c] px-1 py-1 text-left hover:border-gold"
               onClick={() => { client.say({ quick: id }, to); setQuickOpen(false); }}>
               {phrase}

@@ -3,11 +3,11 @@
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
 explore an island, complete missions, form alliances, betray each other and compete to win.
 
-> **Status: Milestones 1–4.** Play practice matches or multiplayer rooms (share a code; AI fills
+> **Status: Milestones 1–5.** Play practice matches or multiplayer rooms (share a code; AI fills
 > empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
 > eliminations. AI seats can be driven by strategist agents (offline heuristic planner or Claude)
-> that negotiate over a structured protocol. Crates/progression and the Agent Lab are **not built
-> yet**. See
+> that negotiate over a structured protocol. With a database, players earn Game Points and open
+> cosmetic crates (odds always shown). The Agent Lab is **not built yet**. See
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
@@ -35,12 +35,16 @@ explore an island, complete missions, form alliances, betray each other and comp
 
 ## Run locally
 
-Requirements: Python 3.12+ with [uv](https://docs.astral.sh/uv/), and Node 22+.
+Requirements: Python 3.12+ with [uv](https://docs.astral.sh/uv/), and Node 22+. PostgreSQL 16 is
+optional: without it, the game runs and progression and crates are disabled.
 
 ```bash
 # terminal 1: game server (http://localhost:8000)
 cd backend
 uv sync
+# optional persistence (progression, crates, match history):
+export ARENIX_DATABASE_URL=postgresql+asyncpg://arenix:arenix@localhost/arenix
+uv run alembic upgrade head
 uv run uvicorn arenix.server.app:app --reload --port 8000
 
 # terminal 2: web client (http://localhost:3000)
@@ -67,6 +71,9 @@ Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 | `ARENIX_AGENT_MAX_CONCURRENCY` | backend | `4` | concurrent model calls per match |
 | `ARENIX_AGENT_MAX_CALLS_PER_MATCH` | backend | `300` | call budget per match |
 | `ARENIX_AGENT_MAX_COST_USD_PER_MATCH` | backend | `2.0` | estimated-cost budget per match (list prices); then rule-based fallback |
+| `ARENIX_DATABASE_URL` | backend | unset | PostgreSQL URL (`postgresql+asyncpg://…`); enables accounts, progression, crates, match history |
+| `ARENIX_PAID_RANDOM_CRATES` | backend | `enabled` | set `disabled` where paid random rewards are restricted (Diamond-priced crates become unavailable) |
+| `ARENIX_TEST_DATABASE_URL` | tests | `postgresql+asyncpg://arenix:arenix@localhost/arenix_test` | database the economy tests reset and use |
 | `ANTHROPIC_API_KEY` | backend | — | read by the Anthropic SDK when `ARENIX_AGENT_PROVIDER=anthropic`; never sent to clients |
 
 **Cost note for `anthropic` mode.** Each strategist decision is one request: roughly 2–4K
@@ -96,6 +103,7 @@ match in a headless browser, gathering, delivering and waiting for the result.
 cd frontend
 node e2e/smoke.cjs http://localhost:3000        # practice match: gather, deliver, result
 node e2e/multiplayer.cjs http://localhost:3000  # two players: create, join, play, reload
+node e2e/economy.cjs http://localhost:3000      # guest account, open a crate, equip (needs DB)
 ```
 
 If you change `backend/arenix/engine/physics.py`, regenerate the cross-language vectors with
@@ -121,5 +129,8 @@ docs/                   architecture and milestone checklist
 * LLM strategists (`ARENIX_AGENT_PROVIDER=anthropic`) are implemented and unit-tested against a
   fake SDK client, but have not yet been run against the live API from this repository.
 * The chat filter is a small placeholder blocklist, not real moderation.
-* All state is in memory. There is no database, accounts, progression or currencies yet.
+* Guest accounts only (no login or recovery). Clearing browser storage loses the account.
+* Payments are mocked. There is no real payment provider, regional detection or direct-purchase
+  shop yet.
+* Match events are persisted when the match ends, not continuously.
 * There is no audio.

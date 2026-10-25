@@ -46,8 +46,28 @@ export interface ContestantDTO {
   moving: boolean;
   carrying: Record<Resource, number>;
   score: number;
+  alive: boolean;
   connected: boolean;
 }
+
+export interface RosterEntry {
+  id: string;
+  name: string;
+  archetype: string;
+  is_bot: boolean;
+  score: number;
+  alive: boolean;
+  connected: boolean;
+}
+
+export interface ObjectiveDTO {
+  kind: string;
+  amount: number;
+  target: string | null;
+  text: string;
+}
+
+export type Phase = "explore" | "discuss" | "vote" | "reveal";
 
 export interface MissionDTO {
   id: string;
@@ -64,15 +84,34 @@ export interface GameEventDTO {
   tick: number;
   type: string;
   data: Record<string, unknown>;
+  /** Present when only some contestants can see this event. */
+  private?: boolean;
 }
 
 export interface SnapshotDTO {
   tick: number;
   status: "lobby" | "running" | "finished";
   time_left: number;
+  phase: Phase;
+  phase_left: number;
+  meeting: number;
+  /** Only contestants this player can currently see (server-filtered). */
   contestants: ContestantDTO[];
+  /** Public info about everyone. */
+  roster: RosterEntry[];
   nodes: Record<string, number>;
   mission: MissionDTO;
+  shrine: { status: "dormant" | "channeling" | "activated"; count: number; required: number; window_left: number };
+  voted: string[];
+  me?: {
+    ally: string | null;
+    incoming_proposals: string[];
+    outgoing_proposals: string[];
+    objective: ObjectiveDTO | null;
+    bell_used: boolean;
+    vote: string | null;
+    delivered: Record<Resource, number>;
+  };
 }
 
 export interface Constants {
@@ -149,7 +188,12 @@ export type ClientMsg =
   | { type: "ready"; ready: boolean }
   | { type: "set_archetype"; archetype: string }
   | { type: "set_fill"; fill_to: number }
-  | { type: "start" };
+  | { type: "start" }
+  | { type: "chat"; text?: string; quick?: string; to?: string | null }
+  | { type: "vote"; target: string | null }
+  | { type: "propose"; target: string }
+  | { type: "respond"; proposer: string; accept: boolean }
+  | { type: "break_alliance" };
 
 export interface SeatGrant {
   code: string;
@@ -157,8 +201,42 @@ export interface SeatGrant {
   token: string;
 }
 
-export interface MatchResult {
-  reason: "mission_completed" | "time_up";
-  winner: string | null;
-  standings: { id: string; name: string; score: number; contributed: number }[];
+export interface Standing {
+  id: string;
+  name: string;
+  score: number;
+  alive: boolean;
+  contributed: number;
+  bonuses: Record<string, number>;
+  objective: ObjectiveDTO | null;
+  objective_achieved: boolean;
 }
+
+export interface MatchResult {
+  reason: "time_up" | "final_two";
+  winner: string | null;
+  tower_repaired: boolean;
+  shrine_activated: boolean;
+  standings: Standing[];
+}
+
+/** Mirror of backend QUICK_CHAT (free base pack). */
+export const QUICK_CHAT: Record<string, string> = {
+  trust_me: "Trust me, I have a plan!",
+  alliance: "Alliance?",
+  suspicious: "That was suspicious.",
+  saw_nothing: "I saw nothing!",
+  meet_castle: "Meet me near the castle.",
+  never_friends: "We were never friends.",
+  betrayal: "The betrayal is crazy.",
+  vote_wisely: "Vote wisely.",
+  well_played: "Well played!",
+  gg: "GG, everyone!",
+  need_stone: "We need more stone.",
+  need_wood: "We need more wood.",
+  protect: "I will protect the team.",
+  promised: "You promised!",
+  who_trust: "Who can we trust?",
+  mission_complete: "Mission complete!",
+  shrine_help: "Help me at the shrine!",
+};

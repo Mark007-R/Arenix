@@ -128,15 +128,15 @@ export default function Home() {
         <section className="panel w-full p-5 text-sm leading-relaxed text-parchment/85">
           <h2 className="mb-2 text-base font-bold text-gold">How to play</h2>
           <ul className="grid gap-1 sm:grid-cols-2">
-            <li><b className="text-parchment">WASD / Arrows</b> — move</li>
-            <li><b className="text-parchment">E or Space</b> — interact when a prompt appears</li>
-            <li>Gather <b className="text-parchment">wood</b> in the forest and <b className="text-parchment">stone</b> in the mine.</li>
-            <li>Carry up to 3 at a time and deliver them to the ruined <b className="text-parchment">Watchtower</b>.</li>
-            <li>Repair it before time runs out. Top contributor is crowned MVP.</li>
-            <li>AI contestants plan their own routes and compete for credit.</li>
+            <li><b className="text-parchment">WASD / Arrows</b> move · <b className="text-parchment">E / Space</b> interact</li>
+            <li><b className="text-parchment">Enter</b> chat · <b className="text-parchment">Q</b> quick-chat · click a name to ally</li>
+            <li>Repair the <b className="text-parchment">Watchtower</b> with wood (forest) and stone (mine).</li>
+            <li>Wake the <b className="text-parchment">Shrine</b> together: three channelers within 10 seconds.</li>
+            <li>The <b className="text-parchment">council</b> meets regularly and votes someone out.</li>
+            <li>Keep your <b className="text-parchment">secret objective</b>. The top-scoring survivor wins.</li>
           </ul>
           <p className="mt-3 text-xs text-parchment/50">
-            Alliances, chat, voting and LLM-driven contestants arrive in later milestones.
+            AI contestants currently use a rule-based policy; LLM-driven strategy arrives in a later milestone.
           </p>
         </section>
       </div>

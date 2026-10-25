@@ -3,9 +3,9 @@
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
 explore an island, complete missions, form alliances, betray each other and compete to win.
 
-> **Status: Milestones 1–2.** You can play practice matches or multiplayer rooms (share a code;
-> AI fills empty seats) on the Emerald Isle. Chat and alliances, voting, LLM agents, crates and
-> the Agent Lab are **not built yet**. See
+> **Status: Milestones 1–3.** Play practice matches or multiplayer rooms (share a code; AI fills
+> empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
+> eliminations. LLM agents, crates and the Agent Lab are **not built yet**. See
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
@@ -19,8 +19,15 @@ explore an island, complete missions, form alliances, betray each other and comp
   ruins and a hidden glade.
 * Move with **WASD / arrow keys**. Movement is predicted on the client and confirmed by the server.
 * Press **E / Space** at a prompt to gather **wood** (forest) or **stone** (mine). Carry up to 3 and
-  deliver them to the ruined **Watchtower** before the timer runs out.
-* AI contestants plan their own routes with A*, compete for the same nodes and race you for MVP.
+  deliver them to the ruined **Watchtower**. Wake the **Ancient Shrine** with two others inside
+  10 seconds.
+* Every 75 s, or when someone rings the **Council Bell**, the council meets: discuss in chat, then
+  vote someone out (or skip). Click a name to offer an **alliance** (shared bonus, whispers,
+  mutual visibility). Betraying your ally in a vote is public.
+* Each contestant has a private **secret objective**. When time runs out or two remain, the
+  top-scoring survivor wins.
+* AI contestants plan routes with A*, keep a trust model of everyone, form and break alliances,
+  vote and react in chat, all through the same validated actions as you.
 * The HUD shows mission progress, a minimap, a scoreboard, your pack, an event feed and the
   results screen. There is a reduced-motion toggle and touch controls on small screens.
 
@@ -96,8 +103,8 @@ docs/                   architecture and milestone checklist
 
 * Rooms are held in one server process's memory. Running several backend processes needs
   sticky routing first. Server restarts end all rooms.
-* AI contestants use the deterministic rule-based policy. There are no LLM calls yet, and no
-  negotiation, alliances or voting.
+* AI contestants use a deterministic rule-based policy (with a simple trust model). There are no
+  LLM calls or multi-step negotiation yet.
+* The chat filter is a small placeholder blocklist, not real moderation.
 * All state is in memory. There is no database, accounts, progression or currencies yet.
-* The minimap shows every contestant, with no visibility rules yet.
 * There is no audio.

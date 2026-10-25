@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { GameClient } from "@/game/net/client";
+import { AllianceOffers } from "./AllianceOffers";
+import { ChatPanel } from "./ChatPanel";
+import { MeetingOverlay } from "./MeetingOverlay";
 import { Minimap } from "./Minimap";
 import { Portrait } from "./Portrait";
 import type { HudStore } from "@/lib/store";
@@ -30,7 +34,7 @@ function MissionPanel({ store }: { store: HudStore }) {
       </div>
       <div className="mb-2 font-bold">{m.title}</div>
       {(Object.keys(m.required) as Resource[]).map((r) => {
-        const pct = Math.min(100, (m.delivered[r] / m.required[r]) * 100);
+        const pct = Math.min(100, (m.delivered[r] / Math.max(1, m.required[r])) * 100);
         return (
           <div key={r} className="mb-1.5">
             <div className="flex justify-between text-sm capitalize">
@@ -41,25 +45,77 @@ function MissionPanel({ store }: { store: HudStore }) {
           </div>
         );
       })}
+      <div className="mt-2 text-xs">
+        <span className="text-parchment/70">Shrine: </span>
+        {snap.shrine.status === "activated" ? (
+          <span className="text-leaf">awakened ✔</span>
+        ) : snap.shrine.status === "channeling" ? (
+          <span className="text-[#d8c2ff]">ritual {snap.shrine.count}/{snap.shrine.required} · {Math.ceil(snap.shrine.window_left)}s left!</span>
+        ) : (
+          <span className="text-parchment/60">dormant (needs {snap.shrine.required} together)</span>
+        )}
+      </div>
+      {snap.phase === "explore" && (
+        <div className="mt-1 text-xs text-parchment/70">Next council in {Math.ceil(snap.phase_left)}s</div>
+      )}
+      {snap.me?.objective && (
+        <div className="mt-2 border-t-2 border-dusk pt-2 text-xs">
+          <span className="text-gold">Secret objective: </span>
+          {snap.me.objective.text}
+        </div>
+      )}
       {region && <div className="mt-2 text-xs text-parchment/60">📍 {region}</div>}
     </div>
   );
 }
 
-function Scoreboard({ store }: { store: HudStore }) {
+function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) {
   const snap = useHud(store, (s) => s.snapshot);
   const you = useHud(store, (s) => s.you);
+  const [open, setOpen] = useState<string | null>(null);
   if (!snap) return null;
-  const rows = [...snap.contestants].sort((a, b) => b.score - a.score);
+  const rows = [...snap.roster].sort((a, b) => Number(b.alive) - Number(a.alive) || b.score - a.score);
+  const ally = snap.me?.ally ?? null;
+  const outgoing = snap.me?.outgoing_proposals ?? [];
+  const meAlive = snap.roster.find((r) => r.id === you)?.alive;
   return (
-    <div className="panel w-[200px] p-2">
+    <div className="panel pointer-events-auto w-[220px] p-2">
       <div className="mb-1 text-xs uppercase tracking-wider text-gold">Contestants</div>
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {rows.map((c) => (
-          <li key={c.id} className={`flex items-center gap-2 text-sm ${c.id === you ? "text-[#ffe066]" : ""}`}>
-            <Portrait archetype={c.archetype} scale={1} className="h-5 w-4" />
-            <span className="flex-1 truncate">{c.name}{c.is_bot && <span className="ml-1 text-[10px] text-sky">AI</span>}</span>
-            <span className="tabular-nums">{c.score}</span>
+          <li key={c.id}>
+            <button
+              className={`flex w-full items-center gap-2 text-left text-sm ${c.id === you ? "text-[#ffe066]" : ""} ${c.alive ? "" : "line-through opacity-50"}`}
+              onClick={() => setOpen(open === c.id ? null : c.id)}
+              disabled={c.id === you || !c.alive || !meAlive}
+              aria-expanded={open === c.id}
+            >
+              <Portrait archetype={c.archetype} scale={1} className="h-5 w-4" />
+              <span className="flex-1 truncate">
+                {c.name}
+                {c.is_bot && <span className="ml-1 text-[10px] text-sky">AI</span>}
+                {c.id === ally && <span title="Your ally"> 🤝</span>}
+                {!c.alive && " 💀"}
+              </span>
+              <span className="tabular-nums">{c.score}</span>
+            </button>
+            {open === c.id && (
+              <div className="my-1 flex flex-wrap gap-1 pl-6">
+                {c.id === ally ? (
+                  <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={() => { client.breakAlliance(); setOpen(null); }}>
+                    Break alliance
+                  </button>
+                ) : outgoing.includes(c.id) ? (
+                  <span className="text-xs text-parchment/60">Offer sent…</span>
+                ) : (
+                  <button className="btn px-2 py-0.5 text-xs" disabled={!!ally}
+                    title={ally ? "You already have an ally" : "Allies share a bonus, see each other and can whisper"}
+                    onClick={() => { client.propose(c.id); setOpen(null); }}>
+                    Propose alliance
+                  </button>
+                )}
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -92,7 +148,7 @@ function Feed({ store }: { store: HudStore }) {
   const feed = useHud(store, (s) => s.feed);
   const tone = { info: "text-parchment/80", good: "text-leaf", bad: "text-ember", mine: "text-[#ffe066]" } as const;
   return (
-    <ul className="w-80 space-y-0.5 text-sm drop-shadow-[0_2px_0_#120c1c]" aria-live="polite">
+    <ul className="w-80 max-w-[90vw] space-y-0.5 text-sm drop-shadow-[0_2px_0_#120c1c]" aria-live="polite">
       {feed.map((f) => <li key={f.id} className={tone[f.tone]}>{f.text}</li>)}
     </ul>
   );
@@ -112,7 +168,7 @@ function Toast({ store }: { store: HudStore }) {
   return <div className="panel px-4 py-2 text-center" role="status">{toast.text}</div>;
 }
 
-export function Hud({ store, onToggleMotion }: { store: HudStore; onToggleMotion: () => void }) {
+export function Hud({ store, client, onToggleMotion }: { store: HudStore; client: GameClient; onToggleMotion: () => void }) {
   const ping = useHud(store, (s) => s.pingMs);
   const reduced = useHud(store, (s) => s.reducedMotion);
   return (
@@ -120,13 +176,20 @@ export function Hud({ store, onToggleMotion }: { store: HudStore; onToggleMotion
       <div className="absolute left-3 top-3"><MissionPanel store={store} /></div>
       <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
         <Minimap store={store} />
-        <Scoreboard store={store} />
+        <Scoreboard store={store} client={client} />
       </div>
-      <div className="absolute left-1/2 top-3 -translate-x-1/2"><Toast store={store} /></div>
-      <div className="absolute bottom-3 left-3"><Feed store={store} /></div>
+      <MeetingOverlay client={client} store={store} />
+      <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+        <Toast store={store} />
+        <AllianceOffers client={client} store={store} />
+      </div>
+      <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-2">
+        <Feed store={store} />
+        <ChatPanel client={client} store={store} />
+      </div>
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2"><Pack store={store} /></div>
       <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-3 text-xs text-parchment/60">
-        <span className="hidden sm:inline">WASD move · E interact</span>
+        <span className="hidden sm:inline">WASD move · E interact · Enter chat · Q quick-chat</span>
         {ping !== null && <span className="tabular-nums">{ping} ms</span>}
         <button className="underline decoration-dotted" onClick={onToggleMotion} aria-pressed={reduced}>
           Reduced motion: {reduced ? "on" : "off"}

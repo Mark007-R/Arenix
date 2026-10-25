@@ -7,40 +7,55 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
   const result = useHud(store, (s) => s.result);
   const you = useHud(store, (s) => s.you);
   if (!result) return null;
-  const won = result.reason === "mission_completed";
-  const mvp = result.standings.find((s) => s.id === result.winner);
+  const winner = result.standings.find((s) => s.id === result.winner);
+  const youWon = result.winner === you;
   return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#120c1c]/60 p-4">
-      <div className="panel w-full max-w-md p-6 text-center" role="dialog" aria-labelledby="result-title">
-        <h2 id="result-title" className={`text-3xl font-bold ${won ? "text-leaf" : "text-ember"}`}>
-          {won ? "Watchtower Repaired!" : "Time's Up!"}
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
+      <div className="panel max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
+        <h2 id="result-title" className={`text-3xl font-bold ${youWon ? "text-gold" : "text-leaf"}`}>
+          {youWon ? "You won the island!" : `${winner?.name ?? "Nobody"} wins!`}
         </h2>
         <p className="mt-1 text-parchment/80">
-          {won
-            ? mvp?.id === you
-              ? "You are the MVP. The island will remember this."
-              : `${mvp?.name} is the MVP.`
-            : "The tower crumbles a little more. Nobody wins today."}
+          {result.reason === "final_two" ? "Only two contestants remain." : "Time is up."}{" "}
+          Watchtower {result.tower_repaired ? "repaired" : "still in ruins"} · Shrine{" "}
+          {result.shrine_activated ? "awakened" : "dormant"}
         </p>
         <table className="mt-4 w-full text-left text-sm">
           <thead className="text-gold">
             <tr>
               <th className="py-1">#</th>
               <th>Contestant</th>
-              <th className="text-right">Delivered</th>
+              <th>Secret objective</th>
               <th className="text-right">Score</th>
             </tr>
           </thead>
           <tbody>
             {result.standings.map((s, i) => (
-              <tr key={s.id} className={s.id === you ? "text-[#ffe066]" : ""}>
-                <td className="py-0.5">{i + 1}</td>
+              <tr key={s.id} className={`${s.id === you ? "text-[#ffe066]" : ""} ${s.alive ? "" : "opacity-60"} align-top`}>
+                <td className="py-1">{i + 1}</td>
                 <td>
                   {s.name}
                   {s.id === result.winner && " 👑"}
+                  {!s.alive && <span className="ml-1 text-xs">(voted out)</span>}
                 </td>
-                <td className="text-right tabular-nums">{s.contributed}</td>
-                <td className="text-right tabular-nums">{s.score}</td>
+                <td className="text-xs">
+                  {s.objective ? (
+                    <>
+                      <span className={s.objective_achieved ? "text-leaf" : "text-parchment/60"}>
+                        {s.objective_achieved ? "✔ " : "✘ "}
+                      </span>
+                      {s.objective.text}
+                    </>
+                  ) : "—"}
+                </td>
+                <td className="text-right tabular-nums">
+                  {s.score}
+                  {Object.keys(s.bonuses).length > 0 && (
+                    <div className="text-[10px] text-parchment/50">
+                      {Object.entries(s.bonuses).map(([k, v]) => `+${v} ${k}`).join(" ")}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -11,6 +11,8 @@ const INTERP_DELAY_MS = 100;
 const DIR_INDEX: Record<Facing, number> = { down: 0, up: 1, left: 2, right: 2 };
 
 interface ActorView {
+  bubble: Phaser.GameObjects.Text | null;
+  bubbleUntil: number;
   sprite: Phaser.GameObjects.Sprite;
   shadow: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
@@ -161,13 +163,14 @@ export class WorldScene extends Phaser.Scene {
     this.texture("icon-wood", () => Obj.resourceIcon("wood"));
     this.texture("icon-stone", () => Obj.resourceIcon("stone"));
     const carry = [0, 1, 2].map(() => this.add.image(0, 0, "icon-wood").setOrigin(0.5, 1).setVisible(false));
-    a = { sprite, shadow, label, carry, archetype: c.archetype, lastX: c.x, lastY: c.y };
+    a = { sprite, shadow, label, carry, archetype: c.archetype, lastX: c.x, lastY: c.y, bubble: null, bubbleUntil: 0 };
     this.actors.set(c.id, a);
     if (isMe) this.cameras.main.startFollow(sprite, true, 0.2, 0.2, 0, 8);
     return a;
   }
 
   private readInput(): [number, number] {
+    if (this.deps.client.store.get().typing) return [0, 0];
     const k = this.keys;
     let dx = 0;
     let dy = 0;
@@ -210,8 +213,13 @@ export class WorldScene extends Phaser.Scene {
     client.correction.x *= decay;
     client.correction.y *= decay;
 
+    const present = new Set(snap.contestants.map((c) => c.id));
+    for (const [id, a] of this.actors) {
+      if (!present.has(id)) this.setActorVisible(a, false);
+    }
     for (const c of snap.contestants) {
       const a = this.ensureActor(c);
+      this.setActorVisible(a, true);
       let x: number;
       let y: number;
       let facing: Facing = c.facing;
@@ -221,7 +229,7 @@ export class WorldScene extends Phaser.Scene {
         x = client.prev.x + (p.x - client.prev.x) * alpha + client.correction.x;
         y = client.prev.y + (p.y - client.prev.y) * alpha + client.correction.y;
         facing = this.localFacing;
-        moving = this.localMoving && client.running && (Math.abs(p.x - client.prev.x) + Math.abs(p.y - client.prev.y) > 1e-6);
+        moving = this.localMoving && client.canAct && (Math.abs(p.x - client.prev.x) + Math.abs(p.y - client.prev.y) > 1e-6);
       } else {
         const s = client.buffers.get(c.id)?.sample(now - INTERP_DELAY_MS);
         x = s?.x ?? c.x;
@@ -262,7 +270,42 @@ export class WorldScene extends Phaser.Scene {
         .setPosition(px + (i - (units.length - 1) / 2) * 9, py - FRAME_H - 6)
         .setDepth(800001);
     });
-    a.sprite.setAlpha(c.connected ? 1 : 0.5);
+    a.sprite.setAlpha(!c.alive ? 0.35 : c.connected ? 1 : 0.5);
+    if (a.bubble) {
+      if (now > a.bubbleUntil) {
+        a.bubble.destroy();
+        a.bubble = null;
+      } else {
+        a.bubble.setPosition(px, py - FRAME_H - 14).setDepth(970000);
+      }
+    }
+  }
+
+  private setActorVisible(a: ActorView, visible: boolean): void {
+    if (a.sprite.visible === visible) return;
+    a.sprite.setVisible(visible);
+    a.shadow.setVisible(visible);
+    a.label.setVisible(visible);
+    a.bubble?.setVisible(visible);
+    if (!visible) a.carry.forEach((img) => img.setVisible(false));
+  }
+
+  private showBubble(id: string, text: string, whisper: boolean): void {
+    const a = this.actors.get(id);
+    if (!a) return;
+    a.bubble?.destroy();
+    const short = text.length > 42 ? `${text.slice(0, 40)}…` : text;
+    a.bubble = this.add
+      .text(a.sprite.x, a.sprite.y - FRAME_H - 14, short, {
+        fontFamily: "Pixelify Sans, monospace", fontSize: "7px",
+        color: whisper ? "#d8c2ff" : "#1f1630",
+        backgroundColor: whisper ? "#43305c" : "#fbf7ee",
+        padding: { x: 3, y: 2 },
+        wordWrap: { width: 110 },
+        align: "center",
+      })
+      .setResolution(4).setOrigin(0.5, 1).setDepth(970000).setVisible(a.sprite.visible);
+    a.bubbleUntil = performance.now() + 4000;
   }
 
   private updateWorldState(nodes: Record<string, number>, repaired: boolean): void {
@@ -286,7 +329,7 @@ export class WorldScene extends Phaser.Scene {
 
     // Contextual interaction prompt for the nearest interactable in range.
     let best: { o: MapObjectDTO; d: number } | null = null;
-    if (p && client.running) {
+    if (p && client.canAct) {
       for (const o of map.objects) {
         if (!o.interactable) continue;
         const cx = Math.min(Math.max(p.x, o.x), o.x + o.w);
@@ -301,7 +344,8 @@ export class WorldScene extends Phaser.Scene {
         .setPosition((best.o.x + best.o.w / 2) * TILE, best.o.kind === "watchtower" ? (best.o.y + best.o.h) * TILE - 48 : best.o.y * TILE - 8);
       const cur = store.get().prompt;
       if (cur?.targetId !== best.o.id || cur.label !== label) store.set({ prompt: { targetId: best.o.id, label } });
-      const pressed = Phaser.Input.Keyboard.JustDown(this.keys.e) || Phaser.Input.Keyboard.JustDown(this.keys.space) || this.touch.interact;
+      const typing = store.get().typing;
+      const pressed = (!typing && (Phaser.Input.Keyboard.JustDown(this.keys.e) || Phaser.Input.Keyboard.JustDown(this.keys.space))) || this.touch.interact;
       this.touch.interact = false;
       if (pressed) client.interact(best.o.id);
     } else {
@@ -313,7 +357,7 @@ export class WorldScene extends Phaser.Scene {
     // Mission marker above the watchtower + an edge arrow when it is off-screen.
     const mission = client.snapshot!.mission;
     const target = map.objects.find((o) => o.id === mission.target_id);
-    const active = mission.status === "active" && client.running;
+    const active = mission.status === "active" && client.canAct;
     this.marker.setVisible(!!target && active);
     this.edgeArrow.setVisible(false);
     if (!target || !active) return;
@@ -345,13 +389,23 @@ export class WorldScene extends Phaser.Scene {
       const left = client.snapshot?.nodes[o.id] ?? 0;
       return left > 0 ? `Gather ${String(o.props.resource)} (${left})` : "Depleted";
     }
-    if (o.kind === "watchtower") return "Deliver materials";
+    if (o.kind === "watchtower") return client.snapshot?.mission.status === "completed" ? "Repaired" : "Deliver materials";
+    if (o.kind === "shrine") {
+      const s = client.snapshot?.shrine;
+      if (!s || s.status === "activated") return "The shrine is awake";
+      return s.status === "channeling" ? `Join the ritual (${s.count}/${s.required})` : `Channel (needs ${s.required})`;
+    }
+    if (o.kind === "bell") return client.snapshot?.me?.bell_used ? "Bell already rung" : "Ring the Council Bell";
     return String(o.props.label ?? o.kind);
   }
 
   private onGameEvent(ev: GameEventDTO): void {
     const client = this.deps.client;
     if (!this.built) return;
+    if (ev.type === "chat") {
+      this.showBubble(String(ev.data.sender), String(ev.data.text), !!ev.data.private);
+      return;
+    }
     if (ev.type === "resource_gathered" || ev.type === "resources_delivered") {
       const actor = this.actors.get(String(ev.data.contestant));
       if (!actor) return;

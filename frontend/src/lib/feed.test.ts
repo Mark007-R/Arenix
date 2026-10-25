@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { formatEvent, rejectionText } from "./feed";
+import { QUICK_CHAT } from "@/shared/protocol";
 
-const names = { p1: "Hero", bot1: "Lyra" };
+const names = { p1: "Hero", bot1: "Lyra", bot2: "Quill" };
 
 describe("formatEvent", () => {
   it("describes deliveries from the player's perspective", () => {
@@ -15,6 +18,13 @@ describe("formatEvent", () => {
     expect(formatEvent(ev, names, "p1")).toBeNull();
   });
 
+  it("announces eliminations and betrayals", () => {
+    const vr = { seq: 4, tick: 9, type: "vote_resolved", data: { eliminated: "bot1", votes: {} } };
+    expect(formatEvent(vr, names, "p1")?.text).toBe("The council voted out Lyra.");
+    const betray = { seq: 5, tick: 9, type: "alliance_broken", data: { by: "bot2", partner: "p1", reason: "betrayal" } };
+    expect(formatEvent(betray, names, "p1")).toEqual({ text: "Quill betrayed you in the vote!", tone: "bad" });
+  });
+
   it("ignores unknown events", () => {
     expect(formatEvent({ seq: 1, tick: 1, type: "resource_regenerated", data: {} }, names, "p1")).toBeNull();
   });
@@ -22,5 +32,14 @@ describe("formatEvent", () => {
   it("has friendly rejection text", () => {
     expect(rejectionText("out_of_range")).toMatch(/closer/);
     expect(rejectionText("???")).toBe("That didn't work.");
+  });
+});
+
+describe("quick-chat parity", () => {
+  it("matches the server's phrase list exactly", () => {
+    const py = readFileSync(path.resolve(__dirname, "../../../backend/arenix/engine/social.py"), "utf8");
+    const block = py.slice(py.indexOf("QUICK_CHAT"), py.indexOf("}", py.indexOf("QUICK_CHAT")));
+    const server = Object.fromEntries([...block.matchAll(/"([a-z_]+)": "([^"]+)"/g)].map((m) => [m[1], m[2]]));
+    expect(server).toEqual(QUICK_CHAT);
   });
 });

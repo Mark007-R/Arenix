@@ -89,7 +89,22 @@ corrections only happen when the server actually disagreed. Visible corrections 
 about 250 ms. Other contestants are interpolated 100 ms in the past (`InterpolationBuffer`). The
 fixed-step accumulator runs on wall-clock time, so movement speed doesn't depend on frame rate.
 
-## Mission and match flow (Milestone 1)
+## Council mode (Milestone 3)
+
+`Match` runs explore → discuss → vote → reveal cycles. The relevant modules:
+
+* `social.py`: quick-chat phrases, chat sanitising (NFKC, control and bidi stripping, length,
+  blocklist), pair `Alliances` with expiring proposals, secret `Objective`s.
+* `events.py`: every `GameEvent` has `visible_to` (None means public). Consumers read through
+  `visible_since(cursor, viewer)`. Whispers, alliance offers and answers, ally dividends and
+  objectives are private. Alliance breaks and betrayals are public.
+* `match.snapshot(viewer)` filters contestant positions with `can_see`: self, allies and anyone
+  within 13 tiles, while everyone is visible during meetings and to eliminated spectators.
+  `roster` (names, scores, alive) is public, and `me` holds the viewer's private state.
+* Bots receive `Observation.new_events`, already filtered for them, and return social
+  `actions` that the match validates exactly like a human's messages.
+
+## Mission and match flow (Milestone 1, extended in 3)
 
 `RepairTowerMission`: deliver `8n+2` wood and `6n+2` stone (n = contestants) to the ruined
 watchtower within 4 minutes. The workload scales so that solo practice and full matches both last a

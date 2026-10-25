@@ -7,6 +7,22 @@ export interface FeedItem {
   tone: "info" | "good" | "bad" | "mine";
 }
 
+export interface ChatLine {
+  id: number;
+  sender: string;
+  senderName: string;
+  text: string;
+  private: boolean;
+  to: string | null;
+  mine: boolean;
+}
+
+export interface VoteReveal {
+  votes: Record<string, string>;
+  eliminated: string | null;
+  skip: number;
+}
+
 export interface HudState {
   connection: "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
   error: string | null;
@@ -20,9 +36,13 @@ export interface HudState {
   me: { x: number; y: number } | null;
   region: string | null;
   feed: FeedItem[];
+  chat: ChatLine[];
+  /** Chat input focused: the game must ignore movement keys. */
+  typing: boolean;
   prompt: { targetId: string; label: string } | null;
   toast: { id: number; text: string } | null;
   result: MatchResult | null;
+  lastVote: VoteReveal | null;
   pingMs: number | null;
   reducedMotion: boolean;
 }
@@ -57,9 +77,12 @@ export const initialHud = (): HudState => ({
   me: null,
   region: null,
   feed: [],
+  chat: [],
+  typing: false,
   prompt: null,
   toast: null,
   result: null,
+  lastVote: null,
   pingMs: null,
   reducedMotion: false,
 });

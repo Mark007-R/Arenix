@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { MapDTO, MatchResult, SnapshotDTO } from "@/shared/protocol";
+import type { LobbyMsg, MapDTO, MatchResult, SnapshotDTO } from "@/shared/protocol";
 
 export interface FeedItem {
   id: number;
@@ -8,8 +8,11 @@ export interface FeedItem {
 }
 
 export interface HudState {
-  connection: "idle" | "connecting" | "open" | "closed" | "error";
+  connection: "idle" | "connecting" | "open" | "reconnecting" | "closed" | "error";
   error: string | null;
+  lobby: LobbyMsg | null;
+  /** Id of the match the latest welcome belongs to; changes when a new match starts. */
+  matchId: string | null;
   you: string | null;
   map: MapDTO | null;
   snapshot: SnapshotDTO | null;
@@ -46,6 +49,8 @@ export function createStore<S>(initial: S) {
 export const initialHud = (): HudState => ({
   connection: "idle",
   error: null,
+  lobby: null,
+  matchId: null,
   you: null,
   map: null,
   snapshot: null,

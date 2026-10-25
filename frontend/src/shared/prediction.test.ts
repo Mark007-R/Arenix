@@ -14,6 +14,11 @@ describe("Predictor", () => {
     expect(p.x).toBeGreaterThan(5);
   });
 
+  it("continues the sequence after a reconnect", () => {
+    const p = new Predictor(open, 5, 5, 41);
+    expect(p.applyLocal(1, 0).seq).toBe(42);
+  });
+
   it("does not correct when the server agrees", () => {
     const p = new Predictor(open, 5, 5);
     p.applyLocal(1, 0);

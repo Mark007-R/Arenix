@@ -19,15 +19,18 @@ export class Predictor {
   x: number;
   y: number;
   private pending: PendingInput[] = [];
-  private nextSeq = 1;
+  private nextSeq: number;
 
   constructor(
     private readonly solid: SolidFn,
     x: number,
     y: number,
+    /** Last sequence number the server already saw from us (non-zero after a reconnect). */
+    resumeSeq = 0,
   ) {
     this.x = x;
     this.y = y;
+    this.nextSeq = resumeSeq + 1;
   }
 
   /** Apply a local input and return the message to send. */

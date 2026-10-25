@@ -24,13 +24,40 @@ export interface JoinParams {
   bots: number;
 }
 
+function serverHost(): { host: string; secure: boolean } {
+  if (typeof window === "undefined") return { host: "localhost:8000", secure: false };
+  return { host: `${window.location.hostname}:8000`, secure: window.location.protocol === "https:" };
+}
+
+/** WebSocket base URL of the game server. */
 export function serverUrl(): string {
   const env = process.env.NEXT_PUBLIC_ARENIX_WS;
   if (env) return env;
-  if (typeof window === "undefined") return "ws://localhost:8000";
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${window.location.hostname}:8000`;
+  const { host, secure } = serverHost();
+  return `${secure ? "wss" : "ws"}://${host}`;
 }
+
+/** HTTP base URL of the game server (derived from the WebSocket URL). */
+export function apiUrl(): string {
+  return serverUrl().replace(/^ws/, "http");
+}
+
+export function practiceUrl(p: JoinParams): string {
+  const q = new URLSearchParams({ name: p.name, archetype: p.archetype, bots: String(p.bots) });
+  return `${serverUrl()}/ws/practice?${q}`;
+}
+
+export function roomUrl(code: string, token: string): string {
+  return `${serverUrl()}/ws/rooms/${encodeURIComponent(code)}?token=${encodeURIComponent(token)}`;
+}
+
+const CLOSE_REASONS: Record<number, string> = {
+  4400: "The server rejected your name or character.",
+  4401: "Your seat in this room has expired. Join again from the room link.",
+  4404: "This room no longer exists.",
+  4408: "Disconnected after too many invalid messages.",
+};
+const MAX_RECONNECTS = 5;
 
 type EventListener = (ev: GameEventDTO) => void;
 
@@ -41,49 +68,62 @@ export class GameClient {
   solid: SolidFn = () => true;
   predictor: Predictor | null = null;
   snapshot: SnapshotDTO | null = null;
-  /** Position before and after the most recent local prediction step (for render smoothing). */
+  /** Position before the most recent local prediction step (for render smoothing). */
   prev = { x: 0, y: 0 };
   /** Visual offset left over from a reconciliation snap; decays to zero. */
   correction = { x: 0, y: 0 };
   readonly buffers = new Map<string, InterpolationBuffer>();
   private ws: WebSocket | null = null;
+  private url = "";
   private feedId = 0;
   private toastId = 0;
   private lastInteract = 0;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnects = 0;
+  private closedByUs = false;
   private snapshotCount = 0;
   private listeners = new Set<EventListener>();
   private names: Record<string, string> = {};
 
   constructor(readonly store: HudStore) {}
 
-  connect(params: JoinParams): void {
-    this.store.set({ connection: "connecting", error: null, result: null, feed: [] });
-    const q = new URLSearchParams({ name: params.name, archetype: params.archetype, bots: String(params.bots) });
-    const ws = new WebSocket(`${serverUrl()}/ws/practice?${q}`);
+  connect(url: string): void {
+    this.url = url;
+    this.closedByUs = false;
+    this.store.set({ connection: this.reconnects > 0 ? "reconnecting" : "connecting", error: null });
+    const ws = new WebSocket(url);
     this.ws = ws;
     ws.onopen = () => {
-      this.store.set({ connection: "open" });
+      this.reconnects = 0;
+      this.store.set({ connection: "open", error: null });
+      if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = setInterval(() => this.send({ type: "ping", t: performance.now() }), 2000);
     };
     ws.onmessage = (e) => this.handle(JSON.parse(e.data as string) as ServerMsg);
-    ws.onerror = () => this.store.set({ connection: "error", error: "Could not reach the ARENIX server." });
     ws.onclose = (e) => {
       if (this.pingTimer) clearInterval(this.pingTimer);
-      const s = this.store.get();
-      if (s.result) {
-        this.store.set({ connection: "closed" });
+      if (this.ws !== ws || this.closedByUs) return;
+      const fatal = CLOSE_REASONS[e.code];
+      if (fatal || this.store.get().error === "replaced") {
+        this.store.set({ connection: "error", error: fatal ?? "This game was opened in another tab." });
+        return;
+      }
+      if (this.reconnects < MAX_RECONNECTS) {
+        // Transient drop: retry with backoff. The server keeps our seat and contestant.
+        const delay = 500 * 2 ** this.reconnects++;
+        this.store.set({ connection: "reconnecting" });
+        this.reconnectTimer = setTimeout(() => this.connect(this.url), delay);
       } else {
-        this.store.set({
-          connection: "error",
-          error: e.code === 4400 ? "The server rejected your name or character." : (s.error ?? "Connection lost."),
-        });
+        this.store.set({ connection: "error", error: "Connection lost." });
       }
     };
   }
 
   close(): void {
+    this.closedByUs = true;
     if (this.pingTimer) clearInterval(this.pingTimer);
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
   }
@@ -93,7 +133,7 @@ export class GameClient {
     return () => this.listeners.delete(l);
   }
 
-  private send(msg: ClientMsg): void {
+  send(msg: ClientMsg): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
@@ -124,17 +164,38 @@ export class GameClient {
 
   private handle(msg: ServerMsg): void {
     switch (msg.type) {
+      case "lobby":
+        this.store.set({ lobby: msg });
+        break;
+      case "error":
+        if (msg.code === "replaced") {
+          this.store.set({ connection: "error", error: "This game was opened in another tab." });
+          this.closedByUs = true;
+        } else {
+          this.toast(msg.message);
+        }
+        break;
       case "welcome": {
+        const isNewMatch = this.store.get().matchId !== msg.match_id;
         this.map = msg.map;
         this.constants = msg.constants;
         this.you = msg.you;
         this.solid = collisionLookup(msg.map.collision, msg.map.width, msg.map.height);
         const me = msg.snapshot.contestants.find((c) => c.id === msg.you)!;
-        this.predictor = new Predictor(this.solid, me.x, me.y);
+        this.predictor = new Predictor(this.solid, me.x, me.y, msg.resume_seq);
         this.prev = { x: me.x, y: me.y };
+        this.correction = { x: 0, y: 0 };
+        this.buffers.clear();
         this.snapshot = msg.snapshot;
         this.names = Object.fromEntries(msg.snapshot.contestants.map((c) => [c.id, c.name]));
-        this.store.set({ you: msg.you, map: msg.map, snapshot: msg.snapshot, me: { x: me.x, y: me.y } });
+        this.store.set({
+          you: msg.you,
+          map: msg.map,
+          snapshot: msg.snapshot,
+          me: { x: me.x, y: me.y },
+          matchId: msg.match_id,
+          ...(isNewMatch ? { result: null, feed: [] } : {}),
+        });
         break;
       }
       case "snapshot": {

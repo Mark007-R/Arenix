@@ -3,14 +3,17 @@
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
 explore an island, complete missions, form alliances, betray each other and compete to win.
 
-> **Status: Milestone 1 (playable prototype).** You can play a practice match on the Emerald Isle
-> against server-driven AI contestants. Rooms with several humans, chat and alliances, voting,
-> LLM agents, crates and the Agent Lab are **not built yet**. See
+> **Status: Milestones 1–2.** You can play practice matches or multiplayer rooms (share a code;
+> AI fills empty seats) on the Emerald Isle. Chat and alliances, voting, LLM agents, crates and
+> the Agent Lab are **not built yet**. See
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## What you can do today
 
+* **Practice** alone against AI, or **create a room** and share its 6-character code or invite
+  link. Friends join, everyone readies up, and the host starts. Reloading or a dropped
+  connection puts you back into the same contestant.
 * Pick one of 8 original pixel-art contestants (cosmetic only, so everyone plays the same).
 * Explore a 64×48 island: village plaza, forest, river and bridges, mine, castle arena, shrine
   ruins and a hidden glade.
@@ -37,7 +40,8 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000, enter a name, choose a contestant and press **Play**.
+Open http://localhost:3000, enter a name, choose a contestant and press **Play practice**, or
+**Create room** and open the invite link in another browser or tab to play together.
 
 Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 
@@ -67,7 +71,9 @@ End-to-end smoke test (both servers running, Playwright + Chromium installed): i
 match in a headless browser, gathering, delivering and waiting for the result.
 
 ```bash
-cd frontend && node e2e/smoke.cjs http://localhost:3000
+cd frontend
+node e2e/smoke.cjs http://localhost:3000        # practice match: gather, deliver, result
+node e2e/multiplayer.cjs http://localhost:3000  # two players: create, join, play, reload
 ```
 
 If you change `backend/arenix/engine/physics.py`, regenerate the cross-language vectors with
@@ -86,10 +92,10 @@ shared/test-vectors     golden movement trajectories shared by both test suites
 docs/                   architecture and milestone checklist
 ```
 
-## Known limitations (Milestone 1)
+## Known limitations
 
-* Practice mode only: one human per match. Rooms, room codes, lobbies and reconnects come in
-  Milestone 2.
+* Rooms are held in one server process's memory. Running several backend processes needs
+  sticky routing first. Server restarts end all rooms.
 * AI contestants use the deterministic rule-based policy. There are no LLM calls yet, and no
   negotiation, alliances or voting.
 * All state is in memory. There is no database, accounts, progression or currencies yet.

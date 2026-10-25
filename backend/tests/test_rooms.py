@@ -298,3 +298,35 @@ def test_room_returns_to_lobby_after_match_and_can_replay() -> None:
         await writer
 
     asyncio.run(scenario())
+
+
+def test_room_runs_strategist_agents_when_enabled() -> None:
+    from arenix.agents.config import AgentConfig
+    from arenix.server.app import encode
+    from arenix.server.rooms import Connection, Room
+
+    async def scenario() -> None:
+        async def send_text(text: str) -> None:
+            return None
+
+        room = Room("AGENT2", fill_to=4, agents=AgentConfig(provider="heuristic"))
+        seat = room.add_seat("Host", "knight")
+        conn = Connection(send_text, encode)
+        writer = asyncio.create_task(conn.writer())
+        room.attach(seat, conn)
+        room.set_ready(seat, True)
+        room.start(seat)
+        assert room.lobby_message()["ai_mode"] == "heuristic"
+        assert room.coordinator is not None and set(room.coordinator.agents) == {"bot1", "bot2", "bot3"}
+        for _ in range(60):
+            await asyncio.sleep(0.05)
+            if room.coordinator.records:
+                break
+        assert room.coordinator.records, "agents should have made decisions"
+        assert all(room.match.bots[a].social_mode == "external" for a in room.coordinator.agents)  # type: ignore[union-attr]
+        await room.close()
+        conn.closed = True
+        conn.wake.set()
+        await writer
+
+    asyncio.run(scenario())

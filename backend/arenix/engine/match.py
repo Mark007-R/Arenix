@@ -27,8 +27,15 @@ from .missions import RepairTowerMission
 from .social import (
     ALLIANCE_PROPOSAL_TTL_TICKS,
     CHAT_COOLDOWN_TICKS,
+    MAX_MESSAGES_PER_PHASE,
+    MAX_NEGOTIATION_ROUNDS,
+    MAX_PAYLOAD_CHARS,
+    MESSAGE_TTL_TICKS,
+    MESSAGE_TYPES,
+    NEGOTIATION_TYPES,
     OBJECTIVE_BONUS,
     QUICK_CHAT,
+    REPLY_TYPES,
     Alliances,
     Objective,
     Proposal,
@@ -233,6 +240,12 @@ class Match:
         self._bot_cls = BotBrain
         self.bots: dict[str, BotBrain] = {}
         self._bot_cursors: dict[str, int] = {}
+        # Structured-message bookkeeping: per (sender, phase id) counts and per-thread rounds.
+        self._phase_messages: dict[tuple[str, str], int] = {}
+        self._threads: dict[str, dict[str, Any]] = {}
+        self._message_counter = 0
+        # Validation outcome of every bot/agent action: (tick, contestant, action, ok, reason).
+        self.action_results: list[tuple[int, str, tuple[Any, ...], bool, str]] = []
 
     # ------------------------------------------------------------------ setup
     def add_contestant(self, cid: str, name: str, archetype: str, is_bot: bool) -> Contestant:
@@ -500,6 +513,98 @@ class Match:
         )
         return ActionResult(True, events=(ev,))
 
+    def phase_id(self) -> str:
+        return f"{self.meeting_count}:{self.phase}"
+
+    def agent_message(
+        self,
+        cid: str,
+        msg_type: str,
+        text: str,
+        to: str | None = None,
+        payload: dict[str, Any] | None = None,
+        reply_to: str | None = None,
+    ) -> ActionResult:
+        """A structured protocol message. It is a *claim*: nothing here changes game state.
+
+        Rules: known type; sanitised text; bounded payload; a sender may post at most
+        MAX_MESSAGES_PER_PHASE per phase; replies must reference a live thread the sender
+        belongs to; a thread may run at most MAX_NEGOTIATION_ROUNDS messages; private messages
+        are allowed to anyone for negotiation types and to allies for everything else.
+        """
+        import json
+
+        c, reason = self._check_actor(cid)
+        if c is None:
+            return ActionResult(False, reason)
+        if msg_type not in MESSAGE_TYPES or msg_type == "SYSTEM_EVENT":
+            return ActionResult(False, "invalid_message_type")  # SYSTEM_EVENT is server-only
+        if self.tick - c.last_chat_tick < CHAT_COOLDOWN_TICKS:
+            return ActionResult(False, "chat_cooldown")
+        body = sanitize_chat(text)
+        if body is None:
+            return ActionResult(False, "message_rejected")
+        payload = payload or {}
+        try:
+            encoded = json.dumps(payload, sort_keys=True)
+        except (TypeError, ValueError):
+            return ActionResult(False, "invalid_payload")
+        if len(encoded) > MAX_PAYLOAD_CHARS:
+            return ActionResult(False, "payload_too_large")
+        key = (cid, self.phase_id())
+        if self._phase_messages.get(key, 0) >= MAX_MESSAGES_PER_PHASE:
+            return ActionResult(False, "message_limit")
+        if to is not None:
+            if self._alive(to) is None or to == cid:
+                return ActionResult(False, "invalid_target")
+            if msg_type not in NEGOTIATION_TYPES and not self.alliances.allied(cid, to):
+                return ActionResult(False, "not_allied")
+        thread: dict[str, Any] | None = None
+        if msg_type in REPLY_TYPES:
+            thread = self._threads.get(reply_to or "")
+            if thread is None or thread["expires_tick"] <= self.tick:
+                return ActionResult(False, "no_such_thread")
+            if not thread["open_to_all"] and cid not in thread["participants"]:
+                return ActionResult(False, "not_in_thread")
+            if thread["rounds"] >= MAX_NEGOTIATION_ROUNDS:
+                return ActionResult(False, "negotiation_limit")
+        self._message_counter += 1
+        message_id = f"m{self._message_counter}"
+        if thread is None:
+            correlation_id = message_id
+            participants = {cid, to} if to else {cid}
+            self._threads[correlation_id] = {
+                "participants": participants,
+                "rounds": 1,
+                "expires_tick": self.tick + MESSAGE_TTL_TICKS,
+                "open_to_all": to is None,
+            }
+        else:
+            correlation_id = reply_to or message_id
+            thread["rounds"] += 1
+            if thread["open_to_all"]:
+                thread["participants"].add(cid)
+        self._phase_messages[key] = self._phase_messages.get(key, 0) + 1
+        c.last_chat_tick = self.tick
+        visible = frozenset({cid, to}) if to is not None else None
+        ev = self.events.append(
+            self.tick,
+            "chat",
+            visible_to=visible,
+            sender=cid,
+            to=to,
+            text=body,
+            quick=None,
+            private=to is not None,
+            kind=msg_type,
+            message_id=message_id,
+            correlation_id=correlation_id,
+            phase_id=self.phase_id(),
+            payload=payload,
+            expires_tick=self.tick + MESSAGE_TTL_TICKS,
+        )
+        return ActionResult(True, events=(ev,))
+
     # ------------------------------------------------------------------ alliances
     def propose_alliance(self, cid: str, target: str) -> ActionResult:
         c, reason = self._check_actor(cid)
@@ -758,18 +863,25 @@ class Match:
 
         return self.events.since(first_new)
 
-    def _apply_bot_action(self, cid: str, action: tuple[Any, ...]) -> None:
+    def _apply_bot_action(self, cid: str, action: tuple[Any, ...]) -> ActionResult:
         kind = action[0]
         if kind == "chat":
-            self.chat(cid, quick=action[1], to=action[2] if len(action) > 2 else None)
+            r = self.chat(cid, quick=action[1], to=action[2] if len(action) > 2 else None)
         elif kind == "vote":
-            self.vote(cid, action[1])
+            r = self.vote(cid, action[1])
         elif kind == "propose":
-            self.propose_alliance(cid, action[1])
+            r = self.propose_alliance(cid, action[1])
         elif kind == "respond":
-            self.respond_alliance(cid, action[1], action[2])
+            r = self.respond_alliance(cid, action[1], action[2])
         elif kind == "break":
-            self.break_alliance(cid)
+            r = self.break_alliance(cid)
+        elif kind == "message":
+            _, msg_type, text, to, payload, reply_to = action
+            r = self.agent_message(cid, msg_type, text, to=to, payload=payload, reply_to=reply_to)
+        else:
+            r = ActionResult(False, "unknown_action")
+        self.action_results.append((self.tick, cid, action, r.ok, r.reason))
+        return r
 
     def objective_achieved(self, c: Contestant) -> bool:
         o = c.objective

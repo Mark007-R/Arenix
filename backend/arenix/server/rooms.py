@@ -20,6 +20,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..agents.config import AgentConfig
+from ..agents.coordinator import AgentCoordinator
 from ..engine import physics
 from ..engine.maps import get_map
 from ..engine.match import ARCHETYPES, INTERACT_RANGE, Match
@@ -108,7 +110,14 @@ class Seat:
 
 
 class Room:
-    def __init__(self, code: str, fill_to: int, practice: bool = False, seed: int | None = None) -> None:
+    def __init__(
+        self,
+        code: str,
+        fill_to: int,
+        practice: bool = False,
+        seed: int | None = None,
+        agents: AgentConfig | None = None,
+    ) -> None:
         self.code = code
         self.fill_to = fill_to
         self.practice = practice
@@ -121,6 +130,10 @@ class Room:
         self._next_player = 1
         self.empty_since: float | None = time.monotonic()
         self.matches_played = 0
+        self.agent_config = agents or AgentConfig()
+        self.coordinator: AgentCoordinator | None = None
+        # Finished matches kept for the Agent Lab and replays (most recent last).
+        self.history: list[tuple[Match, AgentCoordinator | None]] = []
 
     # ------------------------------------------------------------ seats
     def add_seat(self, name: str, archetype: str) -> Seat:
@@ -240,6 +253,11 @@ class Room:
             match.add_contestant(f"bot{i + 1}", BOT_NAMES[i % len(BOT_NAMES)], free[i % len(free)], is_bot=True)
         match.start()
         self.match = match
+        self.coordinator = None
+        if self.agent_config.enabled and match.bots:
+            self.coordinator = AgentCoordinator(match, self.agent_config.make_gateway(), list(match.bots))
+        self.history.append((match, self.coordinator))
+        del self.history[:-5]
         self.status = "running"
         self.last_result = None
         for s in self.seats.values():
@@ -258,6 +276,8 @@ class Room:
         try:
             while match.status == "running":
                 match.step()
+                if self.coordinator is not None and self.coordinator.match is match:
+                    self.coordinator.tick()
                 for s in self.seats.values():
                     if s.conn is not None:
                         s.conn.mark_dirty()
@@ -268,6 +288,8 @@ class Room:
                     delay = 0.0
                 await asyncio.sleep(max(0.0, delay))
         finally:
+            if self.coordinator is not None:
+                await self.coordinator.close()
             self.status = "lobby"
             self.last_result = match.result
             for s in self.seats.values():
@@ -360,6 +382,7 @@ class Room:
             "map_id": "emerald_isle",
             "seats": [s.public() for s in self.seats.values()],
             "can_start": self.can_start()[0],
+            "ai_mode": self.agent_config.provider if self.agent_config.enabled else "rules",
             "last_result": self.last_result,
         }
 
@@ -377,9 +400,6 @@ class Room:
 
 
 class RoomManager:
-    def __init__(self) -> None:
-        self.rooms: dict[str, Room] = {}
-
     def _new_code(self) -> str:
         for _ in range(100):
             code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
@@ -387,10 +407,16 @@ class RoomManager:
                 return code
         raise RoomError("busy", "could not allocate a room code")
 
+    def __init__(self, agents: AgentConfig | None = None) -> None:
+        self.rooms: dict[str, Room] = {}
+        self.agents = agents or AgentConfig.from_env()
+
     def create(self, fill_to: int = 6, practice: bool = False, seed: int | None = None) -> Room:
         if len(self.rooms) >= MAX_ROOMS:
             raise RoomError("busy", "server is full, try again later")
-        room = Room(self._new_code(), max(1, min(MAX_CONTESTANTS, fill_to)), practice=practice, seed=seed)
+        room = Room(
+            self._new_code(), max(1, min(MAX_CONTESTANTS, fill_to)), practice=practice, seed=seed, agents=self.agents
+        )
         self.rooms[room.code] = room
         return room
 

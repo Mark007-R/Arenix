@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import random
+from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -99,6 +100,13 @@ class BotBrain:
         self.pending_chat: list[tuple[int, str]] = []
         # Structured decision summaries (not free-form reasoning) for the future Agent Lab.
         self.decisions: list[dict[str, object]] = []
+        # Hooks for an external strategist (the LLM agent layer). The engine never sees an LLM:
+        # it only receives the queued actions and validates them like any other.
+        self.social_mode = "fallback"  # fallback: own social policy | external: strategist decides
+        self.external_actions: deque[tuple[Any, ...]] = deque()
+        self.goal_hint: str | None = None  # gather_wood | gather_stone | deliver | shrine | idle
+        self.goal_hint_until = 0
+        self.shrine_hold_until = 0  # agreed ritual start: wait at the shrine until then
 
     # ------------------------------------------------------------- bookkeeping
     def _record(self, obs: Observation, summary: str, goal: Goal | None = None, **extra: object) -> None:
@@ -153,6 +161,8 @@ class BotBrain:
 
     # ------------------------------------------------------------- social policy
     def _social(self, obs: Observation) -> list[tuple[Any, ...]]:
+        if self.social_mode == "external":
+            return self._external_social(obs)
         actions: list[tuple[Any, ...]] = []
         p = self.personality
         others = [o for o in obs.alive_ids if o != self.cid]
@@ -197,6 +207,30 @@ class BotBrain:
             actions.append(("chat", ready_lines[0][1]))
         return actions
 
+    def _external_social(self, obs: Observation) -> list[tuple[Any, ...]]:
+        """Strategist-driven mode: emit queued actions, but never miss a deadline.
+
+        If the strategist hasn't voted with 3 s left, or leaves an alliance offer unanswered for
+        10 s, the deterministic policy answers instead (recorded as a fallback).
+        """
+        actions = list(self.external_actions)
+        self.external_actions.clear()
+        others = [o for o in obs.alive_ids if o != self.cid]
+        voting = any(a[0] == "vote" for a in actions)
+        if obs.phase == "vote" and not obs.has_voted and not voting and obs.phase_ticks_left <= 3 * physics.TICK_RATE:
+            actions.append(("vote", self._choose_vote(obs, others)))
+            self._record(obs, "fallback vote: strategist missed the deadline", fallback=True)
+        answered = {a[1] for a in actions if a[0] == "respond"}
+        for proposer in obs.incoming_proposals:
+            first_seen = self.answer_at.setdefault(proposer, obs.tick)
+            if proposer not in answered and obs.tick - first_seen > 10 * physics.TICK_RATE:
+                trust = self.beliefs.trust.get(proposer, 0.0)
+                accept = obs.ally is None and trust > 0
+                actions.append(("respond", proposer, accept))
+                self._record(obs, f"fallback answer to {proposer}: strategist silent", fallback=True)
+                self.answer_at.pop(proposer, None)
+        return actions
+
     def _choose_vote(self, obs: Observation, others: list[str]) -> str | None:
         o = obs.objective
         if o is not None and o.kind == "eliminate" and o.target in others:
@@ -216,6 +250,13 @@ class BotBrain:
 
     # ------------------------------------------------------------- mission goals
     def choose_goal(self, obs: Observation) -> Goal | None:
+        hint = self.goal_hint if obs.tick < self.goal_hint_until else None
+        if hint == "shrine" and obs.shrine_status != "activated" and self.cid not in obs.shrine_participants:
+            return Goal("shrine", "shrine")
+        if hint == "idle":
+            return None
+        if hint == "deliver" and sum(obs.carrying.values()) > 0:
+            return Goal("deliver", obs.mission_target)
         if (
             obs.shrine_status == "channeling"
             and self.cid not in obs.shrine_participants
@@ -248,6 +289,8 @@ class BotBrain:
         preferred = self.preferred
         if obs.objective is not None and obs.objective.kind in ("deliver_wood", "deliver_stone"):
             preferred = obs.objective.kind.removeprefix("deliver_")
+        if hint in ("gather_wood", "gather_stone"):
+            preferred = hint.removeprefix("gather_")
         options: list[tuple[float, str]] = []
         for node_id, charges in obs.node_charges.items():
             obj = self.map.objects_by_id[node_id]
@@ -337,6 +380,8 @@ class BotBrain:
 
         target = self.map.objects_by_id[self.goal.target_id]
         if target.distance_to(obs.x, obs.y) <= INTERACT_RANGE - 0.05 and self.path_index >= len(self.path) - 1:
+            if self.goal.kind == "shrine" and obs.shrine_status == "dormant" and obs.tick < self.shrine_hold_until:
+                return BotIntent()  # in position; wait for the agreed start so the window isn't wasted
             self.awaiting_result = True
             return BotIntent(interact_target=self.goal.target_id)
 

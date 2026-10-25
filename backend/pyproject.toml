@@ -2,7 +2,7 @@
 name = "arenix"
 version = "0.1.0"
 description = "ARENIX authoritative game server and engine"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",

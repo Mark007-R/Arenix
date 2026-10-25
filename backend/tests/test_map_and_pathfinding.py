@@ -63,3 +63,19 @@ def test_unreachable_goal_returns_none(emerald: GameMap) -> None:
 def test_regions(emerald: GameMap) -> None:
     assert emerald.region_at(25.5, 23.5) == "Village Plaza"
     assert emerald.region_at(50, 8) == "Old Mine"
+
+
+def test_roads_and_trails_are_not_blocked_by_objects(emerald: GameMap) -> None:
+    """Resource nodes must never sit on a road (landmarks like the well may decorate the plaza)."""
+    from arenix.engine.maps.emerald_isle import build
+
+    fresh = build()
+    for o in fresh.objects:
+        if o.kind != "resource_node":
+            continue
+        for ty in range(o.y, o.y + o.h):
+            for tx in range(o.x, o.x + o.w):
+                assert fresh.tile(tx, ty) not in (Tile.PATH, Tile.BRIDGE), f"{o.id} blocks a road at {tx, ty}"
+    # The forest trail row west of the main forest junction must be walkable end to end.
+    for tx in range(9, 13):
+        assert not emerald.is_solid(tx, 13), f"forest trail blocked at {tx}, 13"

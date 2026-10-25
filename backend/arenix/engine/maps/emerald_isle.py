@@ -182,7 +182,7 @@ def build() -> GameMap:
         add(MapObject(f"house_{i}", "house", hx, hy, 3, 2, props={"variant": i % 3}))
 
     # Resource nodes
-    wood = [(9, 8), (15, 6), (11, 13), (17, 12), (6, 15), (15, 33)]
+    wood = [(9, 8), (15, 6), (10, 11), (17, 12), (6, 15), (15, 33)]
     stone = [(47, 7), (51, 8), (55, 7), (48, 11), (54, 12)]
     for i, (nx, ny) in enumerate(wood):
         add(

@@ -63,6 +63,13 @@ npm test                    # physics parity (golden vectors), prediction, inter
 npm run lint && npm run typecheck && npm run build
 ```
 
+End-to-end smoke test (both servers running, Playwright + Chromium installed): it plays a real
+match in a headless browser, gathering, delivering and waiting for the result.
+
+```bash
+cd frontend && node e2e/smoke.cjs http://localhost:3000
+```
+
 If you change `backend/arenix/engine/physics.py`, regenerate the cross-language vectors with
 `uv run python scripts/gen_movement_vectors.py`, then port the same change to
 `frontend/src/shared/physics.ts`. Both test suites fail until the two match exactly.

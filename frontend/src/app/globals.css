@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@import "@fontsource/pixelify-sans/400.css";
+@import "@fontsource/pixelify-sans/700.css";
+
+@theme {
+  --font-pixel: "Pixelify Sans", ui-monospace, monospace;
+  --color-ink: #1f1630;
+  --color-night: #2a1f3d;
+  --color-dusk: #4b3a6b;
+  --color-parchment: #fbf7ee;
+  --color-gold: #f4c542;
+  --color-gold-dark: #c9952a;
+  --color-leaf: #86d35f;
+  --color-ember: #d6453b;
+  --color-sky: #6aa8ee;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-ink);
+  color: var(--color-parchment);
+  font-family: var(--font-pixel);
+}
+
+canvas {
+  image-rendering: pixelated;
+}
+
+/* Chunky pixel panel: hard edges, stepped border, no blur. */
+.panel {
+  background: var(--color-night);
+  border: 3px solid var(--color-ink);
+  box-shadow:
+    inset 0 0 0 2px var(--color-dusk),
+    0 4px 0 0 #120c1c;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  background: var(--color-gold);
+  border: 3px solid var(--color-ink);
+  box-shadow:
+    inset -3px -3px 0 0 var(--color-gold-dark),
+    inset 3px 3px 0 0 #ffe590,
+    0 3px 0 0 #120c1c;
+  cursor: pointer;
+  user-select: none;
+}
+.btn:hover {
+  filter: brightness(1.06);
+}
+.btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 3px 3px 0 0 var(--color-gold-dark),
+    0 1px 0 0 #120c1c;
+}
+.btn:focus-visible {
+  outline: 3px solid var(--color-sky);
+  outline-offset: 2px;
+}
+.btn-ghost {
+  background: var(--color-dusk);
+  color: var(--color-parchment);
+  box-shadow:
+    inset -3px -3px 0 0 #35284d,
+    inset 3px 3px 0 0 #6a5893,
+    0 3px 0 0 #120c1c;
+}
+
+.bar {
+  height: 10px;
+  background: #120c1c;
+  border: 2px solid var(--color-ink);
+}
+.bar > span {
+  display: block;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -26,6 +26,8 @@ MAX_INPUT_QUEUE = 12
 INPUT_TOKEN_MAX = 3.0
 POINTS_PER_UNIT = 10
 MISSION_BONUS = 50
+WOOD_PER_CONTESTANT = 8
+STONE_PER_CONTESTANT = 6
 
 ARCHETYPES = (
     "warrior",
@@ -169,6 +171,9 @@ class Match:
         if self.status != "lobby":
             raise RuntimeError("match already started")
         self.status = "running"
+        # Scale the workload with the field so solo practice and 8-player matches both last a few minutes.
+        n = len(self.contestants)
+        self.mission.required = {"wood": WOOD_PER_CONTESTANT * n + 2, "stone": STONE_PER_CONTESTANT * n + 2}
         return self.events.append(
             self.tick,
             "match_started",
@@ -177,6 +182,7 @@ class Match:
             rules_version=RULES_VERSION,
             contestants=[c.id for c in self.contestants.values()],
             mission=self.mission.id,
+            required=dict(self.mission.required),
         )
 
     # ------------------------------------------------------------------ requests

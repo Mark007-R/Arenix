@@ -1,4 +1,6 @@
+import asyncio
 import json
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -154,7 +156,6 @@ def test_experiment_api_runs_in_background() -> None:
         )
         assert r.status_code == 202, r.text
         exp_id = r.json()["id"]
-        assert c.post("/api/experiments", json={"conditions": ["independent"], "seeds": "1"}).status_code == 409
         assert c.get("/api/health").status_code == 200  # server stays responsive
         for _ in range(200):
             res = c.get(f"/api/experiments/{exp_id}/results").json()
@@ -163,6 +164,28 @@ def test_experiment_api_runs_in_background() -> None:
             _time.sleep(0.1)
         assert res["status"] == "finished", res
         assert set(res["results"]["conditions"]) == {"independent", "negotiate"} and res["progress"] == 4
+
+
+def test_only_one_experiment_runs_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+
+    from arenix.sim import experiments
+
+    release = threading.Event()
+
+    async def gated_run(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        # Hold the worker until the test has checked the conflict, so timing can't decide the result.
+        await asyncio.to_thread(release.wait, 10)
+        return {"conditions": {}, "runs": []}
+
+    monkeypatch.setattr(experiments, "run_experiment", gated_run)
+    with TestClient(create_app(db=None)) as c:
+        first = {"conditions": ["independent"], "seeds": "1"}
+        try:
+            assert c.post("/api/experiments", json=first).status_code == 202
+            assert c.post("/api/experiments", json=first).status_code == 409
+        finally:
+            release.set()
 
 
 def test_foreign_websocket_origins_are_rejected(client: TestClient) -> None:

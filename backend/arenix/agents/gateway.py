@@ -1,8 +1,8 @@
 """Provider-agnostic strategist gateway: timeouts, concurrency, retry and cost budgets, traces.
 
 Providers:
-* `AnthropicProvider`: Claude via the official SDK with structured JSON output and server-side
-  refusal fallback (`fallbacks="default"`).
+* `AnthropicProvider`: an Anthropic model via the official SDK with structured JSON output and
+  server-side refusal fallback (`fallbacks="default"`).
 * `HeuristicProvider`: a deterministic planning policy that speaks the same protocol. It is *not*
   an LLM; it exists so the full agent pipeline (messages, negotiation, validation) runs offline
   and as an experiment baseline.
@@ -22,21 +22,14 @@ from pydantic import ValidationError
 
 from .schema import DECISION_JSON_SCHEMA, StrategicDecision
 
-# Per-million-token list prices (USD) used for *estimates* only. Source: Anthropic model table,
-# cached 2026-10-06. Unknown models report cost as None rather than guessing.
-PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
-    "claude-opus-5-5": (4.00, 20.00),
-    "claude-sonnet-5-5": (2.00, 10.00),
-    "claude-haiku-5-5": (0.10, 0.50),
-    "claude-fable-5-1": (10.00, 50.00),
-}
+Prices = tuple[float, float]  # (input, output) USD per million tokens
 
 
-def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
-    price = PRICES_PER_MTOK.get(model)
-    if price is None:
+def estimate_cost(prices: Prices | None, input_tokens: int, output_tokens: int) -> float | None:
+    """Cost *estimate* from configured list prices. Without prices, cost is None rather than a guess."""
+    if prices is None:
         return None
-    return input_tokens * price[0] / 1e6 + output_tokens * price[1] / 1e6
+    return input_tokens * prices[0] / 1e6 + output_tokens * prices[1] / 1e6
 
 
 class ProviderError(Exception):
@@ -164,7 +157,8 @@ class LLMGateway:
                 total_in += resp.input_tokens
                 total_out += resp.output_tokens
                 self.budget.tokens += resp.input_tokens + resp.output_tokens
-                cost = estimate_cost(p.model, resp.input_tokens, resp.output_tokens) if p.is_llm else 0.0
+                prices = getattr(p, "prices", None)
+                cost = estimate_cost(prices, resp.input_tokens, resp.output_tokens) if p.is_llm else 0.0
                 self.budget.cost_usd += cost or 0.0
                 last_text = resp.text
                 try:
@@ -191,7 +185,7 @@ class LLMGateway:
     ) -> GatewayResult:
         p = self.provider
         latency = (time.perf_counter() - start) * 1000
-        cost = estimate_cost(p.model, tin, tout) if p.is_llm else 0.0
+        cost = estimate_cost(getattr(p, "prices", None), tin, tout) if p.is_llm else 0.0
         self.stats.latencies_ms.append(latency)
         self.stats.input_tokens += tin
         self.stats.output_tokens += tout
@@ -209,21 +203,23 @@ class LLMGateway:
 
 # ---------------------------------------------------------------------------- providers
 class AnthropicProvider:
-    """Claude through the official SDK. Credentials come from the environment, never the client."""
+    """An Anthropic model through the official SDK. Credentials come from the environment, never the client."""
 
     name = "anthropic"
     is_llm = True
 
     def __init__(
         self,
-        model: str = "claude-opus-5-5",
+        model: str,
         effort: str = "low",
+        prices: Prices | None = None,
         max_tokens: int = 4000,
         timeout_s: float = 20.0,
         client: Any = None,
     ) -> None:
         self.model = model
         self.effort = effort
+        self.prices = prices
         self.max_tokens = max_tokens
         if client is None:
             import anthropic

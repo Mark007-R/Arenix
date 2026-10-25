@@ -8,7 +8,7 @@ Conditions
   negotiate     strategist agents (heuristic planner) using the structured protocol
   negotiate_mem0  as negotiate, with episodic memory disabled
   negotiate_r1    as negotiate, with a 1-round negotiation budget
-  llm           strategist agents backed by Claude (requires ANTHROPIC_API_KEY; costs money)
+  llm           strategist agents backed by an LLM (requires ANTHROPIC_API_KEY and ARENIX_AGENT_MODEL; costs money)
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ DESCRIPTIONS = {
     "negotiate": "Heuristic strategist agents negotiating over the structured protocol (not an LLM).",
     "negotiate_mem0": "As negotiate, with episodic memory disabled (0 facts/claims).",
     "negotiate_r1": "As negotiate, with a negotiation budget of 1 round per thread.",
-    "llm": "Claude strategist agents over the structured protocol (rule-based fallback).",
+    "llm": "LLM strategist agents over the structured protocol (rule-based fallback).",
 }
 
 
@@ -99,6 +99,7 @@ async def run_one(
             AgentConfig(
                 provider="anthropic",
                 model=cfg.model,
+                prices=cfg.prices,
                 effort=cfg.effort,
                 timeout_s=cfg.timeout_s,
                 max_calls=cfg.max_calls,

@@ -5,7 +5,7 @@ explore an island, complete missions, form alliances, betray each other and comp
 
 > **Status: Milestones 1–6 done, 7 partly done.** Play practice matches or multiplayer rooms (share a code; AI fills
 > empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
-> eliminations. AI seats can be driven by strategist agents (offline heuristic planner or Claude)
+> eliminations. AI seats can be driven by strategist agents (offline heuristic planner or an LLM)
 > that negotiate over a structured protocol. With a database, players earn Game Points and open
 > cosmetic crates (odds always shown). The **Agent Lab** (`/lab`) shows interaction graphs,
 > timelines, decision inspection, replays and experiment comparisons. LLM strategists are
@@ -66,9 +66,10 @@ Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 |---|---|---|---|
 | `ARENIX_CORS_ORIGINS` | backend | `http://localhost:3000` | comma-separated allowed origins for REST |
 | `NEXT_PUBLIC_ARENIX_WS` | frontend (build time) | `ws://<page host>:8000` | WebSocket base URL of the game server |
-| `ARENIX_AGENT_PROVIDER` | backend | `off` | AI seat strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (Claude) |
-| `ARENIX_AGENT_MODEL` | backend | `claude-opus-5-5` | Claude model for strategists |
-| `ARENIX_AGENT_EFFORT` | backend | `low` | Claude effort level (decisions must land within seconds) |
+| `ARENIX_AGENT_PROVIDER` | backend | `off` | AI seat strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (LLM via the Anthropic API) |
+| `ARENIX_AGENT_MODEL` | backend | unset | model ID for strategists; required when the provider is `anthropic` |
+| `ARENIX_AGENT_PRICE_PER_MTOK` | backend | unset | `input,output` USD per million tokens (e.g. `4,20`); enables cost estimates and the cost budget |
+| `ARENIX_AGENT_EFFORT` | backend | `low` | model effort level (decisions must land within seconds) |
 | `ARENIX_AGENT_TIMEOUT_S` | backend | `8` | per-decision deadline; late decisions fall back to the rule policy |
 | `ARENIX_AGENT_MAX_CONCURRENCY` | backend | `4` | concurrent model calls per match |
 | `ARENIX_AGENT_MAX_CALLS_PER_MATCH` | backend | `300` | call budget per match |
@@ -83,8 +84,10 @@ Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 **Cost note for `anthropic` mode.** Each strategist decision is one request: roughly 2–4K
 input tokens plus a short JSON reply. With six AI seats deciding every 15 s plus at each
 meeting, a 7-minute match makes on the order of 150–250 calls. That is around $1.5–5 per match
-on `claude-opus-5-5` at list prices (an estimate, not a measurement), so the default
-$2 budget usually ends in a rule-based fallback partway through. Raise the budget, or pick a
+on a large model at list prices (an estimate, not a measurement), so the default
+$2 budget usually ends in a rule-based fallback partway through. Set
+`ARENIX_AGENT_PRICE_PER_MTOK` so the cost budget can be enforced; without it only the call and
+token budgets apply. Raise the budget, or pick a
 cheaper model with `ARENIX_AGENT_MODEL`. The game stays fully playable when the provider is off,
 slow, out of budget or failing.
 

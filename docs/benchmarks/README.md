@@ -16,7 +16,7 @@ Emerald Isle). Numbers in this folder are never edited by hand. Re-run the comma
 
 * **No LLM is involved.** The `negotiate*` conditions use the deterministic `HeuristicProvider`
   planner over the same agent protocol, gateway, validation and coordinator that an LLM strategist
-  uses. Latency, tokens and cost are therefore near zero. The `llm` condition (Claude) has **not
+  uses. Latency, tokens and cost are therefore near zero. The `llm` condition has **not
   been run**, because no API credentials were available while building this, so no LLM numbers
   are reported.
 * **Shrine awakened** is the clearest coordination signal. It needs three contestants to channel

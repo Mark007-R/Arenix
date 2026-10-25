@@ -132,7 +132,7 @@ export default function Experiments() {
             <button className="btn text-sm" onClick={start} disabled={current?.status === "running" || chosen.size === 0}>Run</button>
             {current?.status === "running" && <span className="text-gold">Running… {current.progress}/{current.total} matches</span>}
           </div>
-          <p className="mt-2 text-xs text-parchment/50">The Claude (llm) condition is only available via the CLI runner, because it costs money. See docs/benchmarks.</p>
+          <p className="mt-2 text-xs text-parchment/50">The LLM condition is only available via the CLI runner, because it costs money. See docs/benchmarks.</p>
           {error && <p className="mt-2 text-ember">{error}</p>}
         </section>
 

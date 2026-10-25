@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from arenix.agents.config import AgentConfig
 from arenix.agents.coordinator import STALE_AFTER_S, AgentCoordinator
 from arenix.agents.gateway import (
     AnthropicProvider,
@@ -186,9 +187,14 @@ def test_gateway_budget_and_breaker() -> None:
     assert g2.available == "circuit_open"
 
 
-def test_cost_estimates_only_for_known_models() -> None:
-    assert estimate_cost("claude-opus-5-5", 1_000_000, 0) == pytest.approx(4.0)
-    assert estimate_cost("unknown-model", 1000, 1000) is None
+def test_cost_estimates_only_with_configured_prices() -> None:
+    assert estimate_cost((4.0, 20.0), 1_000_000, 0) == pytest.approx(4.0)
+    assert estimate_cost(None, 1000, 1000) is None
+
+
+def test_anthropic_provider_requires_a_model() -> None:
+    with pytest.raises(ValueError, match="ARENIX_AGENT_MODEL"):
+        AgentConfig(provider="anthropic").make_gateway()
 
 
 # ------------------------------------------------------------------ Anthropic provider (fake client)
@@ -210,20 +216,20 @@ def fake_client(response: Any) -> Any:
 def test_anthropic_provider_request_shape_and_parsing() -> None:
     resp = SimpleNamespace(
         stop_reason="end_turn",
-        model="claude-opus-5-5",
+        model="test-model",
         content=[
             SimpleNamespace(type="thinking", thinking=""),
-            SimpleNamespace(type="text", text=decision(summary="from claude")),
+            SimpleNamespace(type="text", text=decision(summary="from the model")),
         ],
         usage=SimpleNamespace(input_tokens=1200, output_tokens=300),
     )
     client, msgs = fake_client(resp)
-    provider = AnthropicProvider(client=client)
+    provider = AnthropicProvider(model="test-model", prices=(4.0, 20.0), client=client)
     r = asyncio.run(LLMGateway(provider).decide("system text", "user text", {}))
-    assert r.decision is not None and r.decision.summary == "from claude"
+    assert r.decision is not None and r.decision.summary == "from the model"
     assert r.cost_usd == pytest.approx(1200 * 4 / 1e6 + 300 * 20 / 1e6)
     kw = msgs.kwargs
-    assert kw["model"] == "claude-opus-5-5"
+    assert kw["model"] == "test-model"
     assert kw["output_config"]["format"] == {"type": "json_schema", "schema": DECISION_JSON_SCHEMA}
     assert kw["fallbacks"] == "default" and kw["betas"] == ["server-side-fallback-2026-07-01"]
     assert kw["system"] == "system text" and kw["messages"] == [{"role": "user", "content": "user text"}]
@@ -235,7 +241,7 @@ def test_anthropic_provider_refusal_is_an_error_not_a_decision() -> None:
         stop_reason="refusal", stop_details=None, content=[], usage=SimpleNamespace(input_tokens=10, output_tokens=0)
     )
     client, _ = fake_client(resp)
-    r = asyncio.run(LLMGateway(AnthropicProvider(client=client)).decide("s", "u", {}))
+    r = asyncio.run(LLMGateway(AnthropicProvider(model="test-model", client=client)).decide("s", "u", {}))
     assert r.decision is None and r.error == "refusal"
 
 

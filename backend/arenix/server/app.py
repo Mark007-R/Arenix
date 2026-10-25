@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import json
 import logging
 import os
@@ -92,6 +93,22 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     manager = RoomManager(db=database)
     creates = RateLimiter(ROOM_CREATES_PER_MINUTE, 60.0)
 
+    # Single-use, short-lived WebSocket tickets so bearer tokens never appear in URLs (and logs).
+    ws_tickets: dict[str, tuple[int, float]] = {}
+
+    def redeem_ticket(ticket: str) -> int | None:
+        now = time.monotonic()
+        for k in [k for k, (_, exp) in ws_tickets.items() if exp < now]:
+            ws_tickets.pop(k, None)
+        entry = ws_tickets.pop(ticket, None)
+        return entry[0] if entry else None
+
+    def origin_allowed(ws: WebSocket) -> bool:
+        origin = ws.headers.get("origin")
+        return origin is None or origin in origins  # non-browser clients send no Origin
+
+    admin_token = os.environ.get("ARENIX_ADMIN_TOKEN", "")
+
     async def identify(token: str) -> tuple[int | None, dict[str, Any]]:
         """Resolve an optional account token to (user_id, server-side cosmetic loadout)."""
         if database is None or not token:
@@ -129,6 +146,18 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     app.state.guest_limiter = RateLimiter(5, 60.0)
     app.state.open_limiter = RateLimiter(30, 60.0)
     app.include_router(economy_router)
+
+    @app.post("/api/auth/ws-ticket")
+    async def ws_ticket(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        user_id, _ = await identify(bearer(authorization))
+        if user_id is None:
+            raise HTTPException(401, detail={"code": "unauthorized", "message": "Sign in first."})
+        import secrets as _secrets
+
+        ticket = _secrets.token_urlsafe(24)
+        ws_tickets[ticket] = (user_id, time.monotonic() + 60)
+        return {"ticket": ticket, "expires_in": 60}
+
     origins = os.environ.get("ARENIX_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"])
 
@@ -162,7 +191,12 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     app.state.experiments = experiments
 
     @app.post("/api/experiments", status_code=202)
-    async def create_experiment(body: ExperimentRequest) -> dict[str, Any]:
+    async def create_experiment(
+        body: ExperimentRequest, authorization: str | None = Header(default=None)
+    ) -> dict[str, Any]:
+        # Experiments are CPU-heavy: when an admin token is configured, require it.
+        if admin_token and not hmac.compare_digest(bearer(authorization), admin_token):
+            raise HTTPException(403, detail={"code": "forbidden", "message": "admin token required"})
         try:
             return await experiments.start(
                 body.name, body.conditions, body.seed_list(), body.contestants, body.time_limit_seconds
@@ -355,6 +389,9 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
         token = ws.query_params.get("token", "")
         # Accept first so the browser receives a meaningful close code instead of a bare HTTP 403.
         await ws.accept()
+        if not origin_allowed(ws):
+            await ws.close(code=4403, reason="origin not allowed")
+            return
         try:
             room = manager.get(code)
         except RoomError:
@@ -369,6 +406,10 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     @app.websocket("/ws/practice")
     async def practice(ws: WebSocket) -> None:
         """Single-player practice: a private one-seat room that starts immediately."""
+        if not origin_allowed(ws):
+            await ws.accept()
+            await ws.close(code=4403, reason="origin not allowed")
+            return
         try:
             params = JoinParams(
                 name=ws.query_params.get("name", "Player"),
@@ -377,8 +418,16 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
             )
             if params.archetype not in ARCHETYPES:
                 raise ValueError("unknown archetype")
-            # Browsers can't set headers on WebSockets, so the optional account token is a query param.
-            user_id, loadout = await identify(ws.query_params.get("auth", ""))
+            # Browsers can't set headers on WebSockets: accounts authenticate with a single-use ticket.
+            user_id, loadout = None, {}
+            ticket = ws.query_params.get("ticket", "")
+            if ticket:
+                user_id = redeem_ticket(ticket)
+                if user_id is None:
+                    raise ValueError("invalid or expired ticket")
+                if database is not None:
+                    async with database.sessions() as s:
+                        loadout = await economy.loadout(s, user_id)
             room = manager.create(fill_to=params.bots + 1, practice=True)
             seat = room.add_seat(params.name, params.archetype, user_id, loadout)
         except (ValidationError, ValueError, RoomError, HTTPException):

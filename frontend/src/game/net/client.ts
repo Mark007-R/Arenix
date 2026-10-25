@@ -42,9 +42,10 @@ export function apiUrl(): string {
   return serverUrl().replace(/^ws/, "http");
 }
 
-export function practiceUrl(p: JoinParams, authToken?: string): string {
+export function practiceUrl(p: JoinParams, wsTicket?: string): string {
   const q = new URLSearchParams({ name: p.name, archetype: p.archetype, bots: String(p.bots) });
-  if (authToken) q.set("auth", authToken); // WebSockets can't carry headers from the browser
+  // Single-use, 60 s ticket (never the account token itself: URLs end up in logs).
+  if (wsTicket) q.set("ticket", wsTicket);
   return `${serverUrl()}/ws/practice?${q}`;
 }
 

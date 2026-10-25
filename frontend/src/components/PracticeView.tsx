@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ensureAccount } from "@/lib/account";
+import { api, ensureAccount } from "@/lib/account";
 import { practiceUrl, type JoinParams } from "@/game/net/client";
 import { useGameClient } from "@/lib/useGameClient";
 import { useHud } from "@/lib/store";
@@ -16,9 +16,10 @@ export default function PracticeView({ params }: { params: JoinParams }) {
   useEffect(() => {
     // Sign in as a guest so rewards and cosmetics apply; play anonymously if the server can't.
     ensureAccount(params.name)
-      .then((a) => setAuth(a?.token ?? null))
+      .then(async (a) => (a ? (await api<{ ticket: string }>("/api/auth/ws-ticket", { method: "POST" })).ticket : null))
+      .then((ticket) => setAuth(ticket))
       .catch(() => setAuth(null));
-  }, [params.name]);
+  }, [params.name, session]);
   const url = useMemo(() => (auth === undefined ? null : practiceUrl(params, auth ?? undefined)), [params, auth]);
   const { store, client } = useGameClient(url, session);
   const matchId = useHud(store, (s) => s.matchId);

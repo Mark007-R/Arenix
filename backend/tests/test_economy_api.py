@@ -141,3 +141,19 @@ def test_finished_room_match_is_persisted_and_rewarded() -> None:
 
     if not os.environ.get("CI_SKIP_DB"):
         asyncio.run(scenario())
+
+
+def test_ws_tickets_are_single_use_and_tokens_stay_out_of_urls(api: TestClient) -> None:
+    h = guest(api, "Ticketed")
+    assert api.post("/api/auth/ws-ticket").status_code == 401
+    ticket = api.post("/api/auth/ws-ticket", headers=h).json()["ticket"]
+    with api.websocket_connect(f"/ws/practice?name=T&archetype=knight&bots=0&ticket={ticket}") as ws:
+        assert json.loads(ws.receive_text())["type"] == "lobby"
+    from starlette.websockets import WebSocketDisconnect
+
+    with (
+        pytest.raises(WebSocketDisconnect) as exc,
+        api.websocket_connect(f"/ws/practice?name=T&archetype=knight&bots=0&ticket={ticket}") as ws,
+    ):
+        ws.receive_text()
+    assert exc.value.code == 4400  # reused ticket rejected

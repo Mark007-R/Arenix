@@ -75,6 +75,8 @@ Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 | `ARENIX_AGENT_MAX_COST_USD_PER_MATCH` | backend | `2.0` | estimated-cost budget per match (list prices); then rule-based fallback |
 | `ARENIX_DATABASE_URL` | backend | unset | PostgreSQL URL (`postgresql+asyncpg://…`); enables accounts, progression, crates, match history |
 | `ARENIX_PAID_RANDOM_CRATES` | backend | `enabled` | set `disabled` where paid random rewards are restricted (Diamond-priced crates become unavailable) |
+| `ARENIX_ADMIN_TOKEN` | backend | unset | when set, required (Bearer) to start experiments |
+| `ARENIX_ALLOW_LLM_EXPERIMENTS` | backend | unset | `1` allows the costly `llm` condition through the experiments API |
 | `ARENIX_TEST_DATABASE_URL` | tests | `postgresql+asyncpg://arenix:arenix@localhost/arenix_test` | database the economy tests reset and use |
 | `ANTHROPIC_API_KEY` | backend | — | read by the Anthropic SDK when `ARENIX_AGENT_PROVIDER=anthropic`; never sent to clients |
 
@@ -111,6 +113,14 @@ node e2e/economy.cjs http://localhost:3000      # guest account, open a crate, e
 If you change `backend/arenix/engine/physics.py`, regenerate the cross-language vectors with
 `uv run python scripts/gen_movement_vectors.py`, then port the same change to
 `frontend/src/shared/physics.ts`. Both test suites fail until the two match exactly.
+
+## More docs
+
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design and protocols
+* [docs/MILESTONES.md](docs/MILESTONES.md): what is done and what is not
+* [docs/SECURITY.md](docs/SECURITY.md): security review and open items
+* [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): production checklist
+* [docs/benchmarks/](docs/benchmarks/): generated benchmark report and how to read it
 
 ## Project layout
 

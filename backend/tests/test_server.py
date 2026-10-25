@@ -163,3 +163,29 @@ def test_experiment_api_runs_in_background() -> None:
             _time.sleep(0.1)
         assert res["status"] == "finished", res
         assert set(res["results"]["conditions"]) == {"independent", "negotiate"} and res["progress"] == 4
+
+
+def test_foreign_websocket_origins_are_rejected(client: TestClient) -> None:
+    with (
+        pytest.raises(WebSocketDisconnect) as exc,
+        client.websocket_connect(
+            "/ws/practice?name=T&archetype=knight&bots=0", headers={"origin": "https://evil.example"}
+        ) as ws,
+    ):
+        ws.receive_text()
+    assert exc.value.code == 4403
+    with client.websocket_connect(
+        "/ws/practice?name=T&archetype=knight&bots=0", headers={"origin": "http://localhost:3000"}
+    ) as ws:
+        assert json.loads(ws.receive_text())["type"] == "lobby"
+
+
+def test_experiments_require_admin_token_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARENIX_ADMIN_TOKEN", "s3cret-admin")
+    with TestClient(create_app(db=None)) as c:
+        body = {"conditions": ["independent"], "seeds": "1", "contestants": 3, "time_limit_seconds": 60}
+        assert c.post("/api/experiments", json=body).status_code == 403
+        assert c.post("/api/experiments", json=body, headers={"Authorization": "Bearer nope"}).status_code == 403
+        assert (
+            c.post("/api/experiments", json=body, headers={"Authorization": "Bearer s3cret-admin"}).status_code == 202
+        )

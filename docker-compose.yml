@@ -1,10 +1,26 @@
-# Local development stack. PostgreSQL/Redis are added when Milestone 2/5 introduce persistence.
+# Local development stack.
 services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: arenix, POSTGRES_PASSWORD: arenix, POSTGRES_DB: arenix }
+    ports: ["5432:5432"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "arenix"], interval: 5s, retries: 10 }
+    volumes: [pgdata:/var/lib/postgresql/data]
+  migrate:
+    build: ./backend
+    command: ["uv", "run", "--no-dev", "alembic", "upgrade", "head"]
+    environment:
+      ARENIX_DATABASE_URL: postgresql+asyncpg://arenix:arenix@db/arenix
+    depends_on: { db: { condition: service_healthy } }
   backend:
     build: ./backend
     ports: ["8000:8000"]
     environment:
       ARENIX_CORS_ORIGINS: http://localhost:3000
+      ARENIX_DATABASE_URL: postgresql+asyncpg://arenix:arenix@db/arenix
+      ARENIX_AGENT_PROVIDER: ${ARENIX_AGENT_PROVIDER:-heuristic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on: { migrate: { condition: service_completed_successfully } }
   frontend:
     build:
       context: ./frontend
@@ -12,3 +28,5 @@ services:
         NEXT_PUBLIC_ARENIX_WS: ws://localhost:8000
     ports: ["3000:3000"]
     depends_on: [backend]
+volumes:
+  pgdata:

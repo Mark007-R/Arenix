@@ -12,12 +12,16 @@ from collections import defaultdict, deque
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
+from ..db.session import Database, database_from_env
+from ..economy import service as economy
 from ..engine.maps import available_maps, get_map
 from ..engine.match import ARCHETYPES
+from .economy_api import bearer
+from .economy_api import router as economy_router
 from .protocol import (
     MAX_MESSAGE_BYTES,
     BreakMsg,
@@ -47,7 +51,14 @@ MAX_MESSAGES_PER_SECOND = 60
 ROOM_CREATES_PER_MINUTE = 10
 SWEEP_INTERVAL_S = 10.0
 
-ERROR_STATUS = {"not_found": 404, "room_full": 409, "in_progress": 409, "busy": 503, "bad_archetype": 422}
+ERROR_STATUS = {
+    "not_found": 404,
+    "room_full": 409,
+    "in_progress": 409,
+    "busy": 503,
+    "bad_archetype": 422,
+    "already_joined": 409,
+}
 
 
 def encode(msg: dict[str, Any]) -> str:
@@ -71,9 +82,23 @@ class RateLimiter:
         return True
 
 
-def create_app() -> FastAPI:
-    manager = RoomManager()
+_FROM_ENV = object()
+
+
+def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
+    database: Database | None = database_from_env() if db is _FROM_ENV else db  # type: ignore[assignment]
+    manager = RoomManager(db=database)
     creates = RateLimiter(ROOM_CREATES_PER_MINUTE, 60.0)
+
+    async def identify(token: str) -> tuple[int | None, dict[str, Any]]:
+        """Resolve an optional account token to (user_id, server-side cosmetic loadout)."""
+        if database is None or not token:
+            return None, {}
+        async with database.sessions() as s:
+            user = await economy.user_for_token(s, token)
+            if user is None:
+                raise HTTPException(401, detail={"code": "unauthorized", "message": "invalid account token"})
+            return user.id, await economy.loadout(s, user.id)
 
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -82,6 +107,9 @@ def create_app() -> FastAPI:
                 await asyncio.sleep(SWEEP_INTERVAL_S)
                 await manager.sweep()
 
+        if database is not None:
+            async with database.sessions.begin() as s:
+                await economy.seed_catalog(s)  # server-side catalog is the source of truth
         task = asyncio.create_task(sweeper())
         try:
             yield
@@ -90,9 +118,15 @@ def create_app() -> FastAPI:
             with contextlib.suppress(asyncio.CancelledError):
                 await task
             await manager.close_all()
+            if database is not None:
+                await database.dispose()
 
     app = FastAPI(title="ARENIX", version="0.2.0", lifespan=lifespan)
     app.state.rooms = manager
+    app.state.db = database
+    app.state.guest_limiter = RateLimiter(5, 60.0)
+    app.state.open_limiter = RateLimiter(30, 60.0)
+    app.include_router(economy_router)
     origins = os.environ.get("ARENIX_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"])
 
@@ -120,24 +154,30 @@ def create_app() -> FastAPI:
         return {"archetypes": list(ARCHETYPES)}
 
     @app.post("/api/rooms", status_code=201)
-    async def create_room(body: CreateRoomRequest, request: Request) -> SeatGrant:
+    async def create_room(
+        body: CreateRoomRequest, request: Request, authorization: str | None = Header(default=None)
+    ) -> SeatGrant:
         ip = request.client.host if request.client else "unknown"
         if not creates.allow(ip):
             raise HTTPException(status_code=429, detail={"code": "rate_limited", "message": "slow down"})
+        user_id, loadout = await identify(bearer(authorization))
         try:
             room = manager.create(fill_to=body.fill_to)
-            seat = room.add_seat(body.name, body.archetype)
+            seat = room.add_seat(body.name, body.archetype, user_id, loadout)
         except RoomError as e:
             raise http_error(e) from None
         return SeatGrant(code=room.code, player_id=seat.player_id, token=seat.token)
 
     @app.post("/api/rooms/{code}/join")
-    async def join_room(code: str, body: JoinRoomRequest) -> SeatGrant:
+    async def join_room(
+        code: str, body: JoinRoomRequest, authorization: str | None = Header(default=None)
+    ) -> SeatGrant:
+        user_id, loadout = await identify(bearer(authorization))
         try:
             room = manager.get(code)
             if room.practice:
                 raise RoomError("not_found", "room not found")
-            seat = room.add_seat(body.name, body.archetype)
+            seat = room.add_seat(body.name, body.archetype, user_id, loadout)
         except RoomError as e:
             raise http_error(e) from None
         return SeatGrant(code=room.code, player_id=seat.player_id, token=seat.token)
@@ -250,9 +290,11 @@ def create_app() -> FastAPI:
             )
             if params.archetype not in ARCHETYPES:
                 raise ValueError("unknown archetype")
+            # Browsers can't set headers on WebSockets, so the optional account token is a query param.
+            user_id, loadout = await identify(ws.query_params.get("auth", ""))
             room = manager.create(fill_to=params.bots + 1, practice=True)
-            seat = room.add_seat(params.name, params.archetype)
-        except (ValidationError, ValueError, RoomError):
+            seat = room.add_seat(params.name, params.archetype, user_id, loadout)
+        except (ValidationError, ValueError, RoomError, HTTPException):
             await ws.accept()
             await ws.close(code=4400, reason="invalid join parameters")
             return

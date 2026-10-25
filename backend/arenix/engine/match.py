@@ -103,6 +103,9 @@ class Contestant:
     connected: bool = True
     bell_used: bool = False
     objective: Objective | None = None
+    # Cosmetic loadout (validated server-side from the player's inventory) and unlocked phrases.
+    cosmetics: dict[str, Any] = field(default_factory=dict)
+    extra_phrases: dict[str, str] = field(default_factory=dict)
     last_interact_tick: int = -10_000
     last_chat_tick: int = -10_000
     last_ack_seq: int = 0
@@ -127,6 +130,7 @@ class Contestant:
             "score": self.score,
             "alive": self.alive,
             "connected": self.connected,
+            "cosmetics": self.cosmetics,
         }
 
     def roster_dict(self) -> dict[str, Any]:
@@ -138,6 +142,7 @@ class Contestant:
             "score": self.score,
             "alive": self.alive,
             "connected": self.connected,
+            "cosmetics": self.cosmetics,
         }
 
 
@@ -248,13 +253,23 @@ class Match:
         self.action_results: list[tuple[int, str, tuple[Any, ...], bool, str]] = []
 
     # ------------------------------------------------------------------ setup
-    def add_contestant(self, cid: str, name: str, archetype: str, is_bot: bool) -> Contestant:
+    def add_contestant(
+        self,
+        cid: str,
+        name: str,
+        archetype: str,
+        is_bot: bool,
+        cosmetics: dict[str, Any] | None = None,
+        phrases: dict[str, str] | None = None,
+    ) -> Contestant:
         if cid in self.contestants:
             raise ValueError(f"duplicate contestant {cid}")
         if archetype not in ARCHETYPES:
             raise ValueError(f"unknown archetype {archetype}")
         spawn = self.map.spawns[len(self.contestants) % len(self.map.spawns)]
         c = Contestant(cid, name, archetype, is_bot, spawn[0], spawn[1])
+        c.cosmetics = {k: v for k, v in (cosmetics or {}).items() if k in ("skin", "hat", "effect")}
+        c.extra_phrases = dict(phrases or {})
         self.contestants[cid] = c
         if is_bot:
             self.bots[cid] = self._bot_cls(cid, self.map, random.Random(f"{self.seed}:{cid}"))
@@ -494,9 +509,10 @@ class Match:
         if self.tick - c.last_chat_tick < CHAT_COOLDOWN_TICKS:
             return ActionResult(False, "chat_cooldown")
         if quick is not None:
-            if quick not in QUICK_CHAT:
-                return ActionResult(False, "unknown_phrase")
-            body = QUICK_CHAT[quick]
+            body_or_none = QUICK_CHAT.get(quick) or c.extra_phrases.get(quick)
+            if body_or_none is None:
+                return ActionResult(False, "unknown_phrase")  # locked packs can't be used
+            body = body_or_none
         else:
             clean = sanitize_chat(text or "")
             if clean is None:

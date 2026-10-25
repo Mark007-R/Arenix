@@ -143,12 +143,33 @@ export class GameClient {
     return this.snapshot?.status === "running";
   }
 
-  /** True while this player may move: running, exploring, alive, not typing in chat. */
+  /** True while this player may interact: running, exploring, alive, not typing in chat. */
   get canAct(): boolean {
     const s = this.snapshot;
     if (!s || s.status !== "running" || s.phase !== "explore") return false;
     const me = s.roster.find((r) => r.id === this.you);
     return !!me?.alive && !this.store.get().typing;
+  }
+
+  /** Movement is also allowed for ghosts in impostor mode. */
+  get canMove(): boolean {
+    const s = this.snapshot;
+    if (!s || s.status !== "running" || s.phase !== "explore" || this.store.get().typing) return false;
+    return this.isGhost || this.canAct;
+  }
+
+  /** Impostor mode: killed (by an impostor or the council) but still watching. */
+  get isGhost(): boolean {
+    const s = this.snapshot;
+    return s?.mode === "impostor" && s.me?.alive === false;
+  }
+
+  kill(target: string): void {
+    this.send({ type: "kill", target });
+  }
+
+  ability(target: string | null): void {
+    this.send({ type: "ability", target });
   }
 
   say(body: { text: string } | { quick: string }, to: string | null = null): void {
@@ -180,7 +201,7 @@ export class GameClient {
     const p = this.predictor;
     if (!p) return;
     this.prev = { x: p.x, y: p.y };
-    if (!this.canAct || (dx === 0 && dy === 0)) return;
+    if (!this.canMove || (dx === 0 && dy === 0)) return;
     const input = p.applyLocal(dx, dy);
     this.send({ type: "input", seq: input.seq, dx: input.dx, dy: input.dy });
   }
@@ -217,6 +238,7 @@ export class GameClient {
         this.solid = collisionLookup(msg.map.collision, msg.map.width, msg.map.height);
         const me = msg.snapshot.contestants.find((c) => c.id === msg.you)!;
         this.predictor = new Predictor(this.solid, me.x, me.y, msg.resume_seq);
+        this.predictor.speed = msg.snapshot.me?.speed ?? 1;
         this.prev = { x: me.x, y: me.y };
         this.correction = { x: 0, y: 0 };
         this.buffers.clear();
@@ -228,7 +250,12 @@ export class GameClient {
           snapshot: msg.snapshot,
           me: { x: me.x, y: me.y },
           matchId: msg.match_id,
-          ...(isNewMatch ? { result: null, feed: [], chat: [], rewards: null } : {}),
+          ...(isNewMatch
+            ? {
+                result: null, feed: [], chat: [], rewards: null, lastVote: null, meetingCause: null,
+                intro: msg.snapshot.mode === "impostor" ? performance.now() : null,
+              }
+            : {}),
         });
         break;
       }
@@ -242,6 +269,7 @@ export class GameClient {
           b.push(now, c.x, c.y);
         }
         const me = msg.contestants.find((c) => c.id === this.you);
+        if (this.predictor && msg.me?.speed) this.predictor.speed = msg.me.speed;
         if (me && this.predictor) {
           const bx = this.predictor.x;
           const by = this.predictor.y;
@@ -277,7 +305,9 @@ export class GameClient {
 
   private handleEvent(ev: GameEventDTO): void {
     if (ev.type === "chat") {
-      const d = ev.data as { sender: string; text: string; private: boolean; to: string | null; kind?: string | null };
+      const d = ev.data as {
+        sender: string; text: string; private: boolean; to: string | null; kind?: string | null; ghost?: boolean;
+      };
       const line = {
         id: ++this.feedId,
         sender: d.sender,
@@ -287,8 +317,11 @@ export class GameClient {
         to: d.to,
         mine: d.sender === this.you,
         kind: d.kind ?? null,
+        ghost: !!d.ghost,
+        tick: ev.tick,
+        meeting: this.snapshot?.phase === "explore" ? 0 : (this.snapshot?.meeting ?? 0),
       };
-      this.store.set((s) => ({ chat: [...s.chat.slice(-40), line] }));
+      this.store.set((s) => ({ chat: [...s.chat.slice(-80), line] }));
       this.listeners.forEach((l) => l(ev));
       return;
     }
@@ -299,8 +332,16 @@ export class GameClient {
     }
     if (ev.type === "match_finished") this.store.set({ result: ev.data as unknown as MatchResult });
     if (ev.type === "vote_resolved") {
-      const d = ev.data as { votes: Record<string, string>; eliminated: string | null; skip: number };
-      this.store.set({ lastVote: { votes: d.votes, eliminated: d.eliminated, skip: d.skip } });
+      const d = ev.data as {
+        votes: Record<string, string>; eliminated: string | null; skip: number; was_impostor?: boolean; impostors_left?: number;
+      };
+      this.store.set({
+        lastVote: { votes: d.votes, eliminated: d.eliminated, skip: d.skip, was_impostor: d.was_impostor, impostors_left: d.impostors_left },
+      });
+    }
+    if (ev.type === "meeting_called") {
+      const d = ev.data as { cause: string; caller: string | null; victim?: string; region?: string };
+      this.store.set({ meetingCause: { cause: d.cause, caller: d.caller, victim: d.victim, region: d.region } });
     }
     this.listeners.forEach((l) => l(ev));
   }

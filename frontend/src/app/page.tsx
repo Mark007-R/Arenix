@@ -13,7 +13,7 @@ export default function Home() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [archetype, setArchetype] = useState("knight");
-  const [bots, setBots] = useState(2);
+  const [bots, setBots] = useState(5);
   const [fillTo, setFillTo] = useState(6);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export default function Home() {
     /* eslint-disable react-hooks/set-state-in-effect -- hydrate from localStorage after mount */
     setName(p.name);
     setArchetype(ARCHETYPE_KEYS.includes(p.archetype) ? p.archetype : "knight");
-    setBots(Math.min(7, Math.max(0, p.bots)));
+    setBots(Math.min(7, Math.max(4, p.bots)));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -105,14 +105,14 @@ export default function Home() {
             <h2 className="text-lg font-bold text-gold">Practice</h2>
             <p className="text-sm text-parchment/75">Solo match against AI contestants.</p>
             <label htmlFor="bots" className="text-sm">AI contestants: {bots}</label>
-            <input id="bots" type="range" min={0} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#f4c542]" />
+            <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#f4c542]" />
             <button className="btn mt-auto" onClick={practice}>▶ Play practice</button>
           </section>
           <section className="panel flex flex-col gap-3 p-5">
             <h2 className="text-lg font-bold text-gold">Create room</h2>
             <p className="text-sm text-parchment/75">Get a code to share. AI fills empty seats.</p>
             <label htmlFor="fill" className="text-sm">Contestants: {fillTo}</label>
-            <input id="fill" type="range" min={1} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#f4c542]" />
+            <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#f4c542]" />
             <button className="btn mt-auto" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create room"}</button>
           </section>
           <section className="panel flex flex-col gap-3 p-5">
@@ -134,14 +134,14 @@ export default function Home() {
           <h2 className="mb-2 text-base font-bold text-gold">How to play</h2>
           <ul className="grid gap-1 sm:grid-cols-2">
             <li><b className="text-parchment">WASD / Arrows</b> move · <b className="text-parchment">E / Space</b> interact</li>
-            <li><b className="text-parchment">Enter</b> chat · <b className="text-parchment">Q</b> quick-chat · click a name to ally</li>
-            <li>Repair the <b className="text-parchment">Watchtower</b> with wood (forest) and stone (mine).</li>
-            <li>Wake the <b className="text-parchment">Shrine</b> together: three channelers within 10 seconds.</li>
-            <li>The <b className="text-parchment">council</b> meets regularly and votes someone out.</li>
-            <li>Keep your <b className="text-parchment">secret objective</b>. The top-scoring survivor wins.</li>
+            <li><b className="text-parchment">Enter</b> chat · <b className="text-parchment">K</b> eliminate (impostors) · click a name to ally</li>
+            <li>Someone is secretly the <b className="text-ember">impostor</b>. Everyone else is an islander.</li>
+            <li>Islanders: repair the <b className="text-parchment">Watchtower</b>, light the 5 <b className="text-parchment">beacons</b>, report bodies.</li>
+            <li>Impostor: eliminate islanders unseen, lie at the <b className="text-parchment">council</b>, don&apos;t get voted out.</li>
+            <li>Every match you get a random <b className="text-parchment">skill</b> — Swift, Scout, Detective, Medic…</li>
           </ul>
           <p className="mt-3 text-xs text-parchment/50">
-            AI contestants currently use a rule-based policy; LLM-driven strategy arrives in a later milestone.
+            AI contestants are rule-based: they act and talk only from what they actually saw (no LLM in this mode).
           </p>
         </section>
       </div>

@@ -18,13 +18,15 @@ export interface ReplayState {
   last_votes: Record<string, string>;
   finished: boolean;
   winner: string | null;
+  beacons: Record<string, boolean>;
+  winning_team: string | null;
 }
 
 export function initialReplay(): ReplayState {
   return {
     tick: 0, seq: 0, phase: "explore", meeting: 0, contestants: [], scores: {}, alive: {},
     delivered: { wood: 0, stone: 0 }, required: {}, tower_repaired: false, shrine: "dormant",
-    alliances: {}, positions: {}, last_votes: {}, finished: false, winner: null,
+    alliances: {}, positions: {}, last_votes: {}, finished: false, winner: null, beacons: {}, winning_team: null,
   };
 }
 
@@ -41,6 +43,7 @@ export function apply(s: ReplayState, ev: GameEventDTO): ReplayState {
       n.scores = Object.fromEntries(d.contestants.map((c: string) => [c, 0]));
       n.alive = Object.fromEntries(d.contestants.map((c: string) => [c, true]));
       n.required = { ...d.required };
+      n.beacons = Object.fromEntries((d.beacons ?? []).map((b: string) => [b, false]));
       break;
     case "resources_delivered":
       add(d.contestant, d.points);
@@ -77,6 +80,23 @@ export function apply(s: ReplayState, ev: GameEventDTO): ReplayState {
     case "meeting_ended":
       n.phase = "explore";
       break;
+    case "contestant_killed": {
+      add(d.killer, d.points);
+      n.alive = { ...n.alive, [d.victim]: false };
+      const positions = { ...n.positions };
+      delete positions[d.victim];
+      n.positions = positions;
+      const al = { ...n.alliances };
+      const partner = al[d.victim];
+      delete al[d.victim];
+      if (partner) delete al[partner];
+      n.alliances = al;
+      break;
+    }
+    case "beacon_lit":
+      n.beacons = { ...n.beacons, [d.beacon]: true };
+      add(d.contestant, d.points);
+      break;
     case "contestant_eliminated": {
       n.alive = { ...n.alive, [d.contestant]: false };
       const positions = { ...n.positions };
@@ -107,6 +127,7 @@ export function apply(s: ReplayState, ev: GameEventDTO): ReplayState {
     case "match_finished":
       n.finished = true;
       n.winner = d.winner;
+      n.winning_team = d.winning_team ?? null;
       for (const st of d.standings) add(st.id, Object.values(st.bonuses as Record<string, number>).reduce((a, b) => a + b, 0));
       break;
   }

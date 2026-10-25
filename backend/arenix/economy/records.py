@@ -153,7 +153,8 @@ async def persist_match(
         uid = user_ids.get(st["id"])
         if uid is None:
             continue
-        rewards[uid] = await _award(s, uid, match, st, st["id"] == winner)
+        # Impostor mode: everyone on the winning team won.
+        rewards[uid] = await _award(s, uid, match, st, bool(st.get("won", st["id"] == winner)))
     return rewards
 
 

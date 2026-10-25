@@ -26,6 +26,7 @@ from .economy_api import bearer
 from .economy_api import router as economy_router
 from .protocol import (
     MAX_MESSAGE_BYTES,
+    AbilityMsg,
     BreakMsg,
     ChatMsg,
     CreateRoomRequest,
@@ -34,6 +35,7 @@ from .protocol import (
     InteractMsg,
     JoinParams,
     JoinRoomRequest,
+    KillMsg,
     PingMsg,
     ProposeMsg,
     ReadyMsg,
@@ -369,6 +371,10 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
                             reply = room.handle_action(seat, "respond", proposer=msg.proposer, accept=msg.accept)
                         elif isinstance(msg, BreakMsg):
                             reply = room.handle_action(seat, "break")
+                        elif isinstance(msg, KillMsg):
+                            reply = room.handle_action(seat, "kill", target=msg.target)
+                        elif isinstance(msg, AbilityMsg):
+                            reply = room.handle_action(seat, "ability", target=msg.target)
                         if reply is not None:
                             conn.push(reply)
                     except RoomError as e:

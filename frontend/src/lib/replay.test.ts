@@ -5,14 +5,19 @@ import { replayTo } from "./replay";
 import type { GameEventDTO } from "@/shared/protocol";
 
 const vectors = JSON.parse(readFileSync(path.resolve(__dirname, "../../../shared/test-vectors/replay.json"), "utf8")) as {
-  events: GameEventDTO[];
-  checkpoints: { seq: number; state: Record<string, unknown> }[];
+  matches: {
+    mode: string;
+    events: GameEventDTO[];
+    checkpoints: { seq: number; state: Record<string, unknown> }[];
+  }[];
 };
 
 describe("replay reducer parity with the Python server", () => {
-  for (const cp of vectors.checkpoints) {
-    it(`matches the server state at seq ${cp.seq}`, () => {
-      expect(replayTo(vectors.events, cp.seq)).toEqual(cp.state);
-    });
+  for (const match of vectors.matches) {
+    for (const cp of match.checkpoints) {
+      it(`matches the server state (${match.mode}) at seq ${cp.seq}`, () => {
+        expect(replayTo(match.events, cp.seq)).toEqual(cp.state);
+      });
+    }
   }
 });

@@ -18,6 +18,8 @@ export interface PendingInput {
 export class Predictor {
   x: number;
   y: number;
+  /** Movement multiplier from the player's skill (Swift); must match the server's. */
+  speed = 1;
   private pending: PendingInput[] = [];
   private nextSeq: number;
 
@@ -36,7 +38,7 @@ export class Predictor {
   /** Apply a local input and return the message to send. */
   applyLocal(dx: number, dy: number): PendingInput {
     const input = { seq: this.nextSeq++, dx, dy };
-    [this.x, this.y] = step(this.solid, this.x, this.y, dx, dy);
+    [this.x, this.y] = step(this.solid, this.x, this.y, dx, dy, this.speed);
     this.pending.push(input);
     if (this.pending.length > 120) this.pending.shift();
     return input;
@@ -49,7 +51,7 @@ export class Predictor {
     this.pending = this.pending.filter((p) => p.seq > ackSeq);
     let x = serverX;
     let y = serverY;
-    for (const p of this.pending) [x, y] = step(this.solid, x, y, p.dx, p.dy);
+    for (const p of this.pending) [x, y] = step(this.solid, x, y, p.dx, p.dy, this.speed);
     this.x = x;
     this.y = y;
     return Math.hypot(x - beforeX, y - beforeY);

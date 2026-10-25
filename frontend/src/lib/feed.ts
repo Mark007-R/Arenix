@@ -24,7 +24,20 @@ const REASONS: Record<string, string> = {
   no_proposal: "That offer has expired.",
   already_voted: "You already voted.",
   wrong_phase: "Not now.",
+  kill_cooldown: "Your knife isn't ready yet.",
+  not_impostor: "Only an impostor can do that.",
+  need_wood: "A beacon burns one wood — bring some from the forest.",
+  already_lit: "That beacon is already burning.",
+  ability_used: "You already used your ability this match.",
+  no_active_skill: "Your skill works on its own — nothing to activate.",
+  shielded: "A magic shield blocked your attack!",
 };
+
+/** "Old Mine" -> "the Old Mine"; "the wilds" stays as it is. */
+export function place(region: unknown): string {
+  const r = String(region ?? "the wilds");
+  return r.startsWith("the ") ? r : `the ${r}`;
+}
 
 export function rejectionText(reason: string): string {
   return REASONS[reason] ?? "That didn't work.";
@@ -50,7 +63,53 @@ export function formatEvent(
   const mine = d.contestant === you;
   switch (ev.type) {
     case "match_started":
-      return { text: "The match begins! Repair the tower, survive the council.", tone: "info" };
+      return d.mode === "impostor"
+        ? { text: "The match begins. Someone among you is an impostor…", tone: "info" }
+        : { text: "The match begins! Repair the tower, survive the council.", tone: "info" };
+    case "role_assigned":
+      return d.role === "impostor"
+        ? {
+            text: `You are the IMPOSTOR${(d.fellow as string[]).length ? ` (with ${(d.fellow as string[]).map(whom).join(", ")})` : ""}. Eliminate islanders without being caught.`,
+            tone: "bad",
+          }
+        : { text: "You are an ISLANDER. Finish the tasks and vote out the impostor.", tone: "good" };
+    case "skill_assigned": {
+      const sk = d.skill as { name: string; text: string };
+      return { text: `Your skill this match: ${sk.name} — ${sk.text}`, tone: "mine" };
+    }
+    case "contestant_killed":
+      if (d.victim === you) return { text: `${who(d.killer)} killed you! You are now a ghost.`, tone: "bad" };
+      if (d.killer === you) return { text: `You eliminated ${whom(d.victim)}. Get away before someone finds the body.`, tone: "mine" };
+      return { text: `${who(d.killer)} eliminated ${whom(d.victim)}.`, tone: "info" };
+    case "kill_witnessed":
+      return { text: `You SAW ${who(d.killer)} kill ${whom(d.victim)} in ${place(d.region)}!`, tone: "bad" };
+    case "lookout_alert":
+      return { text: `Lookout: you sense a death near ${place(d.region)}.`, tone: "bad" };
+    case "shield_cast":
+      return { text: `You shielded ${whom(d.target)}. It will block one attack.`, tone: "mine" };
+    case "shield_blocked":
+      if (d.target === you) return { text: `${who(d.attacker)} attacked you — a shield saved you!`, tone: "bad" };
+      if (d.attacker === you) return { text: `Your attack on ${whom(d.target)} was blocked by a shield!`, tone: "bad" };
+      return { text: `Your shield saved ${whom(d.target)} from ${who(d.attacker)}!`, tone: "mine" };
+    case "detective_clue": {
+      const [a, b] = d.suspects as [string, string];
+      return { text: `Detective clue: the killer is either ${who(a)} or ${who(b)}.`, tone: "mine" };
+    }
+    case "shrine_vision":
+      return { text: `Shrine vision: ${who(d.innocent)} is innocent.`, tone: "mine" };
+    case "deaths_revealed":
+      return { text: `Dead: ${(d.dead as string[]).map(who).join(", ")}.`, tone: "bad" };
+    case "ally_lost":
+      return { text: `Your alliance with ${whom(d.ally)} suddenly broke… something happened to them.`, tone: "bad" };
+    case "beacon_lit":
+      return {
+        text: `${who(d.contestant)} lit the beacon at ${place(d.region)} (${String(d.lit)}/${String(d.total)}).`,
+        tone: mine ? "mine" : "good",
+      };
+    case "beacon_faked":
+      return { text: "You pretended to tend the beacon. It stays dark.", tone: "mine" };
+    case "delivery_faked":
+      return { text: "You pretended to deliver. Nothing was added to the tower.", tone: "mine" };
     case "objective_assigned":
       return { text: `Secret objective: ${(d.objective as { text: string }).text}`, tone: "mine" };
     case "resource_gathered":
@@ -72,15 +131,22 @@ export function formatEvent(
       return { text: "The shrine's glow fades — not enough help arrived.", tone: "bad" };
     case "meeting_called":
       return {
-        text: d.cause === "bell" ? `${who(d.caller)} rang the Council Bell!` : "The council convenes.",
-        tone: "info",
+        text:
+          d.cause === "body"
+            ? `${who(d.caller)} found ${whom(d.victim)}'s body in ${place(d.region)}!`
+            : d.cause === "bell"
+              ? `${who(d.caller)} rang the Council Bell!`
+              : "The council convenes.",
+        tone: d.cause === "body" ? "bad" : "info",
       };
     case "vote_started":
       return { text: "Voting is open.", tone: "info" };
     case "vote_resolved":
-      return d.eliminated
-        ? { text: `The council voted out ${whom(d.eliminated)}.`, tone: d.eliminated === you ? "bad" : "info" }
-        : { text: "No one was voted out.", tone: "info" };
+      if (!d.eliminated) return { text: "No one was voted out.", tone: "info" };
+      if (d.was_impostor === true)
+        return { text: `${who(d.eliminated)} was an impostor! (${String(d.impostors_left)} left)`, tone: "good" };
+      if (d.was_impostor === false) return { text: `${who(d.eliminated)} was NOT an impostor.`, tone: "bad" };
+      return { text: `The council voted out ${whom(d.eliminated)}.`, tone: d.eliminated === you ? "bad" : "info" };
     case "alliance_proposed":
       return d.proposer === you
         ? { text: `You offered ${whom(d.target)} an alliance.`, tone: "mine" }

@@ -1,50 +1,72 @@
 # ARENIX
 
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
-explore an island, complete missions, form alliances, betray each other and compete to win.
+explore an island, do tasks, argue in council meetings and try to find out who among them is the
+**impostor** — while the impostor quietly picks them off.
 
-> **Status: Milestones 1–6 done, 7 partly done.** Play practice matches or multiplayer rooms (share a code; AI fills
-> empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
-> eliminations. AI seats can be driven by strategist agents (offline heuristic planner or an LLM)
-> that negotiate over a structured protocol. With a database, players earn Game Points and open
-> cosmetic crates (odds always shown). The **Agent Lab** (`/lab`) shows interaction graphs,
-> timelines, decision inspection, replays and experiment comparisons. LLM strategists are
-> implemented but have not yet been run against the live API. See
-> [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
+> **Status: Milestones 1–6 and 8 done, 7 partly done.** Play practice matches or multiplayer
+> rooms (share a code; AI fills empty seats) in **impostor mode** on the 96×72 Moonfall Isle:
+> hidden roles, kills, body reports, ghosts, random per-match skills and council meetings with a
+> real chat room. AI contestants do tasks, report bodies and talk in natural sentences built
+> from what they actually saw (rule-based, no LLM). The original **classic (council) mode**
+> remains in the engine with strategist agents (offline heuristic planner or an LLM) for the
+> benchmarks. With a database, players earn Game Points and open cosmetic crates (odds always
+> shown). The **Agent Lab** (`/lab`) shows interaction graphs, timelines, decision inspection,
+> replays and experiment comparisons. See [docs/MILESTONES.md](docs/MILESTONES.md) for exact
+> status and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Home screen: choose a name and a contestant](docs/screenshots/1-home.png) | ![A practice match starting in the village plaza](docs/screenshots/2-game-start.png) |
-| **Home:** pick a contestant, then practice, create or join a room | **In a match:** mission panel, minimap, scoreboard, chat and pack |
-| ![Council meeting, discussion phase](docs/screenshots/4-council-meeting.png) | ![Council meeting, voting phase](docs/screenshots/5-council-vote.png) |
-| **Council discussion:** AI contestants make claims in chat | **Council vote:** vote someone out or skip |
-| ![Crates with their odds](docs/screenshots/6-collection.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/7-agent-lab.png) |
+| ![Home screen](docs/screenshots/1-home.png) | ![Secret role reveal at the start of a match](docs/screenshots/2-role-reveal.png) |
+| **Home:** pick a contestant, then practice, create or join a room | **Role reveal:** your secret role and this match's skill |
+| ![Exploring Moonfall Isle as the impostor](docs/screenshots/3-exploring.png) | ![A council meeting with the chat room](docs/screenshots/4-meeting-chat.png) |
+| **In a match:** role and skill card, tasks, beacons, minimap, kill button | **Council meeting:** vote on the left, a real chat room on the right — the AI answers you |
+| ![A body on the ground with a report prompt](docs/screenshots/5-body.png) | ![Team results with every role revealed](docs/screenshots/6-results.png) |
+| **A body:** walk up and press E to report it | **Results:** winning team, every role and skill revealed |
+| ![Crates with their odds](docs/screenshots/7-collection.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/8-agent-lab.png) |
 | **Collection:** cosmetic crates with all odds shown | **Agent Lab:** interaction graph, replay and decision inspector |
 
 ## What you can do today
 
-* **Practice** alone against AI, or **create a room** and share its 6-character code or invite
-  link. Friends join, everyone readies up, and the host starts. Reloading or a dropped
-  connection puts you back into the same contestant.
+* **Practice** against 4–7 AI contestants, or **create a room** and share its 6-character code
+  or invite link (AI fills the field up to at least 5). Friends join, everyone readies up, and the
+  host starts. Reloading or a dropped connection puts you back into the same contestant.
 * Pick one of 8 original pixel-art contestants (cosmetic only, so everyone plays the same).
-* Explore a 64×48 island: village plaza, forest, river and bridges, mine, castle arena, shrine
-  ruins and a hidden glade.
-* Move with **WASD / arrow keys**. Movement is predicted on the client and confirmed by the server.
-* Press **E / Space** at a prompt to gather **wood** (forest) or **stone** (mine). Carry up to 3 and
-  deliver them to the ruined **Watchtower**. Wake the **Ancient Shrine** with two others inside
-  10 seconds.
-* Every 75 s, or when someone rings the **Council Bell**, the council meets: discuss in chat, then
-  vote someone out (or skip). Click a name to offer an **alliance** (shared bonus, whispers,
-  mutual visibility). Betraying your ally in a vote is public.
-* Each contestant has a private **secret objective**. When time runs out or two remain, the
-  top-scoring survivor wins.
-* AI contestants plan routes with A*, keep a trust model of everyone, form and break alliances,
-  vote and react in chat, all through the same validated actions as you.
-* The HUD shows mission progress, a minimap, a scoreboard, your pack, an event feed and the
-  results screen. There is a reduced-motion toggle and touch controls on small screens.
+* Explore **Moonfall Isle** (96×72 tiles): village plaza with the Council Bell, Whispering
+  Forest and Moon Lake, the Watchtower, a river, the walled Old Mine, Misty Marsh, Lighthouse
+  Point, the Castle Arena, an old quarry, fishing docks, an apple orchard, shrine ruins and a
+  hidden glade.
+* At the start you secretly learn your **role**: one contestant (two from 7 players) is the
+  **impostor**, everyone else is an **islander**. Impostors know each other.
+* **Islanders** gather wood and stone for the Watchtower and carry wood to light the **5
+  beacons** at the island's far corners. They win by voting out every impostor, or by finishing
+  the tower and every beacon.
+* **Impostors** eliminate islanders by standing next to them and pressing **K** (with a
+  cooldown), fake tasks to blend in and lie in meetings. They win when they equal the islanders
+  in number, or when time runs out.
+* Anyone near the kill sees it happen. Everyone else finds out only when a **body** is found:
+  walk up and press **E** to report it, and the council meets. The Council Bell calls an
+  emergency meeting (once per player), and there is a scheduled meeting every 90 s.
+* Meetings open a **chat room** next to the ballot: say where you were, accuse, defend, then
+  vote someone out or skip. Ejections are confirmed ("…was / was NOT an impostor").
+* The dead become **ghosts**: they roam unseen and can only chat with other ghosts.
+* Every match each contestant gets a random **skill**: Swift (faster), Scout (sees further),
+  Strongback (carries 5), Detective (learns two names when reporting, one is the killer), Medic
+  (one shield that blocks an attack) or Lookout (senses nearby kills).
+* You only see what's near you (13 tiles, more for Scouts), and only people nearby see you
+  complete a task — so "I saw them deliver stone" is real evidence.
+* AI contestants plan routes with A*, do tasks, report bodies, remember who they saw where, and
+  talk in varied natural sentences built only from what they observed. AI impostors stalk
+  people who are alone, strike only when unwatched, and then lie and shift the blame. They read
+  your messages too: name one of them and ask "where were you?" and it answers.
+* Click a name to offer an **alliance** (shared bonus, whispers, mutual visibility).
+* The HUD shows your role and skill, the tasks, a minimap with beacons, a scoreboard, your pack,
+  an event feed and the results screen with every role revealed. There is a reduced-motion
+  toggle and touch controls on small screens.
+* **Classic mode** (the original council game on the 64×48 Emerald Isle) is still in the engine;
+  the simulation runner and the strategist agents use it.
 
 ## Run locally
 
@@ -84,7 +106,7 @@ Python 3.13 (`backend/.python-version`); uv downloads it automatically.
 |---|---|---|---|
 | `ARENIX_CORS_ORIGINS` | backend | `http://localhost:3000` | comma-separated allowed origins for REST |
 | `NEXT_PUBLIC_ARENIX_WS` | frontend (build time) | `ws://<page host>:8000` | WebSocket base URL of the game server |
-| `ARENIX_AGENT_PROVIDER` | backend | `off` | AI seat strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (LLM via the Anthropic API) |
+| `ARENIX_AGENT_PROVIDER` | backend | `off` | classic-mode AI strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (LLM via the Anthropic API). Impostor mode always uses its rule-based bots |
 | `ARENIX_AGENT_MODEL` | backend | unset | model ID for strategists; required when the provider is `anthropic` |
 | `ARENIX_AGENT_PRICE_PER_MTOK` | backend | unset | `input,output` USD per million tokens (e.g. `4,20`); enables cost estimates and the cost budget |
 | `ARENIX_AGENT_EFFORT` | backend | `low` | model effort level (decisions must land within seconds) |
@@ -160,7 +182,11 @@ docs/                   architecture and milestone checklist
 * Rooms are held in one server process's memory. Running several backend processes needs
   sticky routing first. Server restarts end all rooms.
 * LLM strategists (`ARENIX_AGENT_PROVIDER=anthropic`) are implemented and unit-tested against a
-  fake SDK client, but have not yet been run against the live API from this repository.
+  fake SDK client, but have not yet been run against the live API from this repository. They
+  drive classic mode only; in impostor mode every AI seat uses the rule-based deduction bots.
+* AI chat in impostor mode is generated from templates (many wordings per intent, grounded in
+  what the bot saw). It reacts to names, accusations and "where were you?", but it can't hold
+  an open-ended conversation.
 * The chat filter is a small placeholder blocklist, not real moderation.
 * Guest accounts only (no login or recovery). Clearing browser storage loses the account.
 * Payments are mocked. There is no real payment provider, regional detection or direct-purchase

@@ -16,7 +16,9 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
   const me = lobby.seats.find((s) => s.player_id === you);
   const isHost = !!me?.is_host;
   const humans = lobby.seats.length;
-  const aiCount = Math.max(0, lobby.fill_to - humans);
+  const impostorMode = lobby.mode === "impostor";
+  const minField = lobby.min_contestants ?? 1;
+  const aiCount = Math.max(0, Math.max(lobby.fill_to, minField) - humans);
   const open = lobby.capacity - Math.max(lobby.fill_to, humans);
   const waitingFor = lobby.seats.filter((s) => s.connected && !s.ready).map((s) => s.name);
 
@@ -74,7 +76,9 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                 <div className="flex-1">
                   <div className="font-bold">AI contestant</div>
                   <div className="text-xs">
-                    {lobby.ai_mode === "anthropic"
+                    {impostorMode
+                      ? "Does tasks, reports bodies, argues from what it saw — or lies, if it's the impostor"
+                      : lobby.ai_mode === "anthropic"
                       ? "AI strategist · negotiates, allies, votes (rule-based fallback)"
                       : lobby.ai_mode === "heuristic"
                         ? "Heuristic strategist · negotiates via the agent protocol"
@@ -104,12 +108,12 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
             {isHost ? (
               <div className="flex flex-wrap items-center gap-4">
                 <label className="text-sm">
-                  <span className="mr-2 text-gold">Total contestants: {lobby.fill_to}</span>
+                  <span className="mr-2 text-gold">Total contestants: {Math.max(lobby.fill_to, minField)}</span>
                   <input
                     type="range"
-                    min={Math.max(1, humans)}
+                    min={Math.max(minField, humans)}
                     max={lobby.capacity}
-                    value={lobby.fill_to}
+                    value={Math.max(lobby.fill_to, minField)}
                     onChange={(e) => client.send({ type: "set_fill", fill_to: Number(e.target.value) })}
                     className="w-40 accent-[#f4c542] align-middle"
                   />
@@ -134,11 +138,21 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
 
         <aside className="flex flex-col gap-4">
           <section className="panel p-4">
-            <h2 className="mb-2 font-bold text-gold">Emerald Isle</h2>
+            <h2 className="mb-2 font-bold text-gold">{impostorMode ? "Moonfall Isle" : "Emerald Isle"}</h2>
             <MapPreview mapId={lobby.map_id} />
           </section>
           <section className="panel p-4 text-sm leading-relaxed text-parchment/85">
             <h2 className="mb-1 font-bold text-gold">Rules</h2>
+            {impostorMode ? (
+              <ul className="list-disc space-y-1 pl-5">
+                <li>One contestant (two from 7 players) is secretly the <b>impostor</b>. Everyone else is an islander.</li>
+                <li>Islanders win by voting out every impostor, or by repairing the Watchtower and lighting all 5 beacons (each burns 1 wood).</li>
+                <li>Impostors eliminate islanders when nobody is watching. They win when they equal the islanders, or when time runs out.</li>
+                <li>Find a body? Report it (E) and the council meets. Anyone can also ring the Council Bell once.</li>
+                <li>Everyone gets a random skill each match: Swift, Scout, Strongback, Detective, Medic or Lookout.</li>
+                <li>The dead become ghosts: they roam unseen and can only talk to other ghosts.</li>
+              </ul>
+            ) : (
             <ul className="list-disc space-y-1 pl-5">
               <li>Gather wood and stone to repair the Watchtower (+10 per unit, +50 to every contributor).</li>
               <li>Wake the Ancient Shrine: three contestants must channel within 10 seconds (+40 each).</li>
@@ -146,14 +160,20 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               <li>Form one alliance: allies share a delivery bonus, see each other and can whisper. Voting against your ally is a public betrayal.</li>
               <li>You get a secret objective (+60). Survivors get +50. After 7 minutes, or when two remain, the top-scoring survivor wins.</li>
             </ul>
+            )}
           </section>
           {lobby.last_result && (
             <section className="panel p-4 text-sm">
               <h2 className="mb-1 font-bold text-gold">Last match</h2>
               <p>
-                {lobby.last_result.winner
-                  ? `${lobby.last_result.standings.find((s) => s.id === lobby.last_result!.winner)?.name} was MVP.`
-                  : "Time ran out — no winner."}
+                {lobby.last_result.winning_team
+                  ? `The ${lobby.last_result.winning_team === "impostor" ? "impostors" : "islanders"} won. Impostor: ${lobby.last_result.standings
+                      .filter((s) => s.role === "impostor")
+                      .map((s) => s.name)
+                      .join(", ")}.`
+                  : lobby.last_result.winner
+                    ? `${lobby.last_result.standings.find((s) => s.id === lobby.last_result!.winner)?.name} was MVP.`
+                    : "Time ran out — no winner."}
               </p>
             </section>
           )}

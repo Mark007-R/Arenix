@@ -17,12 +17,20 @@ export interface ChatLine {
   mine: boolean;
   /** Structured agent-protocol message type (PLAN_PROPOSAL, ACCEPT, …), null for plain chat. */
   kind: string | null;
+  /** Sent by a ghost; only other ghosts see it. */
+  ghost: boolean;
+  /** Match tick and meeting number when it was said (to group meeting chat). */
+  tick: number;
+  meeting: number;
 }
 
 export interface VoteReveal {
   votes: Record<string, string>;
   eliminated: string | null;
   skip: number;
+  /** Impostor mode: ejections are confirmed. */
+  was_impostor?: boolean;
+  impostors_left?: number;
 }
 
 export interface HudState {
@@ -42,9 +50,15 @@ export interface HudState {
   /** Chat input focused: the game must ignore movement keys. */
   typing: boolean;
   prompt: { targetId: string; label: string } | null;
+  /** Impostor mode: the islander currently in kill range (if the knife is ready). */
+  killTarget: { id: string; name: string } | null;
   toast: { id: number; text: string } | null;
   result: MatchResult | null;
   lastVote: VoteReveal | null;
+  /** Why the current meeting was called (impostor mode shows the body report). */
+  meetingCause: { cause: string; caller: string | null; victim?: string; region?: string } | null;
+  /** Impostor mode: role + skill splash shown at the start of a match. */
+  intro: number | null;
   rewards: RewardsMsg | null;
   pingMs: number | null;
   reducedMotion: boolean;
@@ -83,9 +97,12 @@ export const initialHud = (): HudState => ({
   chat: [],
   typing: false,
   prompt: null,
+  killTarget: null,
   toast: null,
   result: null,
   lastVote: null,
+  meetingCause: null,
+  intro: null,
   rewards: null,
   pingMs: null,
   reducedMotion: false,

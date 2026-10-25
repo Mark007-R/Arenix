@@ -103,6 +103,7 @@ class BotBrain:
         # Hooks for an external strategist (the LLM agent layer). The engine never sees an LLM:
         # it only receives the queued actions and validates them like any other.
         self.social_mode = "fallback"  # fallback: own social policy | external: strategist decides
+        self.communicate = True  # False = "independent" baseline: no chat, no alliance offers
         self.external_actions: deque[tuple[Any, ...]] = deque()
         self.goal_hint: str | None = None  # gather_wood | gather_stone | deliver | shrine | idle
         self.goal_hint_until = 0
@@ -178,7 +179,7 @@ class BotBrain:
                 )
                 self.answer_at.pop(proposer, None)
 
-        if obs.phase == "explore" and obs.ally is None and others and obs.tick >= self.social_at:
+        if self.communicate and obs.phase == "explore" and obs.ally is None and others and obs.tick >= self.social_at:
             self.social_at = obs.tick + self.rng.randint(500, 1100)
             if self.rng.random() < p.agreeable:
                 candidates = sorted(others, key=lambda o: (-self.beliefs.trust.get(o, 0.0), self.rng.random()))
@@ -202,6 +203,9 @@ class BotBrain:
             self.vote_at = None
 
         ready_lines = [c for c in self.pending_chat if c[0] <= obs.tick]
+        if not self.communicate:
+            self.pending_chat.clear()
+            ready_lines = []
         if ready_lines:
             self.pending_chat = [c for c in self.pending_chat if c[0] > obs.tick]
             actions.append(("chat", ready_lines[0][1]))

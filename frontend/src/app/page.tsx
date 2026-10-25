@@ -71,7 +71,8 @@ export default function Home() {
         <header className="text-center">
           <h1 className="text-6xl font-bold tracking-widest text-gold drop-shadow-[0_4px_0_#120c1c] sm:text-7xl">ARENIX</h1>
           <p className="mt-2 text-lg text-parchment/85">Explore. Cooperate. Betray. Survive the island.</p>
-          <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>
+          <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>{" "}
+          <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>
         </header>
 
         <section className="panel w-full p-5 sm:p-6">

@@ -4,8 +4,9 @@ from arenix.sim.runner import aggregate, markdown_report, run_experiment, run_on
 
 
 def test_runner_produces_metrics_for_each_condition() -> None:
-    results = asyncio.run(run_experiment(["independent", "communicate", "negotiate"], [1, 2], contestants=5,
-                                         time_limit=120))
+    results = asyncio.run(
+        run_experiment(["independent", "communicate", "negotiate"], [1, 2], contestants=5, time_limit=120)
+    )
     assert set(results["conditions"]) == {"independent", "communicate", "negotiate"}
     assert len(results["runs"]) == 6
     ind = results["conditions"]["independent"]

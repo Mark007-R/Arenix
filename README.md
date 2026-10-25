@@ -3,11 +3,13 @@
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
 explore an island, complete missions, form alliances, betray each other and compete to win.
 
-> **Status: Milestones 1–5.** Play practice matches or multiplayer rooms (share a code; AI fills
+> **Status: Milestones 1–6 done, 7 partly done.** Play practice matches or multiplayer rooms (share a code; AI fills
 > empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
 > eliminations. AI seats can be driven by strategist agents (offline heuristic planner or Claude)
 > that negotiate over a structured protocol. With a database, players earn Game Points and open
-> cosmetic crates (odds always shown). The Agent Lab is **not built yet**. See
+> cosmetic crates (odds always shown). The **Agent Lab** (`/lab`) shows interaction graphs,
+> timelines, decision inspection, replays and experiment comparisons. LLM strategists are
+> implemented but have not yet been run against the live API. See
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 

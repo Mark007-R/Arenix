@@ -59,6 +59,7 @@ SHRINE_BONUS = 40
 SHRINE_WINDOW_TICKS = 10 * physics.TICK_RATE
 SHRINE_REQUIRED = 3
 VIEW_RADIUS = 13.0
+POSITION_SAMPLE_TICKS = 2 * physics.TICK_RATE  # replay-only position log (visible to no player)
 
 EXPLORE_SECONDS = 75
 DISCUSS_SECONDS = 15
@@ -870,6 +871,16 @@ class Match:
             )
 
         self._advance_phase()
+
+        if self.tick % POSITION_SAMPLE_TICKS == 0:
+            # Positions are hidden information during play, so samples are visible to nobody
+            # (empty set) — they exist only for post-match replays.
+            self.events.append(
+                self.tick,
+                "position_sample",
+                visible_to=frozenset(),
+                positions={c.id: [round(c.x, 2), round(c.y, 2)] for c in self.contestants.values() if c.alive},
+            )
 
         alive = sum(1 for c in self.contestants.values() if c.alive)
         if self.tick >= self.time_limit_ticks:

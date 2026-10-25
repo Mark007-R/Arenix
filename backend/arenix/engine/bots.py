@@ -49,7 +49,7 @@ class BotBrain:
         self.rng = rng
         # Personality: small seeded differences so bots don't move as one blob.
         self.preferred = rng.choice(("wood", "stone"))
-        self.reaction = (rng.randint(4, 8), rng.randint(10, 22))
+        self.reaction = (rng.randint(8, 14), rng.randint(16, 30))
         self.goal: Goal | None = None
         self.path: list[tuple[int, int]] = []
         self.path_index = 0

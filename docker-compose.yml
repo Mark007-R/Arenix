@@ -1,0 +1,14 @@
+# Local development stack. PostgreSQL/Redis are added when Milestone 2/5 introduce persistence.
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      ARENIX_CORS_ORIGINS: http://localhost:3000
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_ARENIX_WS: ws://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [backend]

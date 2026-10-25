@@ -3,9 +3,11 @@
 A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
 explore an island, complete missions, form alliances, betray each other and compete to win.
 
-> **Status: Milestones 1–3.** Play practice matches or multiplayer rooms (share a code; AI fills
+> **Status: Milestones 1–4.** Play practice matches or multiplayer rooms (share a code; AI fills
 > empty seats) in **council mode**: missions, chat, alliances, betrayals, council votes and
-> eliminations. LLM agents, crates and the Agent Lab are **not built yet**. See
+> eliminations. AI seats can be driven by strategist agents (offline heuristic planner or Claude)
+> that negotiate over a structured protocol. Crates/progression and the Agent Lab are **not built
+> yet**. See
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
@@ -58,9 +60,22 @@ Or with Docker: `docker compose up --build`, then open http://localhost:3000.
 |---|---|---|---|
 | `ARENIX_CORS_ORIGINS` | backend | `http://localhost:3000` | comma-separated allowed origins for REST |
 | `NEXT_PUBLIC_ARENIX_WS` | frontend (build time) | `ws://<page host>:8000` | WebSocket base URL of the game server |
+| `ARENIX_AGENT_PROVIDER` | backend | `off` | AI seat strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (Claude) |
+| `ARENIX_AGENT_MODEL` | backend | `claude-opus-5-5` | Claude model for strategists |
+| `ARENIX_AGENT_EFFORT` | backend | `low` | Claude effort level (decisions must land within seconds) |
+| `ARENIX_AGENT_TIMEOUT_S` | backend | `8` | per-decision deadline; late decisions fall back to the rule policy |
+| `ARENIX_AGENT_MAX_CONCURRENCY` | backend | `4` | concurrent model calls per match |
+| `ARENIX_AGENT_MAX_CALLS_PER_MATCH` | backend | `300` | call budget per match |
+| `ARENIX_AGENT_MAX_COST_USD_PER_MATCH` | backend | `2.0` | estimated-cost budget per match (list prices); then rule-based fallback |
+| `ANTHROPIC_API_KEY` | backend | — | read by the Anthropic SDK when `ARENIX_AGENT_PROVIDER=anthropic`; never sent to clients |
 
-No secrets are needed yet. Model credentials (Milestone 4) and the database URL (Milestone 5)
-will be read from environment variables only and never sent to the client.
+**Cost note for `anthropic` mode.** Each strategist decision is one request: roughly 2–4K
+input tokens plus a short JSON reply. With six AI seats deciding every 15 s plus at each
+meeting, a 7-minute match makes on the order of 150–250 calls. That is around $1.5–5 per match
+on `claude-opus-5-5` at list prices (an estimate, not a measurement), so the default
+$2 budget usually ends in a rule-based fallback partway through. Raise the budget, or pick a
+cheaper model with `ARENIX_AGENT_MODEL`. The game stays fully playable when the provider is off,
+slow, out of budget or failing.
 
 ## Tests and checks
 
@@ -103,8 +118,8 @@ docs/                   architecture and milestone checklist
 
 * Rooms are held in one server process's memory. Running several backend processes needs
   sticky routing first. Server restarts end all rooms.
-* AI contestants use a deterministic rule-based policy (with a simple trust model). There are no
-  LLM calls or multi-step negotiation yet.
+* LLM strategists (`ARENIX_AGENT_PROVIDER=anthropic`) are implemented and unit-tested against a
+  fake SDK client, but have not yet been run against the live API from this repository.
 * The chat filter is a small placeholder blocklist, not real moderation.
 * All state is in memory. There is no database, accounts, progression or currencies yet.
 * There is no audio.

@@ -130,29 +130,43 @@ materials the tower no longer needs empties your pack and earns no points.
 
 Bots record structured decision summaries (`tick`, `summary`, `goal`), not free-form reasoning.
 
-**Planned (Milestone 4):** an asynchronous agent orchestrator layered above this policy.
+**Strategist layer (Milestone 4, `backend/arenix/agents`).**
 
 ```
-Observation (server-filtered) ─▶ Contestant policy (LLM, structured output)
-                                   │  proposes: goal / message / vote
-Memory + Beliefs ◀─────────────────┤
-                                   ▼
-                     Pydantic validation + authorization
-                                   ▼
-              Match coordinator (deadlines, budgets, retries, cancellation)
-                                   ▼
-                 Engine validation ─▶ confirmed GameEvent
-                                   ▲
-         Navigation controller (A*, this module) carries out movement goals
+match.observe(agent) + match.snapshot(agent)      (server-filtered, authorised only)
+        │                        AgentMemory: facts ≠ claims, threads, agreements, refusals
+        ▼                        Beliefs: trust per contestant (from BotBrain)
+context.build_context ──► SYSTEM_PROMPT + JSON situation (claims in an "untrusted" section)
+        │
+        ▼
+LLMGateway.decide  ── timeout · semaphore · 1 repair retry · call/token/cost budget · breaker
+   ├─ AnthropicProvider  (official SDK, output_config json_schema, fallbacks="default")
+   ├─ HeuristicProvider  (deterministic planner, same protocol, not an LLM)
+   └─ ScriptedProvider   (tests)
+        │ StrategicDecision (Pydantic-validated)
+        ▼
+AgentCoordinator._prevalidate  (phase, targets, offers, thread state)   → DecisionRecord
+        │ legal actions only
+        ▼
+BotBrain.external_actions / goal_hint / shrine_hold_until
+        │
+        ▼
+Match validates again → confirmed GameEvents       (engine verdicts linked back to the record)
 ```
 
-* A provider-agnostic LLM gateway with timeouts, concurrency limits, token and cost accounting,
-  and a mock provider for tests.
-* An agent message protocol (PLAN_PROPOSAL, ALLIANCE_PROPOSAL, ACCEPT, COUNTER_OFFER, REJECT,
-  INFORMATION_SHARE, ACTION_PROPOSAL, VOTE_INTENT, SYSTEM_EVENT). Every message carries ids,
-  phase, correlation id, expiry, and size and round limits.
-* Claims are stored apart from confirmed events. A message is never treated as proof.
-* The rule-based policy stays as the fallback, so the game remains playable with no model at all.
+* The coordinator runs in the room's event loop. `tick()` is synchronous and only launches or
+  collects asyncio tasks, so a slow model can never stall the 20 Hz simulation.
+* Triggers: alliance offers to the agent, messages addressed to it or plans it can join, shrine
+  rituals, discussion and vote openings, and a staggered 15 s beat. There is at most one call in
+  flight per agent and at least 4 s between calls.
+* Decisions older than 12 s, or vote decisions arriving after voting closed, are recorded as
+  `stale` and not applied.
+* If no strategist vote arrives with 3 s left, or an offer sits unanswered for 10 s, the bot's
+  deterministic policy acts (and records a fallback). Budget exhaustion or a tripped breaker
+  switches the whole match to the rule policy.
+* The engine-level protocol (`Match.agent_message`) enforces message types, sanitised text,
+  payloads ≤ 400 chars, ≤ 6 messages per phase per sender, ≤ 4 rounds per negotiation thread,
+  live threads for replies, and private messages only for negotiation types or to allies.
 
 ## Rooms and realtime protocol
 

@@ -15,6 +15,8 @@ export interface ChatLine {
   private: boolean;
   to: string | null;
   mine: boolean;
+  /** Structured agent-protocol message type (PLAN_PROPOSAL, ACCEPT, …), null for plain chat. */
+  kind: string | null;
 }
 
 export interface VoteReveal {

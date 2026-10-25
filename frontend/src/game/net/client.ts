@@ -272,7 +272,7 @@ export class GameClient {
 
   private handleEvent(ev: GameEventDTO): void {
     if (ev.type === "chat") {
-      const d = ev.data as { sender: string; text: string; private: boolean; to: string | null };
+      const d = ev.data as { sender: string; text: string; private: boolean; to: string | null; kind?: string | null };
       const line = {
         id: ++this.feedId,
         sender: d.sender,
@@ -281,6 +281,7 @@ export class GameClient {
         private: d.private,
         to: d.to,
         mine: d.sender === this.you,
+        kind: d.kind ?? null,
       };
       this.store.set((s) => ({ chat: [...s.chat.slice(-40), line] }));
       this.listeners.forEach((l) => l(ev));

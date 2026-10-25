@@ -1,0 +1,99 @@
+import json
+
+import pytest
+from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
+
+from arenix.server.app import create_app
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(create_app())
+
+
+def test_health_and_maps(client: TestClient) -> None:
+    assert client.get("/api/health").json() == {"status": "ok"}
+    assert "emerald_isle" in client.get("/api/maps").json()["maps"]
+    m = client.get("/api/maps/emerald_isle").json()
+    assert m["width"] == 64 and len(m["tiles"]) == 64 * 48
+    assert client.get("/api/maps/atlantis").status_code == 404
+
+
+def recv_until(ws, msg_type: str, limit: int = 200) -> dict:  # type: ignore[no-untyped-def]
+    for _ in range(limit):
+        msg = json.loads(ws.receive_text())
+        if msg["type"] == msg_type:
+            return msg
+    raise AssertionError(f"no {msg_type} message")
+
+
+def test_practice_session_welcome_and_movement(client: TestClient) -> None:
+    with client.websocket_connect("/ws/practice?name=Tester&archetype=wizard&bots=1") as ws:
+        welcome = json.loads(ws.receive_text())
+        assert welcome["type"] == "welcome"
+        assert welcome["you"] == "p1"
+        assert welcome["map"]["id"] == "emerald_isle"
+        assert {c["id"] for c in welcome["snapshot"]["contestants"]} == {"p1", "bot1"}
+        # No private/hidden data in public payloads.
+        assert all("inputs" not in c for c in welcome["snapshot"]["contestants"])
+
+        start = next(c for c in welcome["snapshot"]["contestants"] if c["id"] == "p1")
+        for seq in range(1, 6):
+            ws.send_text(json.dumps({"type": "input", "seq": seq, "dx": 1, "dy": 0}))
+        snap = None
+        for _ in range(100):
+            snap = recv_until(ws, "snapshot")
+            if snap["ack_seq"] == 5:
+                break
+        assert snap is not None and snap["ack_seq"] == 5
+        me = next(c for c in snap["contestants"] if c["id"] == "p1")
+        assert me["x"] > start["x"]
+
+
+def test_interact_out_of_range_is_rejected(client: TestClient) -> None:
+    with client.websocket_connect("/ws/practice?name=Tester&archetype=knight&bots=0") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "interact", "target_id": "stone_0"}))
+        res = recv_until(ws, "interact_result")
+        assert res == {"type": "interact_result", "target_id": "stone_0", "ok": False, "reason": "out_of_range"}
+
+
+def test_ping(client: TestClient) -> None:
+    with client.websocket_connect("/ws/practice?name=T&archetype=knight&bots=0") as ws:
+        ws.receive_text()
+        ws.send_text(json.dumps({"type": "ping", "t": 12.5}))
+        assert recv_until(ws, "pong")["t"] == 12.5
+
+
+def test_invalid_messages_eventually_disconnect(client: TestClient) -> None:
+    with client.websocket_connect("/ws/practice?name=T&archetype=knight&bots=0") as ws:
+        ws.receive_text()
+        bad = [
+            "not json",
+            json.dumps({"type": "teleport", "x": 1}),
+            json.dumps({"type": "input", "seq": 1, "dx": 50, "dy": 0}),
+            json.dumps({"type": "interact", "target_id": "../../etc"}),
+            "x" * 5000,
+        ]
+        with pytest.raises(WebSocketDisconnect) as exc:
+            for i in range(30):
+                ws.send_text(bad[i % len(bad)])
+            for _ in range(500):
+                ws.receive_text()
+        assert exc.value.code == 4408
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "name=&archetype=knight",
+        "name=A&archetype=dragon",
+        "name=<b>&archetype=knight",
+        "name=A&archetype=knight&bots=99",
+    ],
+)
+def test_bad_join_params(client: TestClient, query: str) -> None:
+    with pytest.raises(WebSocketDisconnect) as exc, client.websocket_connect(f"/ws/practice?{query}") as ws:
+        ws.receive_text()
+    assert exc.value.code == 4400

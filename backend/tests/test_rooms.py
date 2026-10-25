@@ -158,8 +158,8 @@ def test_two_humans_play_one_match(client: Live) -> None:
         assert wh["you"] == host["player_id"] and wg["you"] == guest["player_id"]
         assert wh["match_id"] == wg["match_id"]
         roster = {c["id"]: c for c in wh["snapshot"]["contestants"]}
-        assert len(roster) == 4  # 2 humans + 2 AI fill
-        assert sum(c["is_bot"] for c in roster.values()) == 2
+        assert len(roster) == 5  # 2 humans + AI fill up to impostor mode's minimum of 5
+        assert sum(c["is_bot"] for c in roster.values()) == 3
         assert roster[guest["player_id"]]["archetype"] == "rogue"
 
         # The guest moves; the host sees it and the host's own position is unaffected.
@@ -309,7 +309,7 @@ def test_room_runs_strategist_agents_when_enabled() -> None:
         async def send_text(text: str) -> None:
             return None
 
-        room = Room("AGENT2", fill_to=4, agents=AgentConfig(provider="heuristic"))
+        room = Room("AGENT2", fill_to=4, agents=AgentConfig(provider="heuristic"), mode="classic")
         seat = room.add_seat("Host", "knight")
         conn = Connection(send_text, encode)
         writer = asyncio.create_task(conn.writer())

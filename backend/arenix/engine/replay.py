@@ -32,6 +32,8 @@ class ReplayState:
     last_votes: dict[str, str] = field(default_factory=dict)
     finished: bool = False
     winner: str | None = None
+    beacons: dict[str, bool] = field(default_factory=dict)
+    winning_team: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {k: (dict(v) if isinstance(v, dict) else v) for k, v in self.__dict__.items()}
@@ -50,6 +52,7 @@ def apply(state: ReplayState, ev: GameEvent) -> None:
         state.scores = dict.fromkeys(state.contestants, 0)
         state.alive = dict.fromkeys(state.contestants, True)
         state.required = dict(d["required"])
+        state.beacons = dict.fromkeys(d.get("beacons", []), False)
     elif t == "resources_delivered":
         add(d["contestant"], d["points"])
         state.delivered = dict(d["delivered"])
@@ -76,6 +79,16 @@ def apply(state: ReplayState, ev: GameEvent) -> None:
         state.last_votes = dict(d["votes"])
     elif t == "meeting_ended":
         state.phase = "explore"
+    elif t == "contestant_killed":
+        add(d["killer"], d["points"])
+        state.alive[d["victim"]] = False
+        state.positions.pop(d["victim"], None)
+        partner = state.alliances.pop(d["victim"], None)
+        if partner:
+            state.alliances.pop(partner, None)
+    elif t == "beacon_lit":
+        state.beacons[d["beacon"]] = True
+        add(d["contestant"], d["points"])
     elif t == "contestant_eliminated":
         state.alive[d["contestant"]] = False
         state.positions.pop(d["contestant"], None)
@@ -93,6 +106,7 @@ def apply(state: ReplayState, ev: GameEvent) -> None:
     elif t == "match_finished":
         state.finished = True
         state.winner = d["winner"]
+        state.winning_team = d.get("winning_team")
         for st in d["standings"]:
             add(st["id"], sum(st["bonuses"].values()))
 

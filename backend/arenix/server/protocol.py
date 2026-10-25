@@ -91,6 +91,20 @@ class BreakMsg(_Msg):
     type: Literal["break_alliance"]
 
 
+class KillMsg(_Msg):
+    """Impostor mode: an impostor attacks someone in range. Range, role and cooldown are server-checked."""
+
+    type: Literal["kill"]
+    target: ContestantId
+
+
+class AbilityMsg(_Msg):
+    """Use your skill's active ability (the Medic's shield)."""
+
+    type: Literal["ability"]
+    target: ContestantId | None = None
+
+
 AnyClientMessage = (
     InputMsg
     | InteractMsg
@@ -104,6 +118,8 @@ AnyClientMessage = (
     | ProposeMsg
     | RespondMsg
     | BreakMsg
+    | KillMsg
+    | AbilityMsg
 )
 ClientMessage = Annotated[AnyClientMessage, Field(discriminator="type")]
 client_message_adapter: TypeAdapter[AnyClientMessage] = TypeAdapter(ClientMessage)

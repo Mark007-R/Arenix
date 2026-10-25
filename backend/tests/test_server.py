@@ -34,8 +34,11 @@ def test_practice_session_welcome_and_movement(client: TestClient) -> None:
     with client.websocket_connect("/ws/practice?name=Tester&archetype=wizard&bots=1") as ws:
         welcome = recv_until(ws, "welcome")
         assert welcome["you"] == "p1"
-        assert welcome["map"]["id"] == "emerald_isle"
-        assert {c["id"] for c in welcome["snapshot"]["contestants"]} == {"p1", "bot1"}
+        assert welcome["map"]["id"] == "moonfall_isle"
+        # Impostor mode fills the field to 5; everyone starts together in the plaza.
+        assert {c["id"] for c in welcome["snapshot"]["contestants"]} == {"p1", "bot1", "bot2", "bot3", "bot4"}
+        assert welcome["snapshot"]["me"]["role"] in ("islander", "impostor")
+        assert welcome["snapshot"]["me"]["skill"]["id"]
         # No private/hidden data in public payloads.
         assert all("inputs" not in c for c in welcome["snapshot"]["contestants"])
 

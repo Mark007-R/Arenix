@@ -108,6 +108,7 @@ class BotBrain:
         self.goal_hint: str | None = None  # gather_wood | gather_stone | deliver | shrine | idle
         self.goal_hint_until = 0
         self.shrine_hold_until = 0  # agreed ritual start: wait at the shrine until then
+        self.names: dict[str, str] = {}
 
     # ------------------------------------------------------------- bookkeeping
     def _record(self, obs: Observation, summary: str, goal: Goal | None = None, **extra: object) -> None:
@@ -406,7 +407,7 @@ class BotBrain:
             if dist <= WAYPOINT_TOLERANCE:
                 self.path_index += 1
                 continue
-            step_len = physics.SPEED * physics.DT
+            step_len = physics.SPEED * physics.DT * obs.speed
             scale = 1.0 / dist if dist > step_len else 1.0 / step_len
             return BotIntent(ddx * scale, ddy * scale)
 

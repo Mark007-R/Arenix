@@ -8,7 +8,7 @@ interface Vectors {
   height: number;
   collision: string;
   constants: { dt: number; speed: number; half_w: number; half_h: number; eps: number };
-  cases: { name: string; start: [number, number]; inputs: [number, number][]; positions: [number, number][] }[];
+  cases: { name: string; speed?: number; start: [number, number]; inputs: [number, number][]; positions: [number, number][] }[];
 }
 
 const vectors: Vectors = JSON.parse(
@@ -26,7 +26,7 @@ describe("physics parity with the Python server", () => {
     it(`reproduces ${c.name} exactly`, () => {
       let [x, y] = c.start;
       c.inputs.forEach(([dx, dy], i) => {
-        [x, y] = step(solid, x, y, dx, dy);
+        [x, y] = step(solid, x, y, dx, dy, c.speed ?? 1);
         const expected = c.positions[i]!;
         expect(x).toBe(expected[0]);
         expect(y).toBe(expected[1]);

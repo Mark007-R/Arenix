@@ -23,7 +23,7 @@ from typing import Any
 from ..agents.config import AgentConfig
 from ..agents.coordinator import AgentCoordinator
 from ..db.session import Database
-from ..engine import physics
+from ..engine import physics, roles
 from ..engine.maps import get_map
 from ..engine.match import ARCHETYPES, INTERACT_RANGE, Match
 
@@ -35,7 +35,9 @@ MAX_CONTESTANTS = 10
 MAX_ROOMS = 500
 LOBBY_SEAT_GRACE_S = 30.0
 ROOM_IDLE_TTL_S = 120.0
-MATCH_TIME_LIMIT_S = 240
+MATCH_TIME_LIMIT_S = 240  # classic mode
+IMPOSTOR_TIME_LIMIT_S = 540
+MAP_FOR_MODE = {"classic": "emerald_isle", "impostor": "moonfall_isle"}
 BOT_NAMES = ["Brakka", "Lyra", "Fennick", "Morwen", "Tobble", "Sir Aldric", "Quill", "Nessa", "Grub"]
 
 SendText = Callable[[str], Awaitable[None]]
@@ -122,8 +124,10 @@ class Room:
         seed: int | None = None,
         agents: AgentConfig | None = None,
         db: Database | None = None,
+        mode: str = "impostor",
     ) -> None:
         self.code = code
+        self.mode = mode
         self.fill_to = fill_to
         self.practice = practice
         self.seed_override = seed
@@ -257,8 +261,13 @@ class Room:
             raise RoomError(reason, "cannot start yet")
         seed = self.seed_override if self.seed_override is not None else secrets.randbits(32)
         self.matches_played += 1
+        impostor = self.mode == "impostor"
         match = Match(
-            f"{self.code}-{self.matches_played}", get_map("emerald_isle"), seed, time_limit_seconds=MATCH_TIME_LIMIT_S
+            f"{self.code}-{self.matches_played}",
+            get_map(MAP_FOR_MODE[self.mode]),
+            seed,
+            time_limit_seconds=IMPOSTOR_TIME_LIMIT_S if impostor else MATCH_TIME_LIMIT_S,
+            mode=self.mode,
         )
         # Disconnected lobby seats are dropped; everyone else plays.
         for pid in [p for p, s in self.seats.items() if not s.connected]:
@@ -269,12 +278,15 @@ class Room:
             )
         used = {s.archetype for s in self.seats.values()}
         free = [a for a in ARCHETYPES if a not in used] or list(ARCHETYPES)
-        for i in range(max(0, self.fill_to - len(self.seats))):
+        # Impostor mode needs a minimum field; AI contestants make up the numbers.
+        target = max(self.fill_to, roles.MIN_CONTESTANTS) if impostor else self.fill_to
+        for i in range(max(0, target - len(self.seats))):
             match.add_contestant(f"bot{i + 1}", BOT_NAMES[i % len(BOT_NAMES)], free[i % len(free)], is_bot=True)
         match.start()
         self.match = match
         self.coordinator = None
-        if self.agent_config.enabled and match.bots:
+        # The strategist layer drives classic mode; impostor-mode bots use their own deduction policy.
+        if self.agent_config.enabled and match.bots and not impostor:
             self.coordinator = AgentCoordinator(match, self.agent_config.make_gateway(), list(match.bots))
         self.history.append((match, self.coordinator))
         del self.history[:-5]
@@ -356,6 +368,10 @@ class Room:
             r = match.respond_alliance(pid, kw["proposer"], kw["accept"])
         elif kind == "break":
             r = match.break_alliance(pid)
+        elif kind == "kill":
+            r = match.kill(pid, kw["target"])
+        elif kind == "ability":
+            r = match.use_ability(pid, kw.get("target"))
         else:
             return {"type": "error", "code": "unknown_action", "message": "Unknown action."}
         for s in self.seats.values():
@@ -418,10 +434,12 @@ class Room:
             "practice": self.practice,
             "fill_to": self.fill_to,
             "capacity": MAX_CONTESTANTS,
-            "map_id": "emerald_isle",
+            "mode": self.mode,
+            "map_id": MAP_FOR_MODE[self.mode],
+            "min_contestants": roles.MIN_CONTESTANTS if self.mode == "impostor" else 1,
             "seats": [s.public() for s in self.seats.values()],
             "can_start": self.can_start()[0],
-            "ai_mode": self.agent_config.provider if self.agent_config.enabled else "rules",
+            "ai_mode": self.agent_config.provider if self.agent_config.enabled and self.mode == "classic" else "rules",
             "last_result": self.last_result,
         }
 

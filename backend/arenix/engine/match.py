@@ -5,11 +5,17 @@ movement input, interact with an object, chat, vote, or propose/answer/break an 
 Every request is validated against phase, range, cooldown, capacity and authorisation rules
 before state changes and a GameEvent is recorded.
 
-Match flow ("Island Council" mode):
+Match flow:
   explore (missions, gathering, alliances) → discuss → vote → reveal → explore → …
-A council meeting is called on a schedule or when someone rings the Council Bell. Movement
-pauses during meetings. The match ends when time runs out or two contestants remain; the
-highest-scoring survivor wins.
+A council meeting is called on a schedule, when someone rings the Council Bell or (impostor
+mode) when someone reports a body. Movement pauses during meetings.
+
+Modes:
+* "classic" (Island Council): the match ends when time runs out or two contestants remain;
+  the highest-scoring survivor wins.
+* "impostor": hidden roles (see roles.py). Impostors secretly kill islanders; islanders win by
+  voting out every impostor or by finishing the island's tasks (tower + every beacon);
+  impostors win when they are as many as the islanders, or when time runs out.
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import physics
+from . import roles as R
 from .events import EventLog, GameEvent
 from .map import GameMap
 from .missions import RepairTowerMission
@@ -54,6 +61,8 @@ MISSION_BONUS = 50
 ALLY_DIVIDEND = 3
 WOOD_PER_CONTESTANT = 8
 STONE_PER_CONTESTANT = 6
+IMPOSTOR_WOOD_PER_ISLANDER = 5
+IMPOSTOR_STONE_PER_ISLANDER = 4
 SURVIVAL_BONUS = 50
 SHRINE_BONUS = 40
 SHRINE_WINDOW_TICKS = 10 * physics.TICK_RATE
@@ -107,6 +116,14 @@ class Contestant:
     # Cosmetic loadout (validated server-side from the player's inventory) and unlocked phrases.
     cosmetics: dict[str, Any] = field(default_factory=dict)
     extra_phrases: dict[str, str] = field(default_factory=dict)
+    # Impostor mode. A killed contestant is dead (alive=False) but others only learn it once the
+    # body is found or a meeting starts (death_known).
+    role: str = R.ISLANDER
+    skill: R.Skill | None = None
+    death_known: bool = False
+    kill_ready_tick: int = 0
+    ability_used: bool = False
+    shielded_by: str | None = None
     last_interact_tick: int = -10_000
     last_chat_tick: int = -10_000
     last_ack_seq: int = 0
@@ -129,19 +146,19 @@ class Contestant:
             "moving": self.moving,
             "carrying": dict(self.carrying),
             "score": self.score,
-            "alive": self.alive,
+            "alive": self.alive,  # only ghosts and the omniscient view are sent dead contestants
             "connected": self.connected,
             "cosmetics": self.cosmetics,
         }
 
-    def roster_dict(self) -> dict[str, Any]:
+    def roster_dict(self, alive: bool | None = None) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "archetype": self.archetype,
             "is_bot": self.is_bot,
             "score": self.score,
-            "alive": self.alive,
+            "alive": self.alive if alive is None else alive,
             "connected": self.connected,
             "cosmetics": self.cosmetics,
         }
@@ -162,6 +179,19 @@ class ShrineState:
     participants: list[str] = field(default_factory=list)
     window_end_tick: int = 0
     activated_by: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Body:
+    victim: str
+    killer: str
+    x: float
+    y: float
+    tick: int
+
+    @property
+    def id(self) -> str:
+        return f"body_{self.victim}"
 
 
 @dataclass(frozen=True)
@@ -202,6 +232,16 @@ class Observation:
     shrine_window_left: int
     visible_positions: dict[str, tuple[float, float]]
     new_events: tuple[GameEvent, ...]
+    # Impostor mode (defaults keep classic-mode callers unchanged).
+    mode: str = "classic"
+    role: str = R.ISLANDER
+    fellow_impostors: tuple[str, ...] = ()
+    skill: str | None = None
+    ability_used: bool = False
+    kill_ready: bool = False
+    speed: float = 1.0
+    visible_bodies: dict[str, tuple[float, float]] = field(default_factory=dict)
+    beacons: dict[str, bool] = field(default_factory=dict)
 
 
 class Match:
@@ -212,8 +252,19 @@ class Match:
         seed: int,
         time_limit_seconds: int = DEFAULT_TIME_LIMIT_SECONDS,
         meetings: bool = True,
+        mode: str = "classic",
     ) -> None:
+        if mode not in ("classic", "impostor"):
+            raise ValueError(f"unknown mode {mode}")
         self.id = match_id
+        self.mode = mode
+        impostor = mode == "impostor"
+        self.phase_seconds = {
+            "explore": R.EXPLORE_SECONDS if impostor else EXPLORE_SECONDS,
+            "discuss": R.DISCUSS_SECONDS if impostor else DISCUSS_SECONDS,
+            "vote": R.VOTE_SECONDS if impostor else VOTE_SECONDS,
+            "reveal": R.REVEAL_SECONDS if impostor else REVEAL_SECONDS,
+        }
         self.map = game_map
         self.seed = seed
         self.rng = random.Random(seed)
@@ -231,6 +282,9 @@ class Match:
         self.alliances = Alliances()
         self.events = EventLog()
         self.result: dict[str, Any] | None = None
+        self.bodies: dict[str, Body] = {}  # victim id -> body (impostor mode)
+        self.kill_cooldown = 0  # ticks, set when roles are assigned
+        self.beacons: dict[str, bool] = {o.id: False for o in game_map.objects if o.kind == "beacon"}
         self.nodes: dict[str, NodeState] = {}
         for o in game_map.objects:
             if o.kind == "resource_node":
@@ -244,6 +298,10 @@ class Match:
         from .bots import BotBrain  # bots depend on match types; import lazily
 
         self._bot_cls = BotBrain
+        if mode == "impostor":
+            from .island_bots import IslandBrain
+
+            self._bot_cls = IslandBrain
         self.bots: dict[str, BotBrain] = {}
         self._bot_cursors: dict[str, int] = {}
         # Structured-message bookkeeping: per (sender, phase id) counts and per-thread rounds.
@@ -284,21 +342,38 @@ class Match:
     def start(self) -> GameEvent:
         if self.status != "lobby":
             raise RuntimeError("match already started")
+        n = len(self.contestants)
+        if self.mode == "impostor" and n < 3:
+            raise ValueError("impostor mode needs at least 3 contestants")
         self.status = "running"
         # Scale the workload with the field so solo practice and 10-player matches both work.
-        n = len(self.contestants)
-        self.mission.required = {"wood": WOOD_PER_CONTESTANT * n + 2, "stone": STONE_PER_CONTESTANT * n + 2}
-        self._set_phase("explore", EXPLORE_SECONDS)
+        if self.mode == "impostor":
+            crew = n - R.impostor_count(n)
+            self.mission.required = {
+                "wood": IMPOSTOR_WOOD_PER_ISLANDER * crew + 2,
+                "stone": IMPOSTOR_STONE_PER_ISLANDER * crew + 2,
+            }
+        else:
+            self.mission.required = {"wood": WOOD_PER_CONTESTANT * n + 2, "stone": STONE_PER_CONTESTANT * n + 2}
+        self._set_phase("explore", self.phase_seconds["explore"])
         ev = self.events.append(
             self.tick,
             "match_started",
             map_id=self.map.id,
             seed=self.seed,
             rules_version=RULES_VERSION,
+            mode=self.mode,
             contestants=[c.id for c in self.contestants.values()],
             mission=self.mission.id,
             required=dict(self.mission.required),
+            beacons=sorted(self.beacons),
         )
+        if self.mode == "impostor":
+            self._assign_roles_and_skills()
+            names = self.names()
+            for brain in self.bots.values():
+                brain.names = names
+            return ev
         objectives = assign_objectives(sorted(self.contestants), self.rng)
         names = self.names()
         for cid, obj in objectives.items():
@@ -312,7 +387,58 @@ class Match:
             )
         return ev
 
+    def _assign_roles_and_skills(self) -> None:
+        ids = sorted(self.contestants)
+        self.kill_cooldown = R.kill_cooldown_ticks(len(ids))
+        roles = R.assign_roles(ids, self.rng)
+        skills = R.assign_skills(ids, self.rng)
+        impostors = sorted(cid for cid, r in roles.items() if r == R.IMPOSTOR)
+        for cid in ids:
+            c = self.contestants[cid]
+            c.role, c.skill = roles[cid], skills[cid]
+            fellow = [i for i in impostors if i != cid] if c.role == R.IMPOSTOR else []
+            self.events.append(
+                self.tick, "role_assigned", visible_to=frozenset({cid}), contestant=cid, role=c.role, fellow=fellow
+            )
+            self.events.append(
+                self.tick, "skill_assigned", visible_to=frozenset({cid}), contestant=cid, skill=c.skill.to_dict()
+            )
+            if c.role == R.IMPOSTOR:
+                c.kill_ready_tick = self.tick + max(R.FIRST_KILL_TICKS, self.kill_cooldown)
+
     # ------------------------------------------------------------------ helpers
+    def impostors(self, alive_only: bool = True) -> list[Contestant]:
+        return [c for c in self.contestants.values() if c.role == R.IMPOSTOR and (c.alive or not alive_only)]
+
+    def has_skill(self, c: Contestant, skill: str) -> bool:
+        return c.skill is not None and c.skill.id == skill
+
+    def capacity(self, c: Contestant) -> int:
+        return R.STRONGBACK_CAPACITY if self.has_skill(c, "strongback") else CARRY_CAPACITY
+
+    def speed(self, c: Contestant) -> float:
+        return R.SWIFT_SPEED if self.has_skill(c, "swift") else 1.0
+
+    def view_radius(self, c: Contestant) -> float:
+        return R.SCOUT_VIEW_RADIUS if self.has_skill(c, "scout") else VIEW_RADIUS
+
+    def region(self, x: float, y: float) -> str:
+        return self.map.region_at(x, y) or "the wilds"
+
+    def _observers(self, c: Contestant) -> frozenset[str] | None:
+        """Impostor mode: who sees `c` do something (tasks are only witnessed, never announced)."""
+        if self.mode != "impostor":
+            return None
+        return frozenset({c.id, *(o.id for o in self.contestants.values() if o.alive and self.can_see(o.id, c))})
+
+    def known_alive(self, viewer: str | None, target: Contestant) -> bool:
+        """Whether `viewer` believes `target` is alive. Unfound kills are secret to all but
+        impostors, ghosts and the victim."""
+        if target.alive or target.death_known or viewer is None or viewer == target.id:
+            return target.alive
+        v = self.contestants.get(viewer)
+        return not (v is not None and (v.role == R.IMPOSTOR or not v.alive))
+
     def _set_phase(self, phase: str, seconds: int) -> None:
         self.phase = phase
         self.phase_end_tick = self.tick + seconds * physics.TICK_RATE
@@ -350,7 +476,7 @@ class Match:
         return True
 
     def _move(self, c: Contestant, dx: float, dy: float) -> None:
-        nx, ny = physics.step(self.map.is_solid, c.x, c.y, dx, dy)
+        nx, ny = physics.step(self.map.is_solid, c.x, c.y, dx, dy, self.speed(c))
         c.moving = nx != c.x or ny != c.y
         if dx != 0.0 or dy != 0.0:
             if abs(dx) >= abs(dy):
@@ -368,6 +494,8 @@ class Match:
             return ActionResult(False, "meeting_in_progress")
         if self.tick - c.last_interact_tick < INTERACT_COOLDOWN_TICKS:
             return ActionResult(False, "cooldown")
+        if target_id.startswith("body_"):
+            return self._report_body(c, target_id.removeprefix("body_"))
         obj = self.map.objects_by_id.get(target_id)
         if obj is None or not obj.interactable:
             return ActionResult(False, "not_interactable")
@@ -378,7 +506,7 @@ class Match:
             node = self.nodes[obj.id]
             if node.charges <= 0:
                 return ActionResult(False, "depleted")
-            if c.carry_total() >= CARRY_CAPACITY:
+            if c.carry_total() >= self.capacity(c):
                 return ActionResult(False, "inventory_full")
             node.charges -= 1
             if node.next_regen_tick is None:
@@ -388,6 +516,7 @@ class Match:
             ev = self.events.append(
                 self.tick,
                 "resource_gathered",
+                visible_to=self._observers(c),
                 contestant=cid,
                 node=obj.id,
                 resource=node.resource,
@@ -400,6 +529,8 @@ class Match:
             return self._deliver(c)
         if obj.kind == "shrine":
             return self._channel_shrine(c)
+        if obj.kind == "beacon":
+            return self._light_beacon(c, obj.id)
         if obj.kind == "bell":
             if c.bell_used:
                 return ActionResult(False, "bell_used")
@@ -415,6 +546,12 @@ class Match:
             return ActionResult(False, "mission_closed")
         if c.carry_total() == 0:
             return ActionResult(False, "nothing_to_deliver")
+        if c.role == R.IMPOSTOR:
+            # Impostors can only pretend: the cargo vanishes and the tower doesn't change.
+            c.carrying = {r: 0 for r in c.carrying}
+            c.last_interact_tick = self.tick
+            ev = self.events.append(self.tick, "delivery_faked", visible_to=frozenset({c.id}), contestant=c.id)
+            return ActionResult(True, events=(ev,))
         accepted = self.mission.accept(c.id, c.carrying)
         surplus = {r: n - accepted.get(r, 0) for r, n in c.carrying.items() if n - accepted.get(r, 0)}
         c.carrying = {r: 0 for r in c.carrying}
@@ -427,6 +564,7 @@ class Match:
             self.events.append(
                 self.tick,
                 "resources_delivered",
+                visible_to=self._observers(c),
                 contestant=c.id,
                 accepted=accepted,
                 surplus=surplus,
@@ -460,6 +598,7 @@ class Match:
                     bonus=MISSION_BONUS,
                 )
             )
+            self._check_team_win()
         return ActionResult(True, events=tuple(events))
 
     def shrine_required(self) -> int:
@@ -501,13 +640,225 @@ class Match:
                     bonus=SHRINE_BONUS,
                 )
             )
+            if self.mode == "impostor":
+                # Shrine vision: each channeler privately learns one contestant who is innocent.
+                for pid in s.participants:
+                    pool = sorted(
+                        o.id for o in self.contestants.values() if o.alive and o.role != R.IMPOSTOR and o.id != pid
+                    )
+                    if pool:
+                        events.append(
+                            self.events.append(
+                                self.tick, "shrine_vision", visible_to=frozenset({pid}), innocent=self.rng.choice(pool)
+                            )
+                        )
         return ActionResult(True, events=tuple(events))
 
-    # ------------------------------------------------------------------ chat
-    def chat(self, cid: str, text: str | None = None, quick: str | None = None, to: str | None = None) -> ActionResult:
+    def _light_beacon(self, c: Contestant, beacon_id: str) -> ActionResult:
+        if self.beacons.get(beacon_id):
+            return ActionResult(False, "already_lit")
+        if c.role != R.IMPOSTOR and c.carrying["wood"] < 1:
+            return ActionResult(False, "need_wood")  # a beacon burns one wood
+        c.last_interact_tick = self.tick
+        if c.role == R.IMPOSTOR:
+            ev = self.events.append(
+                self.tick, "beacon_faked", visible_to=frozenset({c.id}), contestant=c.id, beacon=beacon_id
+            )
+            return ActionResult(True, events=(ev,))
+        self.beacons[beacon_id] = True
+        c.carrying["wood"] -= 1
+        c.score += R.BEACON_POINTS
+        obj = self.map.objects_by_id[beacon_id]
+        ev = self.events.append(
+            self.tick,
+            "beacon_lit",
+            visible_to=self._observers(c),
+            contestant=c.id,
+            beacon=beacon_id,
+            region=self.region(obj.x + 0.5, obj.y + 0.5),
+            lit=sum(self.beacons.values()),
+            total=len(self.beacons),
+            points=R.BEACON_POINTS,
+        )
+        self._check_team_win()
+        return ActionResult(True, events=(ev,))
+
+    # ------------------------------------------------------------------ impostor mode
+    def kill(self, cid: str, target: str) -> ActionResult:
         c, reason = self._check_actor(cid)
         if c is None:
             return ActionResult(False, reason)
+        if self.mode != "impostor" or c.role != R.IMPOSTOR:
+            return ActionResult(False, "not_impostor")
+        if self.phase != "explore":
+            return ActionResult(False, "meeting_in_progress")
+        if self.tick < c.kill_ready_tick:
+            return ActionResult(False, "kill_cooldown")
+        t = self._alive(target)
+        if t is None or t.id == cid or t.role == R.IMPOSTOR:
+            return ActionResult(False, "invalid_target")
+        if math.hypot(c.x - t.x, c.y - t.y) > R.KILL_RANGE:
+            return ActionResult(False, "out_of_range")
+        c.kill_ready_tick = self.tick + self.kill_cooldown
+        region = self.region(t.x, t.y)
+        if t.shielded_by is not None:
+            medic, t.shielded_by = t.shielded_by, None
+            ev = self.events.append(
+                self.tick,
+                "shield_blocked",
+                visible_to=frozenset({cid, t.id, medic}),
+                attacker=cid,
+                target=t.id,
+                medic=medic,
+                region=region,
+            )
+            return ActionResult(True, "shielded", events=(ev,))
+        witnesses = sorted(
+            o.id
+            for o in self.contestants.values()
+            if o.alive
+            and o.id not in (cid, t.id)
+            and o.role != R.IMPOSTOR
+            and math.hypot(o.x - t.x, o.y - t.y) <= R.WITNESS_RADIUS
+        )
+        lookouts = sorted(
+            o.id
+            for o in self.contestants.values()
+            if o.alive
+            and self.has_skill(o, "lookout")
+            and o.id not in (cid, t.id, *witnesses)
+            and math.hypot(o.x - t.x, o.y - t.y) <= R.LOOKOUT_RADIUS
+        )
+        t.alive = False
+        t.carrying = {r: 0 for r in t.carrying}
+        t.inputs.clear()
+        t.moving = False
+        c.score += R.KILL_POINTS
+        self.bodies[t.id] = Body(t.id, cid, t.x, t.y, self.tick)
+        if self.shrine.status == "channeling" and t.id in self.shrine.participants:
+            self.shrine.participants.remove(t.id)
+        self.alliances.proposals = [p for p in self.alliances.proposals if t.id not in (p.proposer, p.target)]
+        events = []
+        partner = self.alliances.dissolve(t.id)
+        if partner is not None:
+            events.append(self.events.append(self.tick, "ally_lost", visible_to=frozenset({partner}), ally=t.id))
+        insiders = frozenset({t.id, *(i.id for i in self.impostors(alive_only=False))})
+        events.append(
+            self.events.append(
+                self.tick,
+                "contestant_killed",
+                visible_to=insiders,
+                killer=cid,
+                victim=t.id,
+                x=round(t.x, 2),
+                y=round(t.y, 2),
+                region=region,
+                witnesses=witnesses,
+                points=R.KILL_POINTS,
+            )
+        )
+        if witnesses:
+            events.append(
+                self.events.append(
+                    self.tick,
+                    "kill_witnessed",
+                    visible_to=frozenset(witnesses),
+                    killer=cid,
+                    victim=t.id,
+                    region=region,
+                )
+            )
+        if lookouts:
+            events.append(self.events.append(self.tick, "lookout_alert", visible_to=frozenset(lookouts), region=region))
+        self._check_team_win()
+        return ActionResult(True, events=tuple(events))
+
+    def use_ability(self, cid: str, target: str | None = None) -> ActionResult:
+        """Active skills. Today only the Medic's one-time shield."""
+        c, reason = self._check_actor(cid)
+        if c is None:
+            return ActionResult(False, reason)
+        if not self.has_skill(c, "medic"):
+            return ActionResult(False, "no_active_skill")
+        if c.ability_used:
+            return ActionResult(False, "ability_used")
+        t = self.contestants.get(target or "")
+        if t is None or t.id == cid or not self.known_alive(cid, t):
+            return ActionResult(False, "invalid_target")
+        c.ability_used = True
+        if t.alive:
+            t.shielded_by = cid  # a shield on someone already (secretly) dead is simply wasted
+        ev = self.events.append(self.tick, "shield_cast", visible_to=frozenset({cid}), medic=cid, target=t.id)
+        return ActionResult(True, events=(ev,))
+
+    def _report_body(self, c: Contestant, victim: str) -> ActionResult:
+        body = self.bodies.get(victim)
+        if body is None:
+            return ActionResult(False, "not_interactable")
+        if not self.meetings_enabled:
+            return ActionResult(False, "not_interactable")
+        if math.hypot(c.x - body.x, c.y - body.y) > R.REPORT_RANGE:
+            return ActionResult(False, "out_of_range")
+        c.last_interact_tick = self.tick
+        region = self.region(body.x, body.y)
+        events = self._start_meeting("body", c.id, victim=victim, region=region, x=round(body.x, 2), y=round(body.y, 2))
+        if self.has_skill(c, "detective") and body.killer != c.id:
+            others = sorted(
+                o.id for o in self.contestants.values() if o.alive and o.id not in (c.id, body.killer, victim)
+            )
+            if others:
+                pair = [body.killer, self.rng.choice(others)]
+                self.rng.shuffle(pair)
+                events.append(
+                    self.events.append(
+                        self.tick, "detective_clue", visible_to=frozenset({c.id}), victim=victim, suspects=pair
+                    )
+                )
+        return ActionResult(True, events=tuple(events))
+
+    def _team_counts(self) -> tuple[int, int]:
+        imp = sum(1 for c in self.contestants.values() if c.alive and c.role == R.IMPOSTOR)
+        crew = sum(1 for c in self.contestants.values() if c.alive and c.role != R.IMPOSTOR)
+        return imp, crew
+
+    def tasks_done(self) -> bool:
+        return self.mission.status == "completed" and all(self.beacons.values())
+
+    def _check_team_win(self, allow_vote_wins: bool = True) -> bool:
+        if self.mode != "impostor" or self.status != "running":
+            return False
+        imp, crew = self._team_counts()
+        if imp == 0 and allow_vote_wins:
+            self._finish("impostors_caught")
+        elif imp >= crew:
+            self._finish("impostors_outnumber")
+        elif self.tasks_done():
+            self._finish("tasks_done")
+        else:
+            return False
+        return True
+
+    # ------------------------------------------------------------------ chat
+    def chat(
+        self,
+        cid: str,
+        text: str | None = None,
+        quick: str | None = None,
+        to: str | None = None,
+        claim: dict[str, Any] | None = None,
+    ) -> ActionResult:
+        """Public chat, ally whispers and (impostor mode) ghost chat among the dead.
+
+        `claim` is an optional machine-readable summary bots attach to what they say (e.g.
+        {"type": "accuse", "target": "p2"}). Like the text, it is only a claim, never a fact.
+        """
+        c = self.contestants.get(cid)
+        ghost = self.mode == "impostor" and c is not None and not c.alive and self.status == "running"
+        if not ghost:
+            c, reason = self._check_actor(cid)
+            if c is None:
+                return ActionResult(False, reason)
+        assert c is not None
         if self.tick - c.last_chat_tick < CHAT_COOLDOWN_TICKS:
             return ActionResult(False, "chat_cooldown")
         if quick is not None:
@@ -521,13 +872,27 @@ class Match:
                 return ActionResult(False, "message_rejected")
             body = clean
         visible: frozenset[str] | None = None
-        if to is not None:
+        if ghost:
+            to = None
+            visible = frozenset(o.id for o in self.contestants.values() if not o.alive)
+        elif to is not None:
             if not self.alliances.allied(cid, to):
                 return ActionResult(False, "not_allied")  # whispers are an alliance privilege
             visible = frozenset({cid, to})
         c.last_chat_tick = self.tick
+        extra: dict[str, Any] = {"ghost": True} if ghost else {}
+        if claim:
+            extra["claim"] = {k: v for k, v in claim.items() if k in ("type", "target", "region", "about")}
         ev = self.events.append(
-            self.tick, "chat", visible_to=visible, sender=cid, to=to, text=body, quick=quick, private=to is not None
+            self.tick,
+            "chat",
+            visible_to=visible,
+            sender=cid,
+            to=to,
+            text=body,
+            quick=quick,
+            private=to is not None,
+            **extra,
         )
         return ActionResult(True, events=(ev,))
 
@@ -671,14 +1036,27 @@ class Match:
         return ActionResult(True, events=(ev,))
 
     # ------------------------------------------------------------------ council
-    def _start_meeting(self, cause: str, caller: str | None = None) -> list[GameEvent]:
+    def _start_meeting(self, cause: str, caller: str | None = None, **detail: Any) -> list[GameEvent]:
         self.meeting_count += 1
         self.votes = {}
-        self._set_phase("discuss", DISCUSS_SECONDS)
+        self._set_phase("discuss", self.phase_seconds["discuss"])
         for c in self.contestants.values():
             c.inputs.clear()
             c.moving = False
-        return [self.events.append(self.tick, "meeting_called", cause=cause, caller=caller, meeting=self.meeting_count)]
+        events = [
+            self.events.append(
+                self.tick, "meeting_called", cause=cause, caller=caller, meeting=self.meeting_count, **detail
+            )
+        ]
+        if self.mode == "impostor":
+            # Every death so far becomes public; bodies are cleared away.
+            newly = sorted(c.id for c in self.contestants.values() if not c.alive and not c.death_known)
+            for cid in newly:
+                self.contestants[cid].death_known = True
+            if newly:
+                events.append(self.events.append(self.tick, "deaths_revealed", dead=newly))
+            self.bodies.clear()
+        return events
 
     def vote(self, cid: str, target: str | None) -> ActionResult:
         c, reason = self._check_actor(cid, ("vote",))
@@ -705,6 +1083,11 @@ class Match:
             leaders = [t for t, n in counts.items() if n == top]
             if len(leaders) == 1 and top > skip:
                 eliminated = leaders[0]
+        extra: dict[str, Any] = {}
+        if self.mode == "impostor" and eliminated is not None:
+            # Ejections are confirmed: everyone learns whether the council got it right.
+            extra["was_impostor"] = self.contestants[eliminated].role == R.IMPOSTOR
+            extra["impostors_left"] = sum(1 for c in self.impostors() if c.id != eliminated)
         self.events.append(
             self.tick,
             "vote_resolved",
@@ -713,6 +1096,7 @@ class Match:
             skip=skip,
             abstained=[a for a in alive if a not in self.votes],
             eliminated=eliminated,
+            **extra,
         )
         # Voting against your own ally is a betrayal and ends the alliance publicly.
         for voter, target in self.votes.items():
@@ -725,6 +1109,7 @@ class Match:
     def _eliminate(self, cid: str, cause: str) -> None:
         c = self.contestants[cid]
         c.alive = False
+        c.death_known = True
         c.carrying = {r: 0 for r in c.carrying}
         c.inputs.clear()
         c.moving = False
@@ -740,7 +1125,7 @@ class Match:
         ):
             return
         if self.phase == "discuss":
-            self._set_phase("vote", VOTE_SECONDS)
+            self._set_phase("vote", self.phase_seconds["vote"])
             self.events.append(
                 self.tick,
                 "vote_started",
@@ -749,10 +1134,14 @@ class Match:
             )
         elif self.phase == "vote":
             self._resolve_votes()
-            self._set_phase("reveal", REVEAL_SECONDS)
+            self._set_phase("reveal", self.phase_seconds["reveal"])
         elif self.phase == "reveal":
-            self._set_phase("explore", EXPLORE_SECONDS)
+            if self._check_team_win():
+                return
+            self._set_phase("explore", self.phase_seconds["explore"])
             self.events.append(self.tick, "meeting_ended", meeting=self.meeting_count)
+            for imp in self.impostors():
+                imp.kill_ready_tick = max(imp.kill_ready_tick, self.tick + R.KILL_COOLDOWN_AFTER_MEETING_TICKS)
         elif self.phase == "explore" and self.meetings_enabled:
             self._start_meeting("scheduled")
 
@@ -771,13 +1160,22 @@ class Match:
         if viewer is None or viewer == target.id:
             return True
         v = self.contestants.get(viewer)
+        if v is not None and v.alive and not target.alive and self.mode == "impostor":
+            return False  # the living never see ghosts
         if v is None or not v.alive or self.phase != "explore" or self.status != "running":
-            return True  # spectators, meetings and results see everyone
+            return True  # spectators, ghosts, meetings and results see everyone
         if not target.alive:
             return False
         if self.alliances.allied(viewer, target.id):
             return True
-        return math.hypot(v.x - target.x, v.y - target.y) <= VIEW_RADIUS
+        return math.hypot(v.x - target.x, v.y - target.y) <= self.view_radius(v)
+
+    def visible_bodies(self, viewer: str | None) -> list[Body]:
+        v = self.contestants.get(viewer or "")
+        if viewer is None or v is None or not v.alive:
+            return list(self.bodies.values())
+        r = self.view_radius(v)
+        return [b for b in self.bodies.values() if math.hypot(v.x - b.x, v.y - b.y) <= r]
 
     def observe(self, cid: str, event_cursor: int = 0) -> Observation:
         c = self.contestants[cid]
@@ -789,7 +1187,7 @@ class Match:
             y=c.y,
             alive=c.alive,
             carrying=dict(c.carrying),
-            carry_capacity=CARRY_CAPACITY,
+            carry_capacity=self.capacity(c),
             phase=self.phase,
             phase_ticks_left=max(0, self.phase_end_tick - self.tick),
             mission_status=self.mission.status,
@@ -797,7 +1195,7 @@ class Match:
             mission_target=self.mission.target_id,
             node_charges={nid: n.charges for nid, n in self.nodes.items()},
             match_running=self.status == "running",
-            alive_ids=tuple(o.id for o in self.contestants.values() if o.alive),
+            alive_ids=tuple(o.id for o in self.contestants.values() if self.known_alive(cid, o)),
             ally=self.alliances.ally_of(cid),
             incoming_proposals=tuple(p.proposer for p in self.alliances.pending_for(cid, self.tick)),
             has_voted=cid in self.votes,
@@ -809,6 +1207,15 @@ class Match:
                 o.id: (o.x, o.y) for o in self.contestants.values() if o.id != cid and o.alive and self.can_see(cid, o)
             },
             new_events=tuple(self.events.visible_since(event_cursor, cid)),
+            mode=self.mode,
+            role=c.role,
+            fellow_impostors=tuple(i.id for i in self.impostors() if i.id != cid) if c.role == R.IMPOSTOR else (),
+            skill=c.skill.id if c.skill else None,
+            ability_used=c.ability_used,
+            kill_ready=c.role == R.IMPOSTOR and self.tick >= c.kill_ready_tick and self.phase == "explore",
+            speed=self.speed(c),
+            visible_bodies={b.victim: (b.x, b.y) for b in self.visible_bodies(cid)},
+            beacons=dict(self.beacons),
         )
 
     # ------------------------------------------------------------------ simulation
@@ -827,7 +1234,7 @@ class Match:
             while c.inputs and c.input_tokens >= 1.0:
                 cmd = c.inputs.popleft()
                 c.input_tokens -= 1.0
-                if exploring and c.alive:
+                if exploring and (c.alive or self.mode == "impostor"):  # ghosts roam in impostor mode
                     self._move(c, cmd.dx, cmd.dy)
                     moved = moved or c.moving
                 c.last_ack_seq = cmd.seq  # inputs during meetings are acknowledged but ignored
@@ -884,9 +1291,11 @@ class Match:
             )
 
         alive = sum(1 for c in self.contestants.values() if c.alive)
-        if self.tick >= self.time_limit_ticks:
+        if self.status != "running":
+            pass  # a kill, task or vote already decided the match this tick
+        elif self.tick >= self.time_limit_ticks:
             self._finish("time_up")
-        elif len(self.contestants) > 2 and alive <= 2 and self.phase == "explore":
+        elif self.mode == "classic" and len(self.contestants) > 2 and alive <= 2 and self.phase == "explore":
             self._finish("final_two")
 
         return self.events.since(first_new)
@@ -895,6 +1304,12 @@ class Match:
         kind = action[0]
         if kind == "chat":
             r = self.chat(cid, quick=action[1], to=action[2] if len(action) > 2 else None)
+        elif kind == "say":
+            r = self.chat(cid, text=action[1], claim=action[2] if len(action) > 2 else None)
+        elif kind == "kill":
+            r = self.kill(cid, action[1])
+        elif kind == "ability":
+            r = self.use_ability(cid, action[1])
         elif kind == "vote":
             r = self.vote(cid, action[1])
         elif kind == "propose":
@@ -929,6 +1344,8 @@ class Match:
         return c.id in self.shrine.activated_by
 
     def _finish(self, reason: str) -> GameEvent:
+        if self.mode == "impostor":
+            return self._finish_teams(reason)
         self.status = "finished"
         names = self.names()
         bonuses: dict[str, dict[str, int]] = {}
@@ -967,6 +1384,52 @@ class Match:
         }
         return self.events.append(self.tick, "match_finished", **self.result)
 
+    def _finish_teams(self, reason: str) -> GameEvent:
+        self.status = "finished"
+        team = R.ISLANDER if reason in ("impostors_caught", "tasks_done") else R.IMPOSTOR
+        winners = sorted(c.id for c in self.contestants.values() if c.role == team)
+        bonuses: dict[str, dict[str, int]] = {}
+        for c in self.contestants.values():
+            b: dict[str, int] = {}
+            if c.id in winners:
+                b["victory"] = R.VICTORY_BONUS
+            if c.alive:
+                b["survival"] = SURVIVAL_BONUS
+            c.score += sum(b.values())
+            bonuses[c.id] = b
+        standings = sorted(
+            self.contestants.values(),
+            key=lambda c: (c.id not in winners, not c.alive, -c.score, c.id),
+        )
+        self.result = {
+            "reason": reason,
+            "mode": self.mode,
+            "winning_team": team,
+            "winners": winners,
+            "winner": standings[0].id if standings and standings[0].id in winners else None,
+            "tower_repaired": self.mission.status == "completed",
+            "beacons_lit": sum(self.beacons.values()),
+            "beacons_total": len(self.beacons),
+            "shrine_activated": self.shrine.status == "activated",
+            "standings": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "score": c.score,
+                    "alive": c.alive,
+                    "won": c.id in winners,
+                    "role": c.role,
+                    "skill": c.skill.to_dict() if c.skill else None,
+                    "contributed": self.mission.contributions.get(c.id, 0),
+                    "bonuses": bonuses[c.id],
+                    "objective": None,
+                    "objective_achieved": False,
+                }
+                for c in standings
+            ],
+        }
+        return self.events.append(self.tick, "match_finished", **self.result)
+
     # ------------------------------------------------------------------ views
     def time_left_seconds(self) -> float:
         return max(0, self.time_limit_ticks - self.tick) / physics.TICK_RATE
@@ -981,8 +1444,9 @@ class Match:
             "phase": self.phase,
             "phase_left": max(0, self.phase_end_tick - self.tick) / physics.TICK_RATE,
             "meeting": self.meeting_count,
+            "mode": self.mode,
             "contestants": [c.public_dict() for c in self.contestants.values() if self.can_see(viewer, c)],
-            "roster": [c.roster_dict() for c in self.contestants.values()],
+            "roster": [c.roster_dict(self.known_alive(viewer, c)) for c in self.contestants.values()],
             "nodes": {nid: n.charges for nid, n in self.nodes.items()},
             "mission": self.mission.to_dict(),
             "shrine": {
@@ -995,6 +1459,12 @@ class Match:
             },
             "voted": sorted(self.votes) if self.phase in ("vote", "reveal") else [],
         }
+        if self.mode == "impostor":
+            snap["beacons"] = dict(self.beacons)
+            snap["bodies"] = [
+                {"id": b.id, "victim": b.victim, "x": round(b.x, 2), "y": round(b.y, 2)}
+                for b in self.visible_bodies(viewer)
+            ]
         if viewer is not None and viewer in self.contestants:
             me = self.contestants[viewer]
             snap["me"] = {
@@ -1006,5 +1476,22 @@ class Match:
                 "vote": self.votes.get(viewer),
                 "delivered": dict(me.delivered),
                 "phrases": dict(me.extra_phrases),
+                "alive": me.alive,
+                "capacity": self.capacity(me),
             }
+            if self.mode == "impostor":
+                snap["me"].update(
+                    {
+                        "role": me.role,
+                        "fellow_impostors": [i.id for i in self.impostors(alive_only=False) if i.id != viewer]
+                        if me.role == R.IMPOSTOR
+                        else [],
+                        "skill": me.skill.to_dict() if me.skill else None,
+                        "ability_used": me.ability_used,
+                        "speed": self.speed(me),
+                        "kill_cooldown": max(0, me.kill_ready_tick - self.tick) / physics.TICK_RATE
+                        if me.role == R.IMPOSTOR
+                        else None,
+                    }
+                )
         return snap

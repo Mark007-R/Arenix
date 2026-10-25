@@ -13,6 +13,7 @@ from typing import Any
 
 from arenix.engine import physics
 from arenix.engine.maps import get_map
+from arenix.engine.roles import SWIFT_SPEED
 
 OUT = Path(__file__).resolve().parents[2] / "shared" / "test-vectors" / "movement.json"
 
@@ -34,6 +35,25 @@ def build() -> dict[str, Any]:
             positions.append([x, y])
         cases.append(
             {"name": f"case_{i}", "start": [sx, sy], "inputs": [list(d) for d in inputs], "positions": positions}
+        )
+    # Swift-skill cases (speed multiplier) use their own generator so the cases above never change.
+    swift_rng = random.Random(1125)
+    for i, (sx, sy) in enumerate(starts[:4]):
+        x, y = sx, sy
+        inputs, positions = [], []
+        for _ in range(120):
+            d = swift_rng.choice(directions) if swift_rng.random() < 0.15 or not inputs else inputs[-1]
+            inputs.append(d)
+            x, y = physics.step(game_map.is_solid, x, y, d[0], d[1], SWIFT_SPEED)
+            positions.append([x, y])
+        cases.append(
+            {
+                "name": f"swift_{i}",
+                "speed": SWIFT_SPEED,
+                "start": [sx, sy],
+                "inputs": [list(d) for d in inputs],
+                "positions": positions,
+            }
         )
     return {
         "map_id": game_map.id,

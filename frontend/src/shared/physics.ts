@@ -36,10 +36,11 @@ export function normalizeInput(dx: number, dy: number): [number, number] {
   return [dx, dy];
 }
 
-export function step(solid: SolidFn, x: number, y: number, dxIn: number, dyIn: number): [number, number] {
+/** `speed` is a multiplier (the Swift skill); 1 gives bit-identical results to the base speed. */
+export function step(solid: SolidFn, x: number, y: number, dxIn: number, dyIn: number, speed = 1): [number, number] {
   const [dx, dy] = normalizeInput(dxIn, dyIn);
-  const mx = dx * SPEED * DT;
-  const my = dy * SPEED * DT;
+  const mx = dx * SPEED * speed * DT;
+  const my = dy * SPEED * speed * DT;
 
   if (mx !== 0) {
     let nx = x + mx;

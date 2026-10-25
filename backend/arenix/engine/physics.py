@@ -44,11 +44,14 @@ def normalize_input(dx: float, dy: float) -> tuple[float, float]:
     return dx, dy
 
 
-def step(solid: SolidFn, x: float, y: float, dx: float, dy: float) -> tuple[float, float]:
-    """Advance one fixed tick. Movement is resolved per axis so contestants slide along walls."""
+def step(solid: SolidFn, x: float, y: float, dx: float, dy: float, speed: float = 1.0) -> tuple[float, float]:
+    """Advance one fixed tick. Movement is resolved per axis so contestants slide along walls.
+
+    `speed` is a multiplier (the Swift skill); 1.0 gives bit-identical results to the base speed.
+    """
     dx, dy = normalize_input(dx, dy)
-    mx = dx * SPEED * DT
-    my = dy * SPEED * DT
+    mx = dx * SPEED * speed * DT
+    my = dy * SPEED * speed * DT
 
     if mx != 0.0:
         nx = x + mx

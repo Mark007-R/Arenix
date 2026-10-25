@@ -12,6 +12,8 @@ export class InterpolationBuffer {
   push(t: number, x: number, y: number): void {
     const last = this.samples[this.samples.length - 1];
     if (last && t <= last.t) return;
+    // After a visibility gap the old samples are stale: don't glide from where we last saw them.
+    if (last && t - last.t > 500) this.samples = [];
     this.samples.push({ t, x, y });
     if (this.samples.length > 30) this.samples.shift();
   }

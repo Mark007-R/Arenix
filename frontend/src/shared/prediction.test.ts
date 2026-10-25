@@ -52,6 +52,13 @@ describe("InterpolationBuffer", () => {
     expect(b.sample(500)).toEqual({ x: 10, y: 20 });
   });
 
+  it("restarts after a visibility gap instead of gliding", () => {
+    const b = new InterpolationBuffer();
+    b.push(0, 0, 0);
+    b.push(2000, 30, 30);
+    expect(b.sample(1000)).toEqual({ x: 30, y: 30 });
+  });
+
   it("ignores out-of-order samples", () => {
     const b = new InterpolationBuffer();
     b.push(100, 1, 1);

@@ -38,11 +38,35 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ⬜ Horizontal scaling: rooms live in one process's memory. Redis pub/sub or sticky routing is
   needed before running more than one server process.
 
-## Milestone 3: Game mechanics ⬜
-- ⬜ More missions (shrine activation, puzzle, timed co-op challenge needing 3 contestants)
-- ⬜ Public and private chat with predefined messages, rate limits, moderation hooks
-- ⬜ Alliances (propose, accept or reject, break)
-- ⬜ Meetings, voting, eliminations, more victory conditions, secret objectives
+## Milestone 3: Game mechanics ✅ (council mode)
+- ✅ Phases: explore → discuss (15 s) → vote (20 s) → reveal (5 s); meetings every 75 s or when
+  someone rings the Council Bell (once per contestant). Movement pauses during meetings.
+- ✅ Voting: a plurality that beats skips eliminates someone; ties eliminate nobody. Who voted
+  is shown live, and who voted for whom at the reveal. Eliminated contestants spectate and can't act.
+- ✅ Victory: when time runs out (7 min) or two remain, the top-scoring survivor wins.
+  Survival +50, secret objective +60.
+- ✅ Missions: Watchtower repair (shared) and the Shrine ritual (a timed co-op challenge where
+  3 contestants channel within 10 s, +40 each)
+- ✅ Alliances: private offers with a 15 s expiry, accept or decline, one ally at a time,
+  cooperation dividend (+3 per unit your ally delivers), allies always visible to each other,
+  whispers. Breaking an alliance or voting against your ally is a public betrayal.
+- ✅ Chat: public chat and ally-only whispers; 17 predefined quick-chat phrases; free text is
+  normalised, stripped of control and bidi characters, length-limited, rate-limited (1.5 s) and
+  filtered with a placeholder blocklist (a real deployment must plug in a moderation service)
+- ✅ Secret objectives (deliver wood or stone, survive, eliminate X, be allied at the end, wake
+  the shrine), private until the results screen
+- ✅ Information security: per-recipient event visibility, positions filtered to the view radius
+  (13 tiles) plus allies (everyone visible during meetings), roster and scores public, objectives
+  private. Bots observe through the same filter (tested).
+- ✅ Rule-based bots: a trust model from observed events drives alliance offers and answers,
+  votes (with objective-aware targeting), ritual help (allies answer from further away) and
+  reactive quick-chat. All of it goes through validated actions.
+- ✅ UI: meeting overlay (vote, skip, live voted markers, reveal), chat panel (Enter, Q for
+  quick-chat, whisper toggle), speech bubbles, alliance offers, scoreboard actions, objective and
+  shrine status, and a results screen with objectives and bonuses
+- 🟡 Bots rarely complete the shrine ritual (about 2 in 20 six-bot matches). This is the
+  intended baseline for Milestone 4's negotiating agents to beat.
+- ⬜ Environmental puzzle mission; additional modes (team objectives, roles)
 
 ## Milestone 4: Autonomous AI ⬜
 - ⬜ LLM gateway (provider-agnostic, mock provider, timeouts, budgets, token and cost metrics)

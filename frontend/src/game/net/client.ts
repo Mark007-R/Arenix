@@ -141,12 +141,44 @@ export class GameClient {
     return this.snapshot?.status === "running";
   }
 
+  /** True while this player may move: running, exploring, alive, not typing in chat. */
+  get canAct(): boolean {
+    const s = this.snapshot;
+    if (!s || s.status !== "running" || s.phase !== "explore") return false;
+    const me = s.roster.find((r) => r.id === this.you);
+    return !!me?.alive && !this.store.get().typing;
+  }
+
+  say(body: { text: string } | { quick: string }, to: string | null = null): void {
+    this.send({ type: "chat", ...body, to });
+  }
+
+  vote(target: string | null): void {
+    this.send({ type: "vote", target });
+  }
+
+  propose(target: string): void {
+    this.send({ type: "propose", target });
+  }
+
+  respond(proposer: string, accept: boolean): void {
+    this.send({ type: "respond", proposer, accept });
+  }
+
+  breakAlliance(): void {
+    this.send({ type: "break_alliance" });
+  }
+
+  name(id: string | null | undefined): string {
+    return (id && this.names[id]) || id || "";
+  }
+
   /** One fixed client tick of player intent. Zero input is not sent (it would not move anyway). */
   applyInput(dx: number, dy: number): void {
     const p = this.predictor;
-    if (!p || !this.running) return;
+    if (!p) return;
     this.prev = { x: p.x, y: p.y };
-    if (dx === 0 && dy === 0) return;
+    if (!this.canAct || (dx === 0 && dy === 0)) return;
     const input = p.applyLocal(dx, dy);
     this.send({ type: "input", seq: input.seq, dx: input.dx, dy: input.dy });
   }
@@ -187,14 +219,14 @@ export class GameClient {
         this.correction = { x: 0, y: 0 };
         this.buffers.clear();
         this.snapshot = msg.snapshot;
-        this.names = Object.fromEntries(msg.snapshot.contestants.map((c) => [c.id, c.name]));
+        this.names = Object.fromEntries(msg.snapshot.roster.map((c) => [c.id, c.name]));
         this.store.set({
           you: msg.you,
           map: msg.map,
           snapshot: msg.snapshot,
           me: { x: me.x, y: me.y },
           matchId: msg.match_id,
-          ...(isNewMatch ? { result: null, feed: [] } : {}),
+          ...(isNewMatch ? { result: null, feed: [], chat: [] } : {}),
         });
         break;
       }
@@ -239,12 +271,31 @@ export class GameClient {
   }
 
   private handleEvent(ev: GameEventDTO): void {
+    if (ev.type === "chat") {
+      const d = ev.data as { sender: string; text: string; private: boolean; to: string | null };
+      const line = {
+        id: ++this.feedId,
+        sender: d.sender,
+        senderName: this.name(d.sender),
+        text: d.text,
+        private: d.private,
+        to: d.to,
+        mine: d.sender === this.you,
+      };
+      this.store.set((s) => ({ chat: [...s.chat.slice(-40), line] }));
+      this.listeners.forEach((l) => l(ev));
+      return;
+    }
     const line = formatEvent(ev, this.names, this.you);
     if (line) {
       const item = { id: ++this.feedId, ...line };
       this.store.set((s) => ({ feed: [...s.feed.slice(-5), item] }));
     }
     if (ev.type === "match_finished") this.store.set({ result: ev.data as unknown as MatchResult });
+    if (ev.type === "vote_resolved") {
+      const d = ev.data as { votes: Record<string, string>; eliminated: string | null; skip: number };
+      this.store.set({ lastVote: { votes: d.votes, eliminated: d.eliminated, skip: d.skip } });
+    }
     this.listeners.forEach((l) => l(ev));
   }
 

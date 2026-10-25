@@ -134,10 +134,11 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
           <section className="panel p-4 text-sm leading-relaxed text-parchment/85">
             <h2 className="mb-1 font-bold text-gold">Rules</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>Repair the Watchtower with wood (forest) and stone (mine) before the 4:00 timer ends.</li>
-              <li>Carry up to 3 materials. The more contestants, the more the tower needs.</li>
-              <li>+10 per delivered unit, +50 for every contributor when it is repaired.</li>
-              <li>Highest score is MVP. If time runs out, nobody wins.</li>
+              <li>Gather wood and stone to repair the Watchtower (+10 per unit, +50 to every contributor).</li>
+              <li>Wake the Ancient Shrine: three contestants must channel within 10 seconds (+40 each).</li>
+              <li>Every 75 s — or when someone rings the Council Bell — the council meets and votes someone out.</li>
+              <li>Form one alliance: allies share a delivery bonus, see each other and can whisper. Voting against your ally is a public betrayal.</li>
+              <li>You get a secret objective (+60). Survivors get +50. After 7 minutes, or when two remain, the top-scoring survivor wins.</li>
             </ul>
           </section>
           {lobby.last_result && (

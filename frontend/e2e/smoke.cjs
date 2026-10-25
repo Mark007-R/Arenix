@@ -1,7 +1,7 @@
 /**
  * End-to-end smoke test: a real browser plays a practice match against the running stack.
  * It walks to the forest, gathers 3 wood, delivers them to the watchtower, checks the score
- * and the client/server position agreement, then waits for a valid match result.
+ * and the client/server position agreement, then skips a council vote and sends a quick-chat.
  *
  * Requires both servers running (see README) and Playwright with Chromium:
  *   node e2e/smoke.cjs [http://localhost:3000]
@@ -94,9 +94,18 @@ const fail = (msg) => {
   });
   if (sync > 0.5) fail(`client prediction diverged from server by ${sync} tiles`);
 
-  await page.waitForFunction(() => window.__ARENIX__.store.get().result, null, { timeout: 280000 });
-  const result = await page.evaluate(() => window.__ARENIX__.store.get().result);
-  if (!result.standings.some((s) => s.id === "p1" && s.contributed >= 3)) fail("player contribution missing from result");
+  // Council: wait for the vote phase, skip through the meeting overlay, see the reveal.
+  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.phase === "vote", null, { timeout: 120000 });
+  await page.getByRole("button", { name: "Skip vote" }).click();
+  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.me?.vote === "skip", null, { timeout: 5000 });
+  await page.waitForFunction(() => window.__ARENIX__.store.get().lastVote !== null, null, { timeout: 30000 });
+  const reveal = await page.evaluate(() => window.__ARENIX__.store.get().lastVote);
+  if (reveal.votes.p1 !== "skip") fail(`player's skip not recorded: ${JSON.stringify(reveal)}`);
+  // Quick-chat reaches the log.
+  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.phase === "explore", null, { timeout: 30000 });
+  await page.evaluate(() => window.__ARENIX__.client.say({ quick: "gg" }));
+  await page.waitForFunction(() => window.__ARENIX__.store.get().chat.some((c) => c.mine), null, { timeout: 5000 });
+  const result = reveal;
   if (errors.length) fail(`browser errors: ${errors.join(" | ")}`);
   console.log("PASS", JSON.stringify(result));
   await browser.close();

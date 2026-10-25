@@ -276,20 +276,14 @@ def test_room_returns_to_lobby_after_match_and_can_replay() -> None:
         room.start(seat)
         match = room.match
         assert match is not None and room.status == "running"
-        # Finish the mission through the normal validated interaction path.
-        match.mission.delivered = {r: n for r, n in match.mission.required.items()}
-        match.mission.delivered["wood"] -= 1
-        me = match.contestants[seat.player_id]
-        me.carrying["wood"] = 1
-        tower = match.map.objects_by_id["watchtower"]
-        me.x, me.y = tower.x + 0.5, tower.y + tower.h + 0.5
-        assert room.handle_interact(seat, "watchtower")["ok"]
+        # End the match by running out the clock.
+        match.time_limit_ticks = match.tick + 2
         for _ in range(50):
             await asyncio.sleep(0.01)
             if room.status == "lobby":
                 break
         assert room.status == "lobby"
-        assert room.last_result is not None and room.last_result["winner"] == seat.player_id
+        assert room.last_result is not None and room.last_result["winner"] in match.contestants
         await asyncio.sleep(0.05)
         assert any(m["type"] == "snapshot" and any(e["type"] == "match_finished" for e in m["events"]) for m in sent)
         assert any(m["type"] == "lobby" and m["last_result"] for m in sent)

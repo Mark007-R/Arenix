@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 MAX_MESSAGE_BYTES = 1024
 
@@ -53,7 +53,58 @@ class StartMsg(_Msg):
     type: Literal["start"]
 
 
-AnyClientMessage = InputMsg | InteractMsg | PingMsg | ReadyMsg | SetArchetypeMsg | SetFillMsg | StartMsg
+ContestantId = Annotated[str, Field(min_length=1, max_length=16, pattern=r"^[a-z0-9]+$")]
+
+
+class ChatMsg(_Msg):
+    """Exactly one of text (free text, sanitised server-side) or quick (a phrase id)."""
+
+    type: Literal["chat"]
+    text: str | None = Field(default=None, max_length=200)
+    quick: str | None = Field(default=None, max_length=32, pattern=r"^[a-z_]+$")
+    to: ContestantId | None = None
+
+    @model_validator(mode="after")
+    def _one_body(self) -> ChatMsg:
+        if (self.text is None) == (self.quick is None):
+            raise ValueError("send either text or quick")
+        return self
+
+
+class VoteMsg(_Msg):
+    type: Literal["vote"]
+    target: ContestantId | None  # None = skip
+
+
+class ProposeMsg(_Msg):
+    type: Literal["propose"]
+    target: ContestantId
+
+
+class RespondMsg(_Msg):
+    type: Literal["respond"]
+    proposer: ContestantId
+    accept: bool
+
+
+class BreakMsg(_Msg):
+    type: Literal["break_alliance"]
+
+
+AnyClientMessage = (
+    InputMsg
+    | InteractMsg
+    | PingMsg
+    | ReadyMsg
+    | SetArchetypeMsg
+    | SetFillMsg
+    | StartMsg
+    | ChatMsg
+    | VoteMsg
+    | ProposeMsg
+    | RespondMsg
+    | BreakMsg
+)
 ClientMessage = Annotated[AnyClientMessage, Field(discriminator="type")]
 client_message_adapter: TypeAdapter[AnyClientMessage] = TypeAdapter(ClientMessage)
 

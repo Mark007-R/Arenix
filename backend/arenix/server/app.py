@@ -20,17 +20,22 @@ from ..engine.maps import available_maps, get_map
 from ..engine.match import ARCHETYPES
 from .protocol import (
     MAX_MESSAGE_BYTES,
+    BreakMsg,
+    ChatMsg,
     CreateRoomRequest,
     InputMsg,
     InteractMsg,
     JoinParams,
     JoinRoomRequest,
     PingMsg,
+    ProposeMsg,
     ReadyMsg,
+    RespondMsg,
     SeatGrant,
     SetArchetypeMsg,
     SetFillMsg,
     StartMsg,
+    VoteMsg,
     client_message_adapter,
 )
 from .rooms import Connection, Room, RoomError, RoomManager, Seat
@@ -177,6 +182,7 @@ def create_app() -> FastAPI:
                     except (ValidationError, json.JSONDecodeError):
                         invalid += 1
                         msg = None
+                    reply: dict[str, Any] | None = None
                     try:
                         if isinstance(msg, InputMsg):
                             room.handle_input(seat, msg.seq, msg.dx, msg.dy)
@@ -192,6 +198,18 @@ def create_app() -> FastAPI:
                             room.set_fill(seat, msg.fill_to)
                         elif isinstance(msg, StartMsg):
                             room.start(seat)
+                        elif isinstance(msg, ChatMsg):
+                            reply = room.handle_action(seat, "chat", text=msg.text, quick=msg.quick, to=msg.to)
+                        elif isinstance(msg, VoteMsg):
+                            reply = room.handle_action(seat, "vote", target=msg.target)
+                        elif isinstance(msg, ProposeMsg):
+                            reply = room.handle_action(seat, "propose", target=msg.target)
+                        elif isinstance(msg, RespondMsg):
+                            reply = room.handle_action(seat, "respond", proposer=msg.proposer, accept=msg.accept)
+                        elif isinstance(msg, BreakMsg):
+                            reply = room.handle_action(seat, "break")
+                        if reply is not None:
+                            conn.push(reply)
                     except RoomError as e:
                         conn.push({"type": "error", "code": e.code, "message": str(e)})
                 if invalid > MAX_INVALID_MESSAGES:

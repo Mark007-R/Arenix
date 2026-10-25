@@ -13,7 +13,8 @@ from arenix.engine.match import (
 
 
 def make_match(emerald: GameMap, bots_n: int = 0, seed: int = 7, **kw: int) -> Match:
-    m = Match("test", emerald, seed, **kw)
+    kw.setdefault("meetings", False)  # type: ignore[arg-type]
+    m = Match("test", emerald, seed, **kw)  # type: ignore[arg-type]
     m.add_contestant("p1", "Hero", "knight", is_bot=False)
     for i in range(bots_n):
         m.add_contestant(f"b{i}", f"Bot{i}", "wizard", is_bot=True)
@@ -109,28 +110,29 @@ def test_delivery_with_empty_hands(emerald: GameMap) -> None:
     assert m.interact("p1", "watchtower").reason == "nothing_to_deliver"
 
 
-def test_mission_completion_finishes_match(emerald: GameMap) -> None:
+def test_mission_completion_awards_bonus_and_closes_tower(emerald: GameMap) -> None:
     m = make_match(emerald)
     m.mission.delivered = {"wood": m.mission.required["wood"] - 1, "stone": m.mission.required["stone"]}
     m.contestants["p1"].carrying = {"wood": 1, "stone": 0}
     place_next_to(m, "p1", "watchtower")
     r = m.interact("p1", "watchtower")
     types = [e.type for e in r.events]
-    assert types == ["resources_delivered", "mission_completed", "match_finished"]
-    assert m.status == "finished"
-    assert m.result is not None and m.result["winner"] == "p1"
+    assert types == ["resources_delivered", "mission_completed"]
+    assert m.status == "running"  # the match continues: survival decides the winner
     assert m.contestants["p1"].score == POINTS_PER_UNIT + MISSION_BONUS
-    assert m.interact("p1", "watchtower").reason == "match_not_running"
-    assert m.step() == []
+    skip_cooldown(m)
+    m.contestants["p1"].carrying = {"wood": 1, "stone": 0}
+    assert m.interact("p1", "watchtower").reason == "mission_closed"
 
 
-def test_time_limit_fails_mission(emerald: GameMap) -> None:
+def test_time_limit_ends_match_with_surviving_winner(emerald: GameMap) -> None:
     m = make_match(emerald, time_limit_seconds=1)
     for _ in range(physics.TICK_RATE):
         m.step()
     assert m.status == "finished"
-    assert m.mission.status == "failed"
-    assert m.result is not None and m.result["winner"] is None
+    assert m.result is not None and m.result["reason"] == "time_up" and m.result["winner"] == "p1"
+    assert m.result["standings"][0]["bonuses"]["survival"] > 0
+    assert m.step() == []
 
 
 def test_input_moves_player_and_acks(emerald: GameMap) -> None:

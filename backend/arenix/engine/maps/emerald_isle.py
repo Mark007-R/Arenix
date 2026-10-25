@@ -175,9 +175,9 @@ def build() -> GameMap:
         )
     )
     add(MapObject("well", "well", 25, 23, 2, 1, props={"label": "Village Well"}))
-    add(MapObject("shrine", "shrine", 10, 36, 2, 2, props={"label": "Ancient Shrine"}))
+    add(MapObject("shrine", "shrine", 10, 36, 2, 2, interactable=True, props={"label": "Ancient Shrine"}))
     add(MapObject("mine_entrance", "mine_entrance", 50, 4, 3, 1, props={"label": "Mine Entrance"}))
-    add(MapObject("bell", "bell", 51, 31, 2, 1, props={"label": "Council Bell"}))
+    add(MapObject("bell", "bell", 51, 31, 2, 1, interactable=True, props={"label": "Council Bell"}))
     for i, (hx, hy) in enumerate(((17, 19), (17, 25), (22, 16), (28, 16), (32, 22), (21, 29), (28, 29))):
         add(MapObject(f"house_{i}", "house", hx, hy, 3, 2, props={"variant": i % 3}))
 

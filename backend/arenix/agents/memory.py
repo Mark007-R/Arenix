@@ -29,12 +29,20 @@ class Thread:
 
 @dataclass
 class AgentMemory:
-    facts: deque[str] = field(default_factory=lambda: deque(maxlen=MAX_FACTS))
-    claims: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=MAX_CLAIMS))
+    max_facts: int = MAX_FACTS
+    max_claims: int = MAX_CLAIMS
+    facts: deque[str] = field(default_factory=deque)
+    claims: deque[dict[str, Any]] = field(default_factory=deque)
     threads: dict[str, Thread] = field(default_factory=dict)
     agreements: list[str] = field(default_factory=list)
     # Targets whose alliance offer the engine refused recently (e.g. they are secretly allied).
     offer_refused: dict[str, int] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Bounded memory (size is an experiment knob; 0 = no episodic memory at all).
+        self.facts = deque(self.facts, maxlen=self.max_facts)
+        self.claims = deque(self.claims, maxlen=self.max_claims)
+
     betrayals: list[str] = field(default_factory=list)
 
     def ingest(self, me: str, ev: GameEvent, names: dict[str, str]) -> bool:

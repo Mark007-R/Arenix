@@ -250,6 +250,7 @@ class Match:
         self._phase_messages: dict[tuple[str, str], int] = {}
         self._threads: dict[str, dict[str, Any]] = {}
         self._message_counter = 0
+        self.max_negotiation_rounds = MAX_NEGOTIATION_ROUNDS  # experiment knob
         # Validation outcome of every bot/agent action: (tick, contestant, action, ok, reason).
         self.action_results: list[tuple[int, str, tuple[Any, ...], bool, str]] = []
 
@@ -583,7 +584,7 @@ class Match:
                 return ActionResult(False, "no_such_thread")
             if not thread["open_to_all"] and cid not in thread["participants"]:
                 return ActionResult(False, "not_in_thread")
-            if thread["rounds"] >= MAX_NEGOTIATION_ROUNDS:
+            if thread["rounds"] >= self.max_negotiation_rounds:
                 return ActionResult(False, "negotiation_limit")
         self._message_counter += 1
         message_id = f"m{self._message_counter}"

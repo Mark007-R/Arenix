@@ -62,11 +62,14 @@ class DecisionRecord:
 
 
 class AgentCoordinator:
-    def __init__(self, match: Match, gateway: LLMGateway, agent_ids: list[str]) -> None:
+    def __init__(self, match: Match, gateway: LLMGateway, agent_ids: list[str], memory_size: int | None = None) -> None:
         self.match = match
         self.gateway = gateway
         self.agents = [a for a in agent_ids if a in match.bots]
-        self.memory = {a: AgentMemory() for a in self.agents}
+        self.memory = {
+            a: AgentMemory() if memory_size is None else AgentMemory(max_facts=memory_size, max_claims=memory_size)
+            for a in self.agents
+        }
         self.cursor = dict.fromkeys(self.agents, 0)
         self.next_due: dict[str, int] = {}
         self.last_call: dict[str, int] = {}

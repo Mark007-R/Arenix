@@ -22,7 +22,7 @@ explore an island, complete missions, form alliances, betray each other and comp
 | ![Council meeting, discussion phase](docs/screenshots/4-council-meeting.png) | ![Council meeting, voting phase](docs/screenshots/5-council-vote.png) |
 | **Council discussion:** AI contestants make claims in chat | **Council vote:** vote someone out or skip |
 | ![Crates with their odds](docs/screenshots/6-collection.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/7-agent-lab.png) |
-| **Collection:** cosmetic crates with every odd shown | **Agent Lab:** interaction graph, replay and decision inspector |
+| **Collection:** cosmetic crates with all odds shown | **Agent Lab:** interaction graph, replay and decision inspector |
 
 ## What you can do today
 

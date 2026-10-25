@@ -22,6 +22,7 @@ from typing import Any
 
 from ..agents.config import AgentConfig
 from ..agents.coordinator import AgentCoordinator
+from ..db.session import Database
 from ..engine import physics
 from ..engine.maps import get_map
 from ..engine.match import ARCHETYPES, INTERACT_RANGE, Match
@@ -93,6 +94,8 @@ class Seat:
     ready: bool = False
     conn: Connection | None = None
     last_seen: float = field(default_factory=time.monotonic)
+    user_id: int | None = None  # signed-in account (for progression); None = anonymous
+    loadout: dict[str, Any] = field(default_factory=dict)  # cosmetics loaded server-side from the DB
 
     @property
     def connected(self) -> bool:
@@ -106,6 +109,7 @@ class Seat:
             "ready": self.ready,
             "connected": self.connected,
             "is_host": self.is_host,
+            "cosmetics": {k: v for k, v in self.loadout.items() if k in ("skin", "hat", "effect")},
         }
 
 
@@ -117,6 +121,7 @@ class Room:
         practice: bool = False,
         seed: int | None = None,
         agents: AgentConfig | None = None,
+        db: Database | None = None,
     ) -> None:
         self.code = code
         self.fill_to = fill_to
@@ -131,12 +136,15 @@ class Room:
         self.empty_since: float | None = time.monotonic()
         self.matches_played = 0
         self.agent_config = agents or AgentConfig()
+        self.db = db
         self.coordinator: AgentCoordinator | None = None
         # Finished matches kept for the Agent Lab and replays (most recent last).
         self.history: list[tuple[Match, AgentCoordinator | None]] = []
 
     # ------------------------------------------------------------ seats
-    def add_seat(self, name: str, archetype: str) -> Seat:
+    def add_seat(
+        self, name: str, archetype: str, user_id: int | None = None, loadout: dict[str, Any] | None = None
+    ) -> Seat:
         if archetype not in ARCHETYPES:
             raise RoomError("bad_archetype", "unknown archetype")
         if self.status != "lobby":
@@ -145,7 +153,17 @@ class Room:
             raise RoomError("room_full", "room is full")
         pid = f"p{self._next_player}"
         self._next_player += 1
-        seat = Seat(pid, name, archetype, secrets.token_urlsafe(24), is_host=not self.seats)
+        if user_id is not None and any(st.user_id == user_id for st in self.seats.values()):
+            raise RoomError("already_joined", "you already have a seat in this room")
+        seat = Seat(
+            pid,
+            name,
+            archetype,
+            secrets.token_urlsafe(24),
+            is_host=not self.seats,
+            user_id=user_id,
+            loadout=loadout or {},
+        )
         self.seats[pid] = seat
         self.fill_to = max(self.fill_to, len(self.seats))
         self.broadcast_lobby()
@@ -246,7 +264,9 @@ class Room:
         for pid in [p for p, s in self.seats.items() if not s.connected]:
             self.seats.pop(pid)
         for s in self.seats.values():
-            match.add_contestant(s.player_id, s.name, s.archetype, is_bot=False)
+            match.add_contestant(
+                s.player_id, s.name, s.archetype, is_bot=False, cosmetics=s.loadout, phrases=s.loadout.get("phrases")
+            )
         used = {s.archetype for s in self.seats.values()}
         free = [a for a in ARCHETYPES if a not in used] or list(ARCHETYPES)
         for i in range(max(0, self.fill_to - len(self.seats))):
@@ -292,10 +312,29 @@ class Room:
                 await self.coordinator.close()
             self.status = "lobby"
             self.last_result = match.result
+            if match.status == "finished" and self.db is not None:
+                await self._persist(match)
             for s in self.seats.values():
                 if s.conn is not None:
                     s.conn.mark_dirty()  # final snapshot carries match_finished
             self.broadcast_lobby()
+
+    async def _persist(self, match: Match) -> None:
+        """Write the match + event log and award progression in one transaction; tell players their rewards."""
+        from ..economy.records import persist_match
+
+        assert self.db is not None
+        user_ids = {s.player_id: s.user_id for s in self.seats.values() if s.user_id is not None}
+        try:
+            async with self.db.sessions.begin() as session:
+                coord = self.coordinator if self.coordinator is not None and self.coordinator.match is match else None
+                rewards = await persist_match(session, match, coord, self.code, user_ids)
+        except Exception:
+            log.exception("failed to persist match %s", match.id)
+            return
+        for s in self.seats.values():
+            if s.user_id in rewards and s.conn is not None:
+                s.conn.push({"type": "rewards", "match_id": match.id, **rewards[s.user_id]})
 
     def handle_input(self, seat: Seat, seq: int, dx: float, dy: float) -> None:
         if self.match is not None and self.status == "running":
@@ -407,9 +446,10 @@ class RoomManager:
                 return code
         raise RoomError("busy", "could not allocate a room code")
 
-    def __init__(self, agents: AgentConfig | None = None) -> None:
+    def __init__(self, agents: AgentConfig | None = None, db: Database | None = None) -> None:
         self.rooms: dict[str, Room] = {}
         self.agents = agents or AgentConfig.from_env()
+        self.db = db
 
     def create(self, fill_to: int = 6, practice: bool = False, seed: int | None = None) -> Room:
         if len(self.rooms) >= MAX_ROOMS:

@@ -298,3 +298,22 @@ def test_everyone_visible_during_meetings(emerald: GameMap) -> None:
     m.contestants["p1"].x, m.contestants["p1"].y = 50.5, 8.5
     run(m, EXPLORE_SECONDS)
     assert {c["id"] for c in m.snapshot("p0")["contestants"]} == {"p0", "p1", "p2", "p3"}
+
+
+def test_unlocked_phrases_and_cosmetics(emerald: GameMap) -> None:
+    m = Match("cos", emerald, 1, meetings=False)
+    m.add_contestant(
+        "p0",
+        "A",
+        "knight",
+        False,
+        cosmetics={"hat": {"style": "halo"}, "weapon": "sword"},
+        phrases={"royal_decree": "By royal decree!"},
+    )
+    m.add_contestant("p1", "B", "knight", False)
+    m.start()
+    assert m.chat("p0", quick="royal_decree").ok
+    assert m.chat("p1", quick="royal_decree").reason == "unknown_phrase"  # not unlocked for p1
+    snap = m.snapshot("p1")
+    p0 = next(c for c in snap["contestants"] if c["id"] == "p0")
+    assert p0["cosmetics"] == {"hat": {"style": "halo"}}  # unknown slots dropped; others see the hat

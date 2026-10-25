@@ -13,6 +13,17 @@ explore an island, complete missions, form alliances, betray each other and comp
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Home screen: choose a name and a contestant](docs/screenshots/1-home.png) | ![A practice match starting in the village plaza](docs/screenshots/2-game-start.png) |
+| **Home:** pick a contestant, then practice, create or join a room | **In a match:** mission panel, minimap, scoreboard, chat and pack |
+| ![Council meeting, discussion phase](docs/screenshots/4-council-meeting.png) | ![Council meeting, voting phase](docs/screenshots/5-council-vote.png) |
+| **Council discussion:** AI contestants make claims in chat | **Council vote:** vote someone out or skip |
+| ![Crates with their odds](docs/screenshots/6-collection.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/7-agent-lab.png) |
+| **Collection:** cosmetic crates with every odd shown | **Agent Lab:** interaction graph, replay and decision inspector |
+
 ## What you can do today
 
 * **Practice** alone against AI, or **create a room** and share its 6-character code or invite

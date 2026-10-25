@@ -95,6 +95,29 @@ class Alliances:
         return b
 
 
+# ---------------------------------------------------------------- structured messages
+MESSAGE_TYPES = frozenset(
+    {
+        "PLAN_PROPOSAL",
+        "ALLIANCE_PROPOSAL",
+        "ACCEPT",
+        "COUNTER_OFFER",
+        "REJECT",
+        "INFORMATION_SHARE",
+        "ACTION_PROPOSAL",
+        "VOTE_INTENT",
+        "SYSTEM_EVENT",
+    }
+)
+# Types that may be sent privately to anyone (negotiation). Everything else is public or ally-only.
+NEGOTIATION_TYPES = frozenset({"PLAN_PROPOSAL", "ALLIANCE_PROPOSAL", "ACCEPT", "COUNTER_OFFER", "REJECT"})
+REPLY_TYPES = frozenset({"ACCEPT", "COUNTER_OFFER", "REJECT"})
+MAX_MESSAGES_PER_PHASE = 6
+MAX_NEGOTIATION_ROUNDS = 4
+MAX_PAYLOAD_CHARS = 400
+MESSAGE_TTL_TICKS = 20 * 20
+
+
 # ---------------------------------------------------------------- secret objectives
 OBJECTIVE_BONUS = 60
 

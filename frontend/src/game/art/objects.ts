@@ -228,3 +228,38 @@ export function resourceIcon(kind: "wood" | "stone"): HTMLCanvasElement {
   p.outline(P.outline);
   return toCanvas(p);
 }
+
+/** A stone brazier on a post. Lit beacons carry a flame (1x1 footprint, rises above it). */
+export function beacon(lit: boolean): HTMLCanvasElement {
+  const p = new Pixels(16, 34);
+  p.rect(2, 30, 12, 3, P.shadow);
+  p.rect(6, 14, 4, 17, P.stoneDark); // post
+  p.vline(6, 14, 30, P.stone);
+  p.rect(3, 27, 10, 4, P.stone); // base
+  p.hline(3, 12, 30, P.stoneDark);
+  p.rect(2, 10, 12, 4, P.stone); // bowl
+  p.hline(2, 13, 13, P.stoneDark);
+  p.hline(3, 12, 10, P.stoneLight);
+  if (lit) {
+    p.ellipse(3, 1, 10, 10, P.red);
+    p.ellipse(4, 3, 8, 8, "#f08a3c");
+    p.ellipse(5, 5, 6, 6, P.gold);
+    p.ellipse(6, 7, 4, 4, P.flowerYellow);
+    p.px(8, 0, P.gold);
+  } else {
+    p.rect(4, 8, 8, 2, P.trunk); // cold logs
+    p.hline(4, 11, 8, P.plankLight);
+  }
+  p.outline(P.outline);
+  return toCanvas(p);
+}
+
+/** A fallen contestant's marker: a small grave-marker cross over a dark patch. */
+export function bodyMark(): HTMLCanvasElement {
+  const p = new Pixels(16, 10);
+  p.ellipse(0, 4, 16, 6, "rgba(90,20,40,0.55)");
+  p.rect(7, 0, 2, 7, P.white);
+  p.rect(5, 2, 6, 2, P.white);
+  p.outline(P.outline);
+  return toCanvas(p);
+}

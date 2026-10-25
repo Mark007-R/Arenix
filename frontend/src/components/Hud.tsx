@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { GameClient } from "@/game/net/client";
 import { AllianceOffers } from "./AllianceOffers";
 import { ChatPanel } from "./ChatPanel";
+import { BeaconProgress, KillButton, RoleCard, RoleIntro } from "./ImpostorHud";
 import { MeetingOverlay } from "./MeetingOverlay";
 import { Minimap } from "./Minimap";
 import { Portrait } from "./Portrait";
@@ -18,21 +19,22 @@ function fmtTime(s: number): string {
 
 const RES_COLOR: Record<Resource, string> = { wood: "#c58d55", stone: "#c4c9d2" };
 
-function MissionPanel({ store }: { store: HudStore }) {
+function MissionPanel({ store, client }: { store: HudStore; client: GameClient }) {
   const snap = useHud(store, (s) => s.snapshot);
   const region = useHud(store, (s) => s.region);
   if (!snap) return null;
   const m = snap.mission;
   const low = snap.time_left <= 30 && m.status === "active";
   return (
-    <div className="panel w-64 p-3">
+    <div className="panel pointer-events-auto max-h-[60dvh] w-64 overflow-y-auto p-3">
+      <RoleCard store={store} client={client} />
       <div className="flex items-center justify-between">
         <span className="text-xs uppercase tracking-wider text-gold">Mission</span>
         <span className={`text-lg font-bold tabular-nums ${low ? "text-ember" : "text-parchment"}`} aria-label="Time left">
           {fmtTime(snap.time_left)}
         </span>
       </div>
-      <div className="mb-2 font-bold">{m.title}</div>
+      <div className="mb-2 font-bold">{snap.mode === "impostor" ? "Island tasks" : m.title}</div>
       {(Object.keys(m.required) as Resource[]).map((r) => {
         const pct = Math.min(100, (m.delivered[r] / Math.max(1, m.required[r])) * 100);
         return (
@@ -45,6 +47,7 @@ function MissionPanel({ store }: { store: HudStore }) {
           </div>
         );
       })}
+      <BeaconProgress store={store} />
       <div className="mt-2 text-xs">
         <span className="text-parchment/70">Shrine: </span>
         {snap.shrine.status === "activated" ? (
@@ -53,6 +56,9 @@ function MissionPanel({ store }: { store: HudStore }) {
           <span className="text-[#d8c2ff]">ritual {snap.shrine.count}/{snap.shrine.required} · {Math.ceil(snap.shrine.window_left)}s left!</span>
         ) : (
           <span className="text-parchment/60">dormant (needs {snap.shrine.required} together)</span>
+        )}
+        {snap.mode === "impostor" && snap.shrine.status !== "activated" && (
+          <span className="block text-parchment/50">Awakening it shows each channeler one innocent.</span>
         )}
       </div>
       {snap.phase === "explore" && (
@@ -78,6 +84,7 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
   const ally = snap.me?.ally ?? null;
   const outgoing = snap.me?.outgoing_proposals ?? [];
   const meAlive = snap.roster.find((r) => r.id === you)?.alive;
+  const canShield = snap.me?.skill?.id === "medic" && !snap.me.ability_used;
   return (
     <div className="panel pointer-events-auto w-[220px] p-2">
       <div className="mb-1 text-xs uppercase tracking-wider text-gold">Contestants</div>
@@ -114,6 +121,12 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
                     Propose alliance
                   </button>
                 )}
+                {canShield && (
+                  <button className="btn btn-ghost px-2 py-0.5 text-xs" title="Medic: block the next attack on them (once per match)"
+                    onClick={() => { client.ability(c.id); setOpen(null); }}>
+                    🛡️ Shield
+                  </button>
+                )}
               </div>
             )}
           </li>
@@ -127,13 +140,14 @@ function Pack({ store }: { store: HudStore }) {
   const snap = useHud(store, (s) => s.snapshot);
   const you = useHud(store, (s) => s.you);
   const me = snap?.contestants.find((c) => c.id === you);
-  if (!me) return null;
+  if (!me || !me.alive) return null;
+  const slots = snap?.me?.capacity ?? 3;
   const units: Resource[] = [];
   for (const [r, n] of Object.entries(me.carrying) as [Resource, number][]) for (let i = 0; i < n; i++) units.push(r);
   return (
     <div className="panel flex items-center gap-2 px-3 py-2" aria-label="Your pack">
       <span className="mr-1 text-xs uppercase tracking-wider text-gold">Pack</span>
-      {[0, 1, 2].map((i) => (
+      {Array.from({ length: slots }, (_, i) => i).map((i) => (
         <div key={i} className="flex h-8 w-8 items-center justify-center border-[3px] border-ink bg-[#120c1c] text-[10px] capitalize"
           title={units[i] ?? "empty"}>
           {units[i] && <span className="block h-4 w-4" style={{ background: RES_COLOR[units[i]!], boxShadow: "inset -2px -2px 0 rgba(0,0,0,.3)" }} />}
@@ -171,9 +185,11 @@ function Toast({ store }: { store: HudStore }) {
 export function Hud({ store, client, onToggleMotion }: { store: HudStore; client: GameClient; onToggleMotion: () => void }) {
   const ping = useHud(store, (s) => s.pingMs);
   const reduced = useHud(store, (s) => s.reducedMotion);
+  const meeting = useHud(store, (s) => s.snapshot?.status === "running" && s.snapshot.phase !== "explore");
+  const impostor = useHud(store, (s) => s.snapshot?.me?.role === "impostor");
   return (
     <div className="pointer-events-none absolute inset-0 select-none p-3">
-      <div className="absolute left-3 top-3"><MissionPanel store={store} /></div>
+      <div className="absolute left-3 top-3"><MissionPanel store={store} client={client} /></div>
       <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
         <Minimap store={store} />
         <Scoreboard store={store} client={client} />
@@ -185,11 +201,17 @@ export function Hud({ store, client, onToggleMotion }: { store: HudStore; client
       </div>
       <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-2">
         <Feed store={store} />
-        <ChatPanel client={client} store={store} />
+        {!meeting && <ChatPanel client={client} store={store} />}
       </div>
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2"><Pack store={store} /></div>
+      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-end gap-2">
+        <Pack store={store} />
+        <KillButton store={store} client={client} />
+      </div>
+      <RoleIntro store={store} client={client} />
       <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-3 text-xs text-parchment/60">
-        <span className="hidden sm:inline">WASD move · E interact · Enter chat · Q quick-chat</span>
+        <span className="hidden sm:inline">
+          WASD move · E interact{impostor ? " · K eliminate" : ""} · Enter chat · Q quick-chat
+        </span>
         {ping !== null && <span className="tabular-nums">{ping} ms</span>}
         <button className="underline decoration-dotted" onClick={onToggleMotion} aria-pressed={reduced}>
           Reduced motion: {reduced ? "on" : "off"}

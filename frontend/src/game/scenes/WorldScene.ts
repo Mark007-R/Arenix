@@ -4,7 +4,7 @@ import * as Obj from "../art/objects";
 import { TILE, renderTiles } from "../art/tiles";
 import type { GameClient } from "../net/client";
 import { DT } from "@/shared/physics";
-import type { ContestantDTO, Facing, GameEventDTO, MapObjectDTO } from "@/shared/protocol";
+import type { BodyDTO, ContestantDTO, Facing, GameEventDTO, MapObjectDTO } from "@/shared/protocol";
 
 const STEP_MS = DT * 1000;
 const INTERP_DELAY_MS = 100;
@@ -31,12 +31,15 @@ export class WorldScene extends Phaser.Scene {
   private deps!: SceneDeps;
   private actors = new Map<string, ActorView>();
   private nodeSprites = new Map<string, Phaser.GameObjects.Image>();
+  private beaconSprites = new Map<string, Phaser.GameObjects.Image>();
+  private bodySprites = new Map<string, Phaser.GameObjects.GameObject[]>();
   private tower: Phaser.GameObjects.Image | null = null;
   private towerRepaired = false;
   private marker!: Phaser.GameObjects.Image;
   private edgeArrow!: Phaser.GameObjects.Image;
   private promptBubble!: Phaser.GameObjects.Text;
-  private keys!: Record<"up" | "down" | "left" | "right" | "w" | "a" | "s" | "d" | "e" | "space", Phaser.Input.Keyboard.Key>;
+  private killBubble!: Phaser.GameObjects.Text;
+  private keys!: Record<"up" | "down" | "left" | "right" | "w" | "a" | "s" | "d" | "e" | "space" | "k", Phaser.Input.Keyboard.Key>;
   private acc = 0;
   private lastFrame = 0;
   private localFacing: Facing = "down";
@@ -44,7 +47,7 @@ export class WorldScene extends Phaser.Scene {
   private built = false;
   private unsub: (() => void) | null = null;
   /** Touch joystick vector, set by the React overlay. */
-  touch = { dx: 0, dy: 0, interact: false };
+  touch = { dx: 0, dy: 0, interact: false, kill: false };
 
   constructor() {
     super("world");
@@ -59,7 +62,7 @@ export class WorldScene extends Phaser.Scene {
     const K = Phaser.Input.Keyboard.KeyCodes;
     this.keys = kb.addKeys({
       up: K.UP, down: K.DOWN, left: K.LEFT, right: K.RIGHT,
-      w: K.W, a: K.A, s: K.S, d: K.D, e: K.E, space: K.SPACE,
+      w: K.W, a: K.A, s: K.S, d: K.D, e: K.E, space: K.SPACE, k: K.K,
     }, false) as typeof this.keys;
     this.cameras.main.setBackgroundColor("#2f68b8");
     this.unsub = this.deps.client.onEvent((ev) => this.onGameEvent(ev));
@@ -85,6 +88,10 @@ export class WorldScene extends Phaser.Scene {
       .text(0, 0, "", { fontFamily: "Pixelify Sans, monospace", fontSize: "8px", color: "#fbf7ee",
         backgroundColor: "#1f1630", padding: { x: 3, y: 1 } })
       .setResolution(4).setOrigin(0.5, 1).setDepth(960000).setVisible(false);
+    this.killBubble = this.add
+      .text(0, 0, "", { fontFamily: "Pixelify Sans, monospace", fontSize: "8px", color: "#fbf7ee",
+        backgroundColor: "#9a3029", padding: { x: 3, y: 1 } })
+      .setResolution(4).setOrigin(0.5, 1).setDepth(960001).setVisible(false);
 
     this.cameras.main.setBounds(0, 0, map.width * TILE, map.height * TILE);
     this.fitCamera();
@@ -125,6 +132,13 @@ export class WorldScene extends Phaser.Scene {
       case "bell":
         key = this.texture("bell", Obj.bell);
         break;
+      case "beacon": {
+        this.texture("beacon-lit", () => Obj.beacon(true));
+        this.texture("beacon-dark", () => Obj.beacon(false));
+        const img = this.add.image(cx, bottom, "beacon-dark").setOrigin(0.5, 1).setDepth(bottom);
+        this.beaconSprites.set(o.id, img);
+        return;
+      }
       case "resource_node": {
         const res = String(o.props.resource);
         this.texture(`${res}-full`, () => (res === "wood" ? Obj.woodNode(false) : Obj.stoneNode(false)));
@@ -230,7 +244,7 @@ export class WorldScene extends Phaser.Scene {
         x = client.prev.x + (p.x - client.prev.x) * alpha + client.correction.x;
         y = client.prev.y + (p.y - client.prev.y) * alpha + client.correction.y;
         facing = this.localFacing;
-        moving = this.localMoving && client.canAct && (Math.abs(p.x - client.prev.x) + Math.abs(p.y - client.prev.y) > 1e-6);
+        moving = this.localMoving && client.canMove && (Math.abs(p.x - client.prev.x) + Math.abs(p.y - client.prev.y) > 1e-6);
       } else {
         const s = client.buffers.get(c.id)?.sample(now - INTERP_DELAY_MS);
         x = s?.x ?? c.x;
@@ -240,6 +254,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.updateWorldState(snap.nodes, snap.mission.status === "completed");
+    this.updateBeaconsAndBodies(snap.beacons, snap.bodies ?? []);
     this.updatePromptAndMarker(reduced, now);
   }
 
@@ -271,7 +286,11 @@ export class WorldScene extends Phaser.Scene {
         .setPosition(px + (i - (units.length - 1) / 2) * 9, py - FRAME_H - 6)
         .setDepth(800001);
     });
-    a.sprite.setAlpha(!c.alive ? 0.35 : c.connected ? 1 : 0.5);
+    a.sprite.setAlpha(!c.alive ? 0.4 : c.connected ? 1 : 0.5);
+    a.shadow.setVisible(a.sprite.visible && c.alive);
+    const fellow = this.deps.client.snapshot?.me?.fellow_impostors?.includes(c.id);
+    a.label.setColor(c.id === this.deps.client.you ? "#ffe066" : fellow ? "#ff6b5e" : "#fbf7ee");
+    a.label.setText(c.alive ? c.name : `👻 ${c.name}`);
     if (a.bubble) {
       if (now > a.bubbleUntil) {
         a.bubble.destroy();
@@ -321,6 +340,42 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private updateBeaconsAndBodies(beacons: Record<string, boolean> | undefined, bodies: BodyDTO[]): void {
+    if (beacons) {
+      for (const [id, img] of this.beaconSprites) {
+        const want = beacons[id] ? "beacon-lit" : "beacon-dark";
+        if (img.texture.key !== want) img.setTexture(want);
+      }
+    }
+    const client = this.deps.client;
+    const present = new Set(bodies.map((b) => b.id));
+    for (const [id, parts] of this.bodySprites) {
+      if (!present.has(id)) {
+        parts.forEach((p) => p.destroy());
+        this.bodySprites.delete(id);
+      }
+    }
+    for (const b of bodies) {
+      if (this.bodySprites.has(b.id)) continue;
+      const victim = client.snapshot?.roster.find((r) => r.id === b.victim);
+      const px = Math.round(b.x * TILE);
+      const py = Math.round(b.y * TILE);
+      const mark = this.add.image(px, py + 2, this.texture("body-mark", Obj.bodyMark)).setOrigin(0.5, 0.5).setDepth(py - 2);
+      const parts: Phaser.GameObjects.GameObject[] = [mark];
+      if (victim) {
+        const look = cosmeticKey(victim.archetype, victim.cosmetics);
+        const sheetKey = `char-${look}`;
+        if (!this.textures.exists(sheetKey)) {
+          const tex = this.textures.addCanvas(sheetKey, buildCharacterSheet(victim.archetype, victim.cosmetics))!;
+          for (let i = 0; i < 9; i++) tex.add(i, 0, i * FRAME, 0, FRAME, FRAME_H);
+        }
+        const lying = this.add.sprite(px, py, sheetKey, 0).setOrigin(0.5, 0.5).setAngle(90).setTint(0x9a8fb0).setDepth(py - 1);
+        parts.push(lying);
+      }
+      this.bodySprites.set(b.id, parts);
+    }
+  }
+
   private updatePromptAndMarker(reduced: boolean, now: number): void {
     const client = this.deps.client;
     const map = client.map!;
@@ -328,9 +383,20 @@ export class WorldScene extends Phaser.Scene {
     const range = client.constants?.interact_range ?? 1.3;
     const store = client.store;
 
-    // Contextual interaction prompt for the nearest interactable in range.
+    // Contextual interaction prompt for the nearest interactable in range. Bodies come first.
     let best: { o: MapObjectDTO; d: number } | null = null;
     if (p && client.canAct) {
+      const reportRange = client.constants?.report_range ?? 2;
+      for (const b of client.snapshot?.bodies ?? []) {
+        const d = Math.hypot(p.x - b.x, p.y - b.y) - 10; // always wins over objects
+        if (d + 10 <= reportRange && (!best || d < best.d)) {
+          best = {
+            o: { id: b.id, kind: "body", x: b.x - 0.5, y: b.y - 0.5, w: 1, h: 1, solid: false, interactable: true,
+              props: { victim: b.victim } },
+            d,
+          };
+        }
+      }
       for (const o of map.objects) {
         if (!o.interactable) continue;
         const cx = Math.min(Math.max(p.x, o.x), o.x + o.w);
@@ -339,6 +405,7 @@ export class WorldScene extends Phaser.Scene {
         if (d <= range && (!best || d < best.d)) best = { o, d };
       }
     }
+    this.updateKillTarget();
     if (best) {
       const label = this.promptLabel(best.o);
       this.promptBubble.setText(`E  ${label}`).setVisible(true)
@@ -384,6 +451,45 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Impostors: the closest islander within kill range, when the knife is ready. K (or the HUD button) strikes. */
+  private updateKillTarget(): void {
+    const client = this.deps.client;
+    const snap = client.snapshot;
+    const store = client.store;
+    const p = client.predictor;
+    let target: ContestantDTO | null = null;
+    if (p && snap?.me?.role === "impostor" && client.canAct && (snap.me.kill_cooldown ?? 1) <= 0) {
+      const range = client.constants?.kill_range ?? 1.5;
+      const fellow = new Set(snap.me.fellow_impostors ?? []);
+      // The server judges range from its own (slightly older) position of us, not our prediction.
+      const server = snap.contestants.find((c) => c.id === client.you) ?? p;
+      let bestD = Infinity;
+      for (const c of snap.contestants) {
+        if (c.id === client.you || !c.alive || fellow.has(c.id)) continue;
+        const d = Math.max(Math.hypot(c.x - p.x, c.y - p.y), Math.hypot(c.x - server.x, c.y - server.y));
+        if (d <= range - 0.1 && d < bestD) {
+          bestD = d;
+          target = c;
+        }
+      }
+    }
+    // Read the key every frame so a press with nobody in reach is not replayed later.
+    const pressed = Phaser.Input.Keyboard.JustDown(this.keys.k) || this.touch.kill;
+    this.touch.kill = false;
+    const cur = store.get().killTarget;
+    if ((cur?.id ?? null) !== (target?.id ?? null)) {
+      store.set({ killTarget: target ? { id: target.id, name: target.name } : null });
+    }
+    if (target) {
+      const a = this.actors.get(target.id);
+      this.killBubble.setText(`K  Eliminate ${target.name}`).setVisible(true)
+        .setPosition(a?.sprite.x ?? target.x * TILE, (a?.sprite.y ?? target.y * TILE) - FRAME_H - 16);
+      if (pressed && !store.get().typing) client.kill(target.id);
+    } else {
+      this.killBubble.setVisible(false);
+    }
+  }
+
   private promptLabel(o: MapObjectDTO): string {
     const client = this.deps.client;
     if (o.kind === "resource_node") {
@@ -397,6 +503,11 @@ export class WorldScene extends Phaser.Scene {
       return s.status === "channeling" ? `Join the ritual (${s.count}/${s.required})` : `Channel (needs ${s.required})`;
     }
     if (o.kind === "bell") return client.snapshot?.me?.bell_used ? "Bell already rung" : "Ring the Council Bell";
+    if (o.kind === "body") return `Report ${client.name(String(o.props.victim))}'s body!`;
+    if (o.kind === "beacon") {
+      if (client.snapshot?.beacons?.[o.id]) return "Beacon burning";
+      return client.snapshot?.me?.role === "impostor" ? "Pretend to light the beacon" : "Light the beacon (1 wood)";
+    }
     return String(o.props.label ?? o.kind);
   }
 

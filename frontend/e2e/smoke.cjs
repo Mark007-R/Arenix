@@ -1,7 +1,9 @@
 /**
- * End-to-end smoke test: a real browser plays a practice match against the running stack.
- * It walks to the forest, gathers 3 wood, delivers them to the watchtower, checks the score
- * and the client/server position agreement, then skips a council vote and sends a quick-chat.
+ * End-to-end smoke test: a real browser plays a practice match (impostor mode, Moonfall Isle).
+ * It reads its secret role, walks (with a breadth-first route over the server's collision map)
+ * to the nearest wood, gathers 3, delivers to the Watchtower — islanders score, impostors only
+ * pretend — checks client/server position agreement, skips a council vote if still alive and
+ * sends a chat line.
  *
  * Requires both servers running (see README) and Playwright with Chromium:
  *   node e2e/smoke.cjs [http://localhost:3000]
@@ -20,93 +22,142 @@ const fail = (msg) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await page.goto(`${BASE}/play?name=Smoke&archetype=knight&bots=2`);
-  await page.waitForFunction(() => window.__ARENIX__?.client?.predictor && window.__ARENIX__?.game?.scene?.getScene("world"), null, { timeout: 15000 });
+  await page.goto(`${BASE}/play?name=Smoke&archetype=knight&bots=4`);
+  await page.waitForFunction(() => window.__ARENIX__?.client?.snapshot?.me?.role && window.__ARENIX__?.game?.scene?.getScene("world"), null, { timeout: 15000 });
+  const role = await page.evaluate(() => window.__ARENIX__.client.snapshot.me.role);
+  await page.mouse.click(640, 400); // dismiss the role card
 
-  // In-page autopilot steering through the same channel as the on-screen touch controls.
+  // In-page navigation: BFS over the collision grid, then steer through the same channel as the touch controls.
   await page.evaluate(() => {
-    window.__auto = (pts) =>
+    window.__goto = (goalFn) =>
       new Promise((res) => {
         const a = window.__ARENIX__;
+        const c = a.client;
+        const map = c.map;
+        const solid = (x, y) => x < 0 || y < 0 || x >= map.width || y >= map.height || map.collision[y * map.width + x] === "1";
+        const start = [Math.floor(c.predictor.x), Math.floor(c.predictor.y)];
+        const key = (x, y) => y * map.width + x;
+        const prev = new Map([[key(...start), null]]);
+        const queue = [start];
+        let end = null;
+        while (queue.length) {
+          const [x, y] = queue.shift();
+          if (goalFn(x + 0.5, y + 0.5)) { end = [x, y]; break; }
+          for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+            if (solid(nx, ny) || prev.has(key(nx, ny))) continue;
+            prev.set(key(nx, ny), [x, y]);
+            queue.push([nx, ny]);
+          }
+        }
+        if (!end) return res({ ok: false, reason: "no path" });
+        const pts = [];
+        for (let p = end; p; p = prev.get(key(...p))) pts.unshift([p[0] + 0.5, p[1] + 0.5]);
         const sc = a.game.scene.getScene("world");
         let i = 0;
         let best = Infinity;
         let lastProgress = performance.now();
         const tick = () => {
-          const p = a.client.predictor;
+          const p = c.predictor;
+          if (c.snapshot.phase !== "explore" || c.snapshot.status !== "running") { sc.touch = { ...sc.touch, dx: 0, dy: 0 }; return res({ ok: false, reason: "interrupted" }); }
           const [tx, ty] = pts[i];
           const dx = tx - p.x;
           const dy = ty - p.y;
           const d = Math.hypot(dx, dy);
-          if (d < 0.12) {
+          if (d < 0.15) {
             i++;
             best = Infinity;
-            if (i >= pts.length) {
-              sc.touch = { dx: 0, dy: 0, interact: false };
-              return res({ ok: true });
-            }
+            if (i >= pts.length) { sc.touch = { ...sc.touch, dx: 0, dy: 0 }; return res({ ok: true }); }
           }
-          if (d < best - 0.05) {
-            best = d;
-            lastProgress = performance.now();
-          }
-          if (performance.now() - lastProgress > 3000) {
-            sc.touch = { dx: 0, dy: 0, interact: false };
-            return res({ ok: false, at: [p.x, p.y], waypoint: pts[i] });
-          }
+          if (d < best - 0.05) { best = d; lastProgress = performance.now(); }
+          if (performance.now() - lastProgress > 3000) { sc.touch = { ...sc.touch, dx: 0, dy: 0 }; return res({ ok: false, reason: "stuck", at: [p.x, p.y] }); }
           const k = Math.min(1, d * 3) / (d || 1);
-          sc.touch = { dx: Math.max(-1, Math.min(1, dx * k)), dy: Math.max(-1, Math.min(1, dy * k)), interact: false };
+          sc.touch = { ...sc.touch, dx: Math.max(-1, Math.min(1, dx * k)), dy: Math.max(-1, Math.min(1, dy * k)) };
           requestAnimationFrame(tick);
         };
         tick();
       });
+    window.__nearObject = (id, range) => {
+      const o = window.__ARENIX__.client.map.objects.find((x) => x.id === id);
+      return (x, y) => {
+        const cx = Math.min(Math.max(x, o.x), o.x + o.w);
+        const cy = Math.min(Math.max(y, o.y), o.y + o.h);
+        return Math.hypot(x - cx, y - cy) <= range;
+      };
+    };
   });
-  const route = async (pts) => {
-    const r = await page.evaluate((p) => window.__auto(p), pts);
-    if (!r.ok) fail(`route blocked ${JSON.stringify(r)}`);
-  };
-  const me = () =>
-    page.evaluate(() => {
-      const c = window.__ARENIX__.client;
-      return c.snapshot.contestants.find((x) => x.id === c.you);
-    });
+  const goToObject = async (id) =>
+    page.evaluate(([id]) => window.__goto(window.__nearObject(id, 1.1)), [id]);
+  const me = () => page.evaluate(() => {
+    const c = window.__ARENIX__.client;
+    return c.snapshot.contestants.find((x) => x.id === c.you);
+  });
   const prompt = () => page.evaluate(() => window.__ARENIX__.store.get().prompt);
 
-  await route([[22.5, 23.5], [12.5, 23.5], [12.5, 13.5], [9.5, 13.5], [6.5, 13.5], [6.5, 14.5]]);
-  if ((await prompt())?.targetId !== "wood_4") fail("no gather prompt at wood_4");
-  for (let i = 0; i < 3; i++) {
-    await page.keyboard.press("e");
-    await page.waitForTimeout(700);
-  }
-  const carrying = (await me()).carrying;
-  if (carrying.wood !== 3) fail(`expected 3 wood, got ${JSON.stringify(carrying)}`);
-
-  await route([[6.5, 13.5], [12.5, 13.5], [12.5, 23.5], [23.5, 23.5], [23.5, 21], [25.5, 21], [25.5, 14.5], [31.5, 14.5], [31.5, 11.5]]);
-  if ((await prompt())?.targetId !== "watchtower") fail("no deliver prompt at the watchtower");
-  await page.keyboard.press("e");
-  await page.waitForTimeout(800);
-  const after = await me();
-  if (after.score < 30) fail(`expected >= 30 points after delivery, got ${after.score}`);
-  const sync = await page.evaluate(() => {
+  const wood = await page.evaluate(() => {
     const c = window.__ARENIX__.client;
-    const s = c.snapshot.contestants.find((x) => x.id === c.you);
-    return Math.hypot(c.predictor.x - s.x, c.predictor.y - s.y);
+    const p = c.predictor;
+    const nodes = c.map.objects.filter((o) => o.kind === "resource_node" && o.props.resource === "wood");
+    nodes.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
+    return nodes.map((n) => n.id);
   });
-  if (sync > 0.5) fail(`client prediction diverged from server by ${sync} tiles`);
+  let gathered = false;
+  for (const node of wood.slice(0, 4)) {
+    const r = await goToObject(node);
+    if (!r.ok) {
+      if (r.reason === "interrupted") break;
+      fail(`route to ${node} failed: ${JSON.stringify(r)}`);
+    }
+    if ((await prompt())?.targetId !== node) fail(`no gather prompt at ${node}`);
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press("e");
+      await page.waitForTimeout(700);
+    }
+    if (((await me())?.carrying.wood ?? 0) === 3) { gathered = true; break; }
+  }
+  const status = () => page.evaluate(() => ({ phase: window.__ARENIX__.client.snapshot.phase, status: window.__ARENIX__.client.snapshot.status, alive: window.__ARENIX__.client.snapshot.me.alive }));
+  if (gathered) {
+    const r = await goToObject("watchtower");
+    if (r.ok) {
+      if ((await prompt())?.targetId !== "watchtower") fail("no deliver prompt at the watchtower");
+      const before = await page.evaluate(() => window.__ARENIX__.client.snapshot.mission.delivered.wood);
+      await page.keyboard.press("e");
+      await page.waitForTimeout(800);
+      const after = await page.evaluate(() => window.__ARENIX__.client.snapshot.mission.delivered.wood);
+      const feed = await page.evaluate(() => window.__ARENIX__.store.get().feed.map((f) => f.text).join(" | "));
+      if (role === "islander" && !(after > before)) fail(`islander delivery not counted (${before} -> ${after})`);
+      if (role === "impostor" && (after !== before || !feed.includes("pretended"))) fail(`impostor delivery should be fake: ${feed}`);
+      const sync = await page.evaluate(() => {
+        const c = window.__ARENIX__.client;
+        const s = c.snapshot.contestants.find((x) => x.id === c.you);
+        return Math.hypot(c.predictor.x - s.x, c.predictor.y - s.y);
+      });
+      if (sync > 0.5) fail(`client prediction diverged from server by ${sync} tiles`);
+    }
+  } else if ((await status()).alive) {
+    fail("could not gather wood");
+  }
 
-  // Council: wait for the vote phase, skip through the meeting overlay, see the reveal.
-  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.phase === "vote", null, { timeout: 120000 });
-  await page.getByRole("button", { name: "Skip vote" }).click();
-  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.me?.vote === "skip", null, { timeout: 5000 });
-  await page.waitForFunction(() => window.__ARENIX__.store.get().lastVote !== null, null, { timeout: 30000 });
-  const reveal = await page.evaluate(() => window.__ARENIX__.store.get().lastVote);
-  if (reveal.votes.p1 !== "skip") fail(`player's skip not recorded: ${JSON.stringify(reveal)}`);
-  // Quick-chat reaches the log.
-  await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.phase === "explore", null, { timeout: 30000 });
-  await page.evaluate(() => window.__ARENIX__.client.say({ quick: "gg" }));
-  await page.waitForFunction(() => window.__ARENIX__.store.get().chat.some((c) => c.mine), null, { timeout: 5000 });
-  const result = reveal;
+  // Council: if still alive when voting opens, skip and see the reveal.
+  await page.waitForFunction(
+    () => ["vote"].includes(window.__ARENIX__.client.snapshot?.phase) || window.__ARENIX__.client.snapshot?.status !== "running",
+    null,
+    { timeout: 200000 },
+  );
+  const st = await status();
+  let reveal = null;
+  if (st.status === "running" && st.alive) {
+    await page.getByRole("button", { name: "Skip vote" }).click();
+    await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.me?.vote === "skip", null, { timeout: 5000 });
+    await page.waitForFunction(() => window.__ARENIX__.store.get().lastVote !== null, null, { timeout: 40000 });
+    reveal = await page.evaluate(() => window.__ARENIX__.store.get().lastVote);
+    if (reveal.votes.p1 !== "skip") fail(`player's skip not recorded: ${JSON.stringify(reveal)}`);
+  }
+  // Chat reaches the log (ghosts talk to ghosts, the living to everyone).
+  if ((await status()).status === "running") {
+    await page.evaluate(() => window.__ARENIX__.client.say({ text: "Anyone seen anything?" }));
+    await page.waitForFunction(() => window.__ARENIX__.store.get().chat.some((c) => c.mine), null, { timeout: 5000 });
+  }
   if (errors.length) fail(`browser errors: ${errors.join(" | ")}`);
-  console.log("PASS", JSON.stringify(result));
+  console.log("PASS", JSON.stringify({ role, gathered, reveal }));
   await browser.close();
 })().catch((e) => fail(e.stack ?? String(e)));

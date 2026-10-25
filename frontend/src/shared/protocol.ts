@@ -72,6 +72,21 @@ export interface ObjectiveDTO {
 }
 
 export type Phase = "explore" | "discuss" | "vote" | "reveal";
+export type GameMode = "classic" | "impostor";
+export type Role = "islander" | "impostor";
+
+export interface SkillDTO {
+  id: "swift" | "scout" | "strongback" | "detective" | "medic" | "lookout";
+  name: string;
+  text: string;
+}
+
+export interface BodyDTO {
+  id: string;
+  victim: string;
+  x: number;
+  y: number;
+}
 
 export interface MissionDTO {
   id: string;
@@ -107,6 +122,11 @@ export interface SnapshotDTO {
   mission: MissionDTO;
   shrine: { status: "dormant" | "channeling" | "activated"; count: number; required: number; window_left: number };
   voted: string[];
+  mode?: GameMode;
+  /** Impostor mode: which beacons are lit (public). */
+  beacons?: Record<string, boolean>;
+  /** Impostor mode: bodies this player can currently see. */
+  bodies?: BodyDTO[];
   me?: {
     ally: string | null;
     incoming_proposals: string[];
@@ -116,6 +136,16 @@ export interface SnapshotDTO {
     vote: string | null;
     delivered: Record<Resource, number>;
     phrases?: Record<string, string>;
+    /** True state of the player (a killed player is a ghost even before others know). */
+    alive?: boolean;
+    capacity?: number;
+    role?: Role;
+    fellow_impostors?: string[];
+    skill?: SkillDTO | null;
+    ability_used?: boolean;
+    speed?: number;
+    /** Seconds until the impostor may kill again (null for islanders). */
+    kill_cooldown?: number | null;
   };
 }
 
@@ -125,6 +155,8 @@ export interface Constants {
   half_w: number;
   half_h: number;
   interact_range: number;
+  kill_range?: number;
+  report_range?: number;
 }
 
 export interface WelcomeMsg {
@@ -174,6 +206,8 @@ export interface LobbyMsg {
   fill_to: number;
   capacity: number;
   map_id: string;
+  mode?: GameMode;
+  min_contestants?: number;
   seats: SeatDTO[];
   can_start: boolean;
   last_result: MatchResult | null;
@@ -210,7 +244,9 @@ export type ClientMsg =
   | { type: "vote"; target: string | null }
   | { type: "propose"; target: string }
   | { type: "respond"; proposer: string; accept: boolean }
-  | { type: "break_alliance" };
+  | { type: "break_alliance" }
+  | { type: "kill"; target: string }
+  | { type: "ability"; target: string | null };
 
 export interface SeatGrant {
   code: string;
@@ -227,14 +263,23 @@ export interface Standing {
   bonuses: Record<string, number>;
   objective: ObjectiveDTO | null;
   objective_achieved: boolean;
+  /** Impostor mode: revealed when the match ends. */
+  won?: boolean;
+  role?: Role;
+  skill?: SkillDTO | null;
 }
 
 export interface MatchResult {
-  reason: "time_up" | "final_two";
+  reason: "time_up" | "final_two" | "impostors_caught" | "impostors_outnumber" | "tasks_done";
   winner: string | null;
   tower_repaired: boolean;
   shrine_activated: boolean;
   standings: Standing[];
+  mode?: GameMode;
+  winning_team?: Role;
+  winners?: string[];
+  beacons_lit?: number;
+  beacons_total?: number;
 }
 
 /** Mirror of backend QUICK_CHAT (free base pack). */

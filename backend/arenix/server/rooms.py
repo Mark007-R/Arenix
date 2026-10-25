@@ -407,6 +407,8 @@ class Room:
                 "half_w": physics.HALF_W,
                 "half_h": physics.HALF_H,
                 "interact_range": INTERACT_RANGE,
+                "kill_range": roles.KILL_RANGE,
+                "report_range": roles.REPORT_RANGE,
             },
             "snapshot": self.match.snapshot(pid),
         }

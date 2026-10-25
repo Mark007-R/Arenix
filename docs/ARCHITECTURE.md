@@ -104,6 +104,35 @@ fixed-step accumulator runs on wall-clock time, so movement speed doesn't depend
 * Bots receive `Observation.new_events`, already filtered for them, and return social
   `actions` that the match validates exactly like a human's messages.
 
+## Impostor mode (Milestone 8)
+
+The default mode for rooms and practice (`Match(mode="impostor")`, map `moonfall_isle`). Classic
+mode is unchanged and selected with `mode="classic"`.
+
+* `roles.py`: roles, the six skills and every tuning constant (ranges, cooldowns, phase lengths,
+  points). `kill_cooldown_ticks(n)` reads a per-field-size table tuned by all-bot simulation
+  (`docs/benchmarks/README.md`); two impostors from 7 players.
+* `match.py`:
+  * `kill()` validates role, phase, range, cooldown and target, then marks the victim dead,
+    drops a `Body`, and emits `contestant_killed` (visible to the impostors and the victim),
+    `kill_witnessed` (islanders within 6 tiles) and `lookout_alert`.
+  * `known_alive(viewer, c)` decides what each viewer believes. It feeds the roster, the bots'
+    `Observation.alive_ids` and vote targets.
+  * `_start_meeting()` reveals every death (`deaths_revealed`) and clears the bodies.
+  * `_check_team_win()` runs after kills, tasks and each reveal phase. `_finish_teams()` reveals
+    roles and skills in the standings.
+* Information hygiene: positions and bodies are view-filtered; task events go only to observers
+  (`_observers`); other players' scores and tower contributions are blanked while the match
+  runs; the living never see ghosts; ghost chat is `visible_to` the dead only.
+* Physics: `physics.step(..., speed)` takes a multiplier for Swift; 1.0 is bit-identical to the
+  old step, and `swift_*` golden vectors pin the faster speed in both languages.
+* Bots: `island_bots.IslandBrain` extends the classic `BotBrain` navigation. It keeps sightings
+  (who was seen where, last ~45 s), suspicion, proofs and claims, and produces chat through
+  `talk.Talker`. Bots attach a machine-readable `claim` to what they say; for human text,
+  `talk.parse_claim` extracts one. Both are treated as claims, never facts.
+* Rooms: impostor mode fills the field to at least 5 and does not start the strategist
+  coordinator (it drives classic mode).
+
 ## Mission and match flow (Milestone 1, extended in 3)
 
 `RepairTowerMission`: deliver `8n+2` wood and `6n+2` stone (n = contestants) to the ruined

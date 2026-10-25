@@ -61,8 +61,8 @@ MISSION_BONUS = 50
 ALLY_DIVIDEND = 3
 WOOD_PER_CONTESTANT = 8
 STONE_PER_CONTESTANT = 6
-IMPOSTOR_WOOD_PER_ISLANDER = 5
-IMPOSTOR_STONE_PER_ISLANDER = 4
+IMPOSTOR_WOOD_PER_ISLANDER = 7
+IMPOSTOR_STONE_PER_ISLANDER = 6
 SURVIVAL_BONUS = 50
 SHRINE_BONUS = 40
 SHRINE_WINDOW_TICKS = 10 * physics.TICK_RATE
@@ -1460,6 +1460,13 @@ class Match:
             "voted": sorted(self.votes) if self.phase in ("vote", "reveal") else [],
         }
         if self.mode == "impostor":
+            if self.status == "running" and viewer is not None:
+                # Scores and tower contributions would reveal who did tasks and who killed.
+                for entry in (*snap["contestants"], *snap["roster"]):
+                    if entry["id"] != viewer:
+                        entry["score"] = None
+                mine = self.mission.contributions.get(viewer)
+                snap["mission"]["contributions"] = {} if mine is None else {viewer: mine}
             snap["beacons"] = dict(self.beacons)
             snap["bodies"] = [
                 {"id": b.id, "victim": b.victim, "x": round(b.x, 2), "y": round(b.y, 2)}

@@ -49,7 +49,7 @@ def test_roles_and_skills_are_private(moonfall: GameMap) -> None:
         m.add_contestant(f"p{i}", f"P{i}", "knight", is_bot=False)
     m.start()
     imps = [c.id for c in m.contestants.values() if c.role == R.IMPOSTOR]
-    assert len(imps) == R.impostor_count(8) == 1
+    assert len(imps) == R.impostor_count(8) == 2
     assert all(c.skill is not None for c in m.contestants.values())
     for cid in m.contestants:
         seen = [e for e in m.events.visible_since(0, cid) if e.type in ("role_assigned", "skill_assigned")]
@@ -329,9 +329,14 @@ def test_shrine_vision_reveals_an_innocent(moonfall: GameMap) -> None:
         assert e.data["innocent"] not in e.visible_to  # type: ignore[operator]
 
 
-def test_kill_cooldown_scales_with_field() -> None:
-    assert R.kill_cooldown_ticks(5) > R.kill_cooldown_ticks(6) > R.kill_cooldown_ticks(8)
-    assert R.impostor_count(8) == 1 and R.impostor_count(9) == 2
+def test_kill_cooldown_follows_the_tuned_table() -> None:
+    assert R.impostor_count(6) == 1 and R.impostor_count(7) == 2
+    for n, seconds in R.KILL_COOLDOWN_S_BY_FIELD.items():
+        assert R.kill_cooldown_ticks(n) == seconds * physics.TICK_RATE
+    # Within each impostor count, bigger fields get shorter cooldowns.
+    assert R.kill_cooldown_ticks(5) > R.kill_cooldown_ticks(6)
+    assert R.kill_cooldown_ticks(7) > R.kill_cooldown_ticks(8) > R.kill_cooldown_ticks(9) > R.kill_cooldown_ticks(10)
+    assert R.kill_cooldown_ticks(3) > 0
 
 
 def test_impostor_mode_needs_three(moonfall: GameMap) -> None:
@@ -421,3 +426,17 @@ def test_replay_reconstructs_impostor_matches(moonfall: GameMap, seed: int) -> N
     assert state.alive == {c.id: c.alive for c in m.contestants.values()}
     assert state.beacons == m.beacons
     assert state.delivered == m.mission.delivered
+
+
+def test_scores_and_contributions_stay_private_until_the_end(moonfall: GameMap) -> None:
+    m = humans(moonfall)
+    spread(m)
+    put(m, "p2", 42.5, 33.5)
+    m.kill("p1", "p2")  # +30 for the impostor
+    m.mission.contributions = {"p3": 4, "p4": 2}
+    snap = m.snapshot("p3")
+    assert {r["id"]: r["score"] for r in snap["roster"]} == {"p1": None, "p2": None, "p3": 0, "p4": None, "p5": None}
+    assert snap["mission"]["contributions"] == {"p3": 4}
+    assert m.contestants["p1"].score == 30 and m.mission.contributions == {"p3": 4, "p4": 2}  # not mutated
+    m._finish("time_up")
+    assert all(r["score"] is not None for r in m.snapshot("p3")["roster"])

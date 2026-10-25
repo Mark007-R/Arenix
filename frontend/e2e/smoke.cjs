@@ -93,15 +93,18 @@ const fail = (msg) => {
   });
   const prompt = () => page.evaluate(() => window.__ARENIX__.store.get().prompt);
 
-  const wood = await page.evaluate(() => {
+  // Bots compete for wood (the tower and the beacons both need it): go to the nearest node that still has some.
+  const nextWood = () => page.evaluate(() => {
     const c = window.__ARENIX__.client;
     const p = c.predictor;
-    const nodes = c.map.objects.filter((o) => o.kind === "resource_node" && o.props.resource === "wood");
+    const nodes = c.map.objects.filter((o) => o.kind === "resource_node" && o.props.resource === "wood" && (c.snapshot.nodes[o.id] ?? 0) > 0);
     nodes.sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
-    return nodes.map((n) => n.id);
+    return nodes[0]?.id ?? null;
   });
   let gathered = false;
-  for (const node of wood.slice(0, 4)) {
+  for (let attempt = 0; attempt < 6 && !gathered; attempt++) {
+    const node = await nextWood();
+    if (!node) { await page.waitForTimeout(3000); continue; }
     const r = await goToObject(node);
     if (!r.ok) {
       if (r.reason === "interrupted") break;
@@ -112,7 +115,7 @@ const fail = (msg) => {
       await page.keyboard.press("e");
       await page.waitForTimeout(700);
     }
-    if (((await me())?.carrying.wood ?? 0) === 3) { gathered = true; break; }
+    gathered = ((await me())?.carrying.wood ?? 0) > 0;
   }
   const status = () => page.evaluate(() => ({ phase: window.__ARENIX__.client.snapshot.phase, status: window.__ARENIX__.client.snapshot.status, alive: window.__ARENIX__.client.snapshot.me.alive }));
   if (gathered) {

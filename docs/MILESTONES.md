@@ -160,3 +160,40 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ✅ Deployment notes and a security review checklist (`docs/DEPLOYMENT.md`, `docs/SECURITY.md`)
 - ⬜ LLM benchmark runs (need API credentials and budget)
 - ⬜ Horizontal scaling, incremental event persistence, real payments
+
+## Milestone 8: Impostor mode ✅ (rule-based AI; the default for rooms and practice)
+- ✅ Hidden roles: one impostor (two from 7 players), each learns only their own role; impostors
+  learn their partner. Role and skill events are private; nobody's role is in public data.
+- ✅ Kills: impostor only, explore phase, within 1.5 tiles, never another impostor, with a
+  cooldown that scales with the field (`roles.kill_cooldown_ticks`) and resets after meetings
+- ✅ Unfound deaths stay secret: rosters show the victim alive to islanders until the body is
+  reported or a meeting starts (`deaths_revealed`); impostors, ghosts and the victim know
+- ✅ Bodies are visible within view range; reporting one (E, within 2 tiles) calls a meeting
+  with the victim and location; bodies are cleared at every meeting
+- ✅ Witnesses within 6 tiles privately see the kill; the Lookout senses kills within 22 tiles
+- ✅ Ghosts roam unseen by the living and chat only with other ghosts
+- ✅ Tasks: Watchtower materials plus 5 beacons that each burn 1 wood; impostors can only
+  pretend (private `delivery_faked` / `beacon_faked`); task completions are seen only by people
+  nearby, and other players' scores and tower contributions stay hidden until the end
+- ✅ Win conditions: islanders by ejecting every impostor or finishing every task; impostors
+  at parity or when time runs out (9 minutes). Ejections are confirmed.
+- ✅ Six per-match skills, all server-enforced: Swift (speed ×1.25, exact in the shared physics
+  and the client prediction, with new golden vectors), Scout (view 20 tiles), Strongback (carry
+  5), Detective (two-name clue on reporting, one is the killer), Medic (one shield) and Lookout
+- ✅ Shrine vision: awakening the shrine shows each channeler one innocent contestant
+- ✅ Moonfall Isle: 96×72 (2.25× Emerald Isle), 14 named areas plus fallbacks so every walkable
+  tile has a name; every interactable is reachable (tested)
+- ✅ Rule-based AI for both roles (`island_bots.py`): sightings memory, suspicion from what they
+  saw, proof from witnessed tasks, weighted claims from others; impostors stalk lone islanders,
+  strike only when nobody is within 10 tiles, flee, lie consistently and shift the blame
+- ✅ Natural chat (`talk.py`): 25+ intents with several wordings each, no repeats until every
+  variant is used, region-aware; bots answer "where were you?", defend, agree, doubt and announce
+  votes. Human messages are read as untrusted claims (`parse_claim`).
+- ✅ UI: role reveal, role/skill card, kill button and K key, Medic shield, bodies, beacons,
+  ghost mode, a meeting chat room beside the ballot, confirmed ejections, team results with
+  every role and skill revealed
+- ✅ Replays (Python and TypeScript) reproduce impostor matches exactly; new replay vectors
+- ✅ Balance measured by all-bot simulation (`python -m arenix.sim.impostor_balance`, see
+  `docs/benchmarks/README.md`)
+- ⬜ LLM strategists for impostor mode (the strategist layer drives classic mode only)
+- ⬜ Sabotage, vents, task mini-games

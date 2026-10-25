@@ -145,7 +145,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
             <h2 className="mb-1 font-bold text-gold">Rules</h2>
             {impostorMode ? (
               <ul className="list-disc space-y-1 pl-5">
-                <li>One contestant (two from 9 players) is secretly the <b>impostor</b>. Everyone else is an islander.</li>
+                <li>One contestant (two from 7 players) is secretly the <b>impostor</b>. Everyone else is an islander.</li>
                 <li>Islanders win by voting out every impostor, or by repairing the Watchtower and lighting all 5 beacons (each burns 1 wood).</li>
                 <li>Impostors eliminate islanders when nobody is watching. They win when they equal the islanders, or when time runs out.</li>
                 <li>Find a body? Report it (E) and the council meets. Anyone can also ring the Council Bell once.</li>

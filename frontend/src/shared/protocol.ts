@@ -47,7 +47,8 @@ export interface ContestantDTO {
   facing: Facing;
   moving: boolean;
   carrying: Record<Resource, number>;
-  score: number;
+  /** null while an impostor match is running (other players' scores would give roles away). */
+  score: number | null;
   alive: boolean;
   connected: boolean;
   cosmetics?: Cosmetics;
@@ -58,7 +59,7 @@ export interface RosterEntry {
   name: string;
   archetype: string;
   is_bot: boolean;
-  score: number;
+  score: number | null;
   alive: boolean;
   connected: boolean;
   cosmetics?: Cosmetics;

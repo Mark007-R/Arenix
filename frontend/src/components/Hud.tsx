@@ -80,7 +80,9 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
   const you = useHud(store, (s) => s.you);
   const [open, setOpen] = useState<string | null>(null);
   if (!snap) return null;
-  const rows = [...snap.roster].sort((a, b) => Number(b.alive) - Number(a.alive) || b.score - a.score);
+  const rows = [...snap.roster].sort(
+    (a, b) => Number(b.alive) - Number(a.alive) || (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name),
+  );
   const ally = snap.me?.ally ?? null;
   const outgoing = snap.me?.outgoing_proposals ?? [];
   const meAlive = snap.roster.find((r) => r.id === you)?.alive;
@@ -104,7 +106,9 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
                 {c.id === ally && <span title="Your ally"> 🤝</span>}
                 {!c.alive && " 💀"}
               </span>
-              <span className="tabular-nums">{c.score}</span>
+              <span className="tabular-nums" title={c.score === null ? "Hidden until the match ends" : undefined}>
+                {c.score ?? "?"}
+              </span>
             </button>
             {open === c.id && (
               <div className="my-1 flex flex-wrap gap-1 pl-6">

@@ -33,7 +33,9 @@ SIGHTING_MEMORY = 90  # samples (~45 s)
 MAX_MEETING_LINES = 3
 MAX_REACTIONS = 2
 MIN_LINE_GAP = 40  # ticks between two lines from the same bot
-STALK_CLEARANCE = 10.0  # impostor bots only strike with no one else this close
+STALK_CLEARANCE = 10.0  # impostor bots only strike with no one else this close to the victim...
+UNSEEN_RADIUS = 11.0  # ...and nobody close enough to see the impostor (the base view radius)
+FIRST_IMPRESSION = 0.22  # islanders start with small random suspicions, so they can be wrong
 
 
 class IslandBrain(BotBrain):
@@ -100,6 +102,10 @@ class IslandBrain(BotBrain):
         self.role = obs.role
         self.fellow = set(obs.fellow_impostors)
         self.skill = obs.skill
+        if not self.suspicion and obs.alive_ids:
+            for cid in sorted(obs.alive_ids):
+                if cid != self.cid:
+                    self.suspicion[cid] = round(self.rng.uniform(0.0, FIRST_IMPRESSION), 3)
         if obs.tick % SIGHTING_EVERY == 0:
             for cid, (x, y) in obs.visible_positions.items():
                 self.sightings.setdefault(cid, deque(maxlen=SIGHTING_MEMORY)).append((obs.tick, x, y))
@@ -261,7 +267,7 @@ class IslandBrain(BotBrain):
         if kind == "accuse" and target is not None:
             about = claim.get("about")
             # Evidence ("I saw it") counts far more than agreeing with someone or announcing a vote.
-            weight = {"saw": 0.35, "agree": 0.05, "vote": 0.04}.get(str(about), 0.15)
+            weight = {"saw": 0.35, "agree": 0.05, "vote": 0.04, "counter": 0.05}.get(str(about), 0.15)
             if target == me:
                 if self.is_islander():
                     # I know I'm innocent: whoever accuses me is wrong — or lying.
@@ -293,10 +299,15 @@ class IslandBrain(BotBrain):
         self.reactions_this_meeting += 1
         region = self.recent_region(obs) if self.is_islander() else self._lie_region(obs)
         self.queue(obs, self.rng.randint(20, 60), "defend", {"type": "clear", "target": self.cid}, region=region)
-        strong = claim.get("about") == "saw" or self.suspicion.get(accuser, 0) > 0.4 or not self.is_islander()
-        if strong and self.rng.random() < 0.7:
+        # "No, YOU are sus" is weak evidence; islanders only push back hard when they have a reason.
+        strong = claim.get("about") == "saw" or self.suspicion.get(accuser, 0) > 0.5
+        if (strong or not self.is_islander()) and self.rng.random() < 0.6:
             self.queue(
-                obs, self.rng.randint(60, 120), "counter", {"type": "accuse", "target": accuser}, target=self.n(accuser)
+                obs,
+                self.rng.randint(60, 120),
+                "counter",
+                {"type": "accuse", "target": accuser, "about": "counter"},
+                target=self.n(accuser),
             )
 
     def _react_to_accusation(self, obs: Observation, accuser: str, target: str) -> None:
@@ -458,7 +469,7 @@ class IslandBrain(BotBrain):
         if self.rng.random() < 0.75:
             self.queue(obs, step(), "alibi", region=self._lie_region(obs))
         goat = self._scapegoat(obs)
-        if goat is not None and self.rng.random() < 0.6:
+        if goat is not None and self.rng.random() < 0.35:
             if self.body and self.seen_near(goat, self.body["x"], self.body["y"], obs.tick - 900, 12.0) is not None:
                 self.queue(
                     obs,
@@ -652,7 +663,7 @@ class IslandBrain(BotBrain):
         for cid, (x, y) in obs.visible_positions.items():
             if cid in (target, self.cid) or cid in self.fellow or cid in self.dead:
                 continue
-            if math.hypot(x - tx, y - ty) <= STALK_CLEARANCE or math.hypot(x - obs.x, y - obs.y) <= STALK_CLEARANCE:
+            if math.hypot(x - tx, y - ty) <= STALK_CLEARANCE or math.hypot(x - obs.x, y - obs.y) <= UNSEEN_RADIUS:
                 return False
         return True
 

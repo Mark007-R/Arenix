@@ -59,22 +59,28 @@ SKILLS: dict[str, Skill] = {
 }
 
 
-def kill_cooldown_ticks(n: int) -> int:
-    """Kill cooldown for an n-contestant match, tuned by all-bot simulation (docs/benchmarks).
+# Kill cooldown (seconds) per field size, set from all-bot simulations
+# (python -m arenix.sim.impostor_balance; results in docs/benchmarks/README.md).
+KILL_COOLDOWN_S_BY_FIELD = {5: 38, 6: 20, 7: 80, 8: 46, 9: 28, 10: 24}
 
-    Fewer islanders means each kill matters more, so small games get a longer cooldown; with two
-    impostors each one waits longer because they share the work.
+
+def kill_cooldown_ticks(n: int) -> int:
+    """Kill cooldown for an n-contestant match.
+
+    Fewer islanders means each kill matters more, so small games wait longer; at 7 players a
+    second impostor joins, so the cooldown jumps and then shrinks again as the field grows.
+    Sizes outside the table (tests, tiny matches) use a formula with the same shape.
     """
+    if n in KILL_COOLDOWN_S_BY_FIELD:
+        return KILL_COOLDOWN_S_BY_FIELD[n] * physics.TICK_RATE
     impostors = impostor_count(n)
     crew = max(1, n - impostors)
-    seconds = 5 + 100 / crew
-    if impostors > 1:
-        seconds *= 1.6
+    seconds = (5 + 100 / crew) * (1.6 if impostors > 1 else 1.0)
     return round(seconds * physics.TICK_RATE)
 
 
 def impostor_count(n: int) -> int:
-    return 2 if n >= 9 else 1
+    return 2 if n >= 7 else 1
 
 
 def assign_roles(ids: list[str], rng: random.Random) -> dict[str, str]:

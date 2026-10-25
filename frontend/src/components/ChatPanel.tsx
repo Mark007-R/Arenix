@@ -5,6 +5,17 @@ import type { GameClient } from "@/game/net/client";
 import { useHud, type HudStore } from "@/lib/store";
 import { QUICK_CHAT } from "@/shared/protocol";
 
+const KIND_LABEL: Record<string, string> = {
+  PLAN_PROPOSAL: "plan",
+  ALLIANCE_PROPOSAL: "alliance",
+  ACCEPT: "accept",
+  COUNTER_OFFER: "counter",
+  REJECT: "reject",
+  INFORMATION_SHARE: "info",
+  ACTION_PROPOSAL: "action",
+  VOTE_INTENT: "vote intent",
+};
+
 /** Public chat + ally whispers. Enter focuses the input, Esc leaves it, Q opens quick-chat. */
 export function ChatPanel({ client, store }: { client: GameClient; store: HudStore }) {
   const chat = useHud(store, (s) => s.chat);
@@ -47,6 +58,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
       <ul ref={logRef} className="mb-1 max-h-36 space-y-0.5 overflow-y-auto text-sm drop-shadow-[0_2px_0_#120c1c]" aria-live="polite" aria-label="Chat">
         {chat.map((c) => (
           <li key={c.id} className={c.private ? "text-[#d8c2ff]" : c.mine ? "text-[#ffe066]" : "text-parchment"}>
+            {c.kind && <span className="mr-1 bg-dusk px-1 text-[10px] uppercase text-sky" title={c.kind}>{KIND_LABEL[c.kind] ?? c.kind}</span>}
             <b>{c.mine ? "You" : c.senderName}</b>
             {c.private && <span className="text-xs"> (whisper{c.mine ? ` to ${client.name(c.to)}` : ""})</span>}: {c.text}
           </li>

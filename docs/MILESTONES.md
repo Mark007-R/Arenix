@@ -68,10 +68,31 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   intended baseline for Milestone 4's negotiating agents to beat.
 - ⬜ Environmental puzzle mission; additional modes (team objectives, roles)
 
-## Milestone 4: Autonomous AI ⬜
-- ⬜ LLM gateway (provider-agnostic, mock provider, timeouts, budgets, token and cost metrics)
-- ⬜ Agent message protocol with Pydantic validation and authorization
-- ⬜ Memory, beliefs, negotiation; the rule-based policy stays as the fallback
+## Milestone 4: Autonomous AI ✅ (tested offline; not yet exercised against the live Claude API)
+- ✅ Structured agent protocol in the engine: 9 message types, message, correlation and phase
+  ids, expiry, payload limit, per-phase message limit, negotiation-round limit, private-message
+  authorisation. `SYSTEM_EVENT` is server-only. Messages are claims and never change state.
+- ✅ `StrategicDecision` schema (structured output, re-validated with Pydantic): goal, timed
+  shrine meet-up, messages, votes, alliance moves
+- ✅ Gateway: timeout, concurrency limit, one repair retry for invalid output, per-match
+  call, token and cost budgets, circuit breaker, latency/token/cost stats
+- ✅ Providers: Claude (`AnthropicProvider`: official SDK, `json_schema` output, refusal
+  fallbacks via `fallbacks="default"`, typed error handling), a heuristic planner (a
+  deterministic policy, *not an LLM*) and a scripted provider for tests
+- ✅ Memory (facts kept apart from untrusted claims, negotiation threads, agreements, betrayals,
+  server refusals) and trust beliefs. Prompts are built only from the agent's authorised view;
+  other contestants' text is confined to a clearly marked untrusted section (tested with an
+  injection attempt).
+- ✅ Coordinator: never blocks the tick loop; event triggers and staggered beats; stale decisions
+  are discarded; pre-validation plus engine validation, linked per decision; deadline fallbacks
+  for votes and alliance offers; whole-match fallback on budget or breaker
+- ✅ Rooms run strategists for AI seats when `ARENIX_AGENT_PROVIDER` is `heuristic` or
+  `anthropic`; the lobby shows the AI mode
+- ✅ Measured locally (heuristic strategists, 6 agents, seeds 1–10): shrine activated in 8/10
+  matches, versus about 2/20 for the non-communicating rule policy. Numbers come from local runs
+  of the code in this repository, and the formal benchmark runner is Milestone 7.
+- ⬜ Live-model evaluation: no API credentials were available while building this. The Claude
+  request shape and parsing are unit-tested against a fake SDK client only.
 
 ## Milestone 5: Progression and crates ⬜
 - ⬜ PostgreSQL, SQLAlchemy, Alembic schema; idempotent currency ledger

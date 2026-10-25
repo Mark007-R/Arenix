@@ -73,7 +73,13 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                 <span className="flex h-10 w-8 items-center justify-center text-xl">🤖</span>
                 <div className="flex-1">
                   <div className="font-bold">AI contestant</div>
-                  <div className="text-xs">Rule-based policy · plans routes, competes for resources</div>
+                  <div className="text-xs">
+                    {lobby.ai_mode === "anthropic"
+                      ? "Claude strategist · negotiates, allies, votes (rule-based fallback)"
+                      : lobby.ai_mode === "heuristic"
+                        ? "Heuristic strategist · negotiates via the agent protocol"
+                        : "Rule-based policy · plans routes, competes for resources"}
+                  </div>
                 </div>
               </li>
             ))}

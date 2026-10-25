@@ -171,6 +171,7 @@ export interface LobbyMsg {
   seats: SeatDTO[];
   can_start: boolean;
   last_result: MatchResult | null;
+  ai_mode: "rules" | "heuristic" | "anthropic";
 }
 
 export interface ErrorMsg {

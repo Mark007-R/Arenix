@@ -279,6 +279,31 @@ class Room:
         if self.match is not None and self.status == "running":
             self.match.queue_input(seat.player_id, seq, dx, dy)
 
+    def handle_action(self, seat: Seat, kind: str, **kw: Any) -> dict[str, Any] | None:
+        """Chat, vote and alliance actions. Returns an error message for the client, or None."""
+        match = self.match
+        if match is None or self.status != "running":
+            return {"type": "error", "code": "match_not_running", "message": "No match running."}
+        pid = seat.player_id
+        if kind == "chat":
+            r = match.chat(pid, text=kw.get("text"), quick=kw.get("quick"), to=kw.get("to"))
+        elif kind == "vote":
+            r = match.vote(pid, kw.get("target"))
+        elif kind == "propose":
+            r = match.propose_alliance(pid, kw["target"])
+        elif kind == "respond":
+            r = match.respond_alliance(pid, kw["proposer"], kw["accept"])
+        elif kind == "break":
+            r = match.break_alliance(pid)
+        else:
+            return {"type": "error", "code": "unknown_action", "message": "Unknown action."}
+        for s in self.seats.values():
+            if s.conn is not None:
+                s.conn.mark_dirty()
+        if r.ok:
+            return None
+        return {"type": "error", "code": r.reason, "message": r.reason, "action": kind}
+
     def handle_interact(self, seat: Seat, target_id: str) -> dict[str, Any]:
         if self.match is None or self.status != "running":
             return {"type": "interact_result", "target_id": target_id, "ok": False, "reason": "match_not_running"}
@@ -306,21 +331,22 @@ class Room:
                 "half_h": physics.HALF_H,
                 "interact_range": INTERACT_RANGE,
             },
-            "snapshot": self.match.snapshot(),
+            "snapshot": self.match.snapshot(pid),
         }
 
     def _snapshot_for(self, pid: str, conn: Connection) -> dict[str, Any] | None:
         match = self.match
         if match is None:
             return None
-        events = match.events.since(conn.event_cursor)
+        # Only events this player may see (whispers, alliance offers and objectives are private).
+        events = match.events.visible_since(conn.event_cursor, pid)
         conn.event_cursor = len(match.events)
         me = match.contestants.get(pid)
         return {
             "type": "snapshot",
             "ack_seq": me.last_ack_seq if me else 0,
             "events": [e.to_dict() for e in events],
-            **match.snapshot(),
+            **match.snapshot(pid),
         }
 
     def lobby_message(self) -> dict[str, Any]:

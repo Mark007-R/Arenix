@@ -96,3 +96,40 @@ def test_bad_join_params(client: TestClient, query: str) -> None:
     with pytest.raises(WebSocketDisconnect) as exc, client.websocket_connect(f"/ws/practice?{query}") as ws:
         ws.receive_text()
     assert exc.value.code == 4400
+
+
+def test_chat_over_socket_and_action_errors(client: TestClient) -> None:
+    with client.websocket_connect("/ws/practice?name=Talker&archetype=knight&bots=1") as ws:
+        recv_until(ws, "welcome")
+        ws.send_text(json.dumps({"type": "chat", "quick": "gg"}))
+        found = None
+        for _ in range(100):
+            m = json.loads(ws.receive_text())
+            if m["type"] == "snapshot" and any(e["type"] == "chat" for e in m["events"]):
+                found = next(e for e in m["events"] if e["type"] == "chat")
+                break
+        assert found is not None and found["data"]["text"] == "GG, everyone!" and found["data"]["sender"] == "p1"
+        # Whisper without an alliance is refused with a reason.
+        ws.send_text(json.dumps({"type": "chat", "text": "hi", "to": "bot1"}))
+        err = recv_until(ws, "error")
+        assert err["code"] in ("not_allied", "chat_cooldown")
+        # Voting outside a meeting is refused.
+        ws.send_text(json.dumps({"type": "vote", "target": "bot1"}))
+        assert recv_until(ws, "error")["code"] == "wrong_phase"
+
+
+def test_chat_message_shape_is_validated() -> None:
+    from pydantic import ValidationError
+
+    from arenix.server.protocol import client_message_adapter
+
+    for bad in (
+        {"type": "chat"},
+        {"type": "chat", "text": "a", "quick": "gg"},
+        {"type": "chat", "quick": "GG!"},
+        {"type": "vote"},
+        {"type": "propose", "target": "../x"},
+    ):
+        with pytest.raises(ValidationError):
+            client_message_adapter.validate_python(bad)
+    assert client_message_adapter.validate_python({"type": "vote", "target": None}).target is None  # type: ignore[union-attr]

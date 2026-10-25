@@ -127,9 +127,36 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ⬜ Real payment provider, regional detection and direct-purchase shop (for regions where paid
   random crates are disabled), parental controls and spending limits beyond the adult check
 
-## Milestone 6: Agent Lab ⬜
-- ⬜ Interaction graph, timeline, decision inspector, replay from the event log, metrics
+## Milestone 6: Agent Lab ✅
+- ✅ Match list (live rooms and persisted matches). While a match is live, only public
+  information is shown; the full record (private events, objectives, contexts, decisions) opens
+  when it ends.
+- ✅ Interaction graph (SVG, no extra dependency): private messages, alliance offers, formations,
+  rejections and breaks, votes, shrine co-participation; toggles per edge type; it grows with the
+  replay cursor; click a node to inspect that contestant.
+- ✅ Event timeline with type, phase and contestant filters; private events marked; click to jump
+  the replay.
+- ✅ Decision inspector: (1) authorised observation (facts, untrusted claims, beliefs, legal
+  actions), (2) generated proposal, labelled as an explanation and not a fact, (3) pre-validation
+  per action, (4) the server's confirmed outcome, plus provider, latency, tokens and estimated cost
+- ✅ Replay: play, pause, step and scrub through events. State is rebuilt from the event log only
+  by a reducer that exists in Python and TypeScript, kept identical by golden vectors and proven
+  equal to the live final state. Position samples (visible to no player) animate the map.
+- ✅ Metrics panel per match (decisions, proposals, rejections, latency p50/p95, tokens, cost)
+- ✅ Experiments page: run comparisons in the browser (background thread, one at a time), with
+  small-multiple bar charts and a full metric table
 
-## Milestone 7: Evaluation and deployment ⬜
-- ⬜ Simulation runner comparing independent, communicating and negotiating agents
-- ⬜ Security review, model budgets, production deployment docs
+## Milestone 7: Evaluation and deployment 🟡
+- ✅ Simulation runner (`python -m arenix.sim.runner`): same seeds across independent,
+  communicate, negotiate, a memory ablation, a negotiation-budget variant and llm. Reports mission
+  completion, shrine success, negotiation success, invalid-action rate, coordination failures,
+  win rate per slot, latency p50/p95, tokens and estimated cost. `--persist` feeds the Agent Lab.
+- ✅ First results from real local runs in `docs/benchmarks/` (heuristic strategists; no LLM
+  numbers)
+- ✅ Experiments API (`POST /api/experiments`, `GET /api/experiments/{id}/results`); the costly
+  `llm` condition is disabled unless `ARENIX_ALLOW_LLM_EXPERIMENTS=1`
+- ✅ Model budgets: per-match call, token and cost caps, timeouts, concurrency limit and circuit
+  breaker (Milestone 4)
+- ✅ Deployment notes and a security review checklist (`docs/DEPLOYMENT.md`, `docs/SECURITY.md`)
+- ⬜ LLM benchmark runs (need API credentials and budget)
+- ⬜ Horizontal scaling, incremental event persistence, real payments

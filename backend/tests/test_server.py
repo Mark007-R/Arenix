@@ -133,3 +133,33 @@ def test_chat_message_shape_is_validated() -> None:
         with pytest.raises(ValidationError):
             client_message_adapter.validate_python(bad)
     assert client_message_adapter.validate_python({"type": "vote", "target": None}).target is None  # type: ignore[union-attr]
+
+
+def test_experiment_api_runs_in_background() -> None:
+    import time as _time
+
+    with TestClient(create_app(db=None)) as c:
+        bad = c.post("/api/experiments", json={"conditions": ["llm"], "seeds": "1-2"})
+        assert bad.status_code == 422  # costly condition disabled by default
+        assert c.post("/api/experiments", json={"conditions": ["teleport"]}).status_code == 422
+        r = c.post(
+            "/api/experiments",
+            json={
+                "name": "t",
+                "conditions": ["independent", "negotiate"],
+                "seeds": "1-2",
+                "contestants": 4,
+                "time_limit_seconds": 60,
+            },
+        )
+        assert r.status_code == 202, r.text
+        exp_id = r.json()["id"]
+        assert c.post("/api/experiments", json={"conditions": ["independent"], "seeds": "1"}).status_code == 409
+        assert c.get("/api/health").status_code == 200  # server stays responsive
+        for _ in range(200):
+            res = c.get(f"/api/experiments/{exp_id}/results").json()
+            if res["status"] != "running":
+                break
+            _time.sleep(0.1)
+        assert res["status"] == "finished", res
+        assert set(res["results"]["conditions"]) == {"independent", "negotiate"} and res["progress"] == 4

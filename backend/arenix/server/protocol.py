@@ -135,3 +135,17 @@ class SeatGrant(BaseModel):
     code: str
     player_id: str
     token: str
+
+
+class ExperimentRequest(_Msg):
+    name: str = Field(default="comparison", min_length=1, max_length=64)
+    conditions: list[str] = Field(min_length=1, max_length=6)
+    seeds: str = Field(default="1-5", pattern=r"^\d{1,4}(-\d{1,4}|(,\d{1,4})*)$")
+    contestants: int = Field(default=6, ge=3, le=10)
+    time_limit_seconds: int = Field(default=420, ge=60, le=600)
+
+    def seed_list(self) -> list[int]:
+        if "-" in self.seeds:
+            a, b = (int(x) for x in self.seeds.split("-"))
+            return list(range(a, b + 1))
+        return [int(x) for x in self.seeds.split(",")]

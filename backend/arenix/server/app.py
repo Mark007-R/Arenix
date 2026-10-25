@@ -28,6 +28,7 @@ from .protocol import (
     BreakMsg,
     ChatMsg,
     CreateRoomRequest,
+    ExperimentRequest,
     InputMsg,
     InteractMsg,
     JoinParams,
@@ -153,6 +154,34 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     @app.get("/api/archetypes")
     async def archetypes() -> dict[str, list[str]]:
         return {"archetypes": list(ARCHETYPES)}
+
+    # ------------------------------------------------------------------ experiments
+    from ..sim.experiments import ExperimentService
+
+    experiments = ExperimentService(database)
+    app.state.experiments = experiments
+
+    @app.post("/api/experiments", status_code=202)
+    async def create_experiment(body: ExperimentRequest) -> dict[str, Any]:
+        try:
+            return await experiments.start(
+                body.name, body.conditions, body.seed_list(), body.contestants, body.time_limit_seconds
+            )
+        except ValueError as e:
+            raise HTTPException(422, detail={"code": "invalid_experiment", "message": str(e)}) from None
+        except RuntimeError as e:
+            raise HTTPException(409, detail={"code": "busy", "message": str(e)}) from None
+
+    @app.get("/api/experiments")
+    async def list_experiments() -> dict[str, Any]:
+        return {"experiments": experiments.list(), "running": experiments.running}
+
+    @app.get("/api/experiments/{exp_id}/results")
+    async def experiment_results(exp_id: int) -> dict[str, Any]:
+        item = experiments.get(exp_id)
+        if item is None:
+            raise HTTPException(404, detail={"code": "not_found", "message": "experiment not found"})
+        return item
 
     # ------------------------------------------------------------------ Agent Lab
     def live_matches() -> list[tuple[Any, Any, str]]:

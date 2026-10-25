@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from ..db.session import Database, database_from_env
 from ..economy import service as economy
@@ -152,6 +153,63 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     @app.get("/api/archetypes")
     async def archetypes() -> dict[str, list[str]]:
         return {"archetypes": list(ARCHETYPES)}
+
+    # ------------------------------------------------------------------ Agent Lab
+    def live_matches() -> list[tuple[Any, Any, str]]:
+        out = []
+        for room in manager.rooms.values():
+            for match, coord in room.history:
+                out.append((match, coord, room.code))
+        return out
+
+    @app.get("/api/agent-lab/matches")
+    async def lab_matches() -> dict[str, Any]:
+        items: dict[str, dict[str, Any]] = {}
+        for match, coord, code in live_matches():
+            items[match.id] = {
+                "id": match.id,
+                "room_code": code,
+                "status": match.status,
+                "ticks": match.tick,
+                "source": "live",
+                "contestants": len(match.contestants),
+                "ai_mode": coord.gateway.provider.name if coord else "rules",
+            }
+        if database is not None:
+            from ..db.models import MatchRow
+
+            async with database.sessions() as s:
+                rows = (await s.scalars(select(MatchRow).order_by(MatchRow.finished_at.desc()).limit(30))).all()
+                for r in rows:
+                    items.setdefault(
+                        r.id,
+                        {
+                            "id": r.id,
+                            "room_code": r.room_code,
+                            "status": "finished",
+                            "ticks": r.ticks,
+                            "source": "database",
+                            "ai_mode": r.ai_mode,
+                            "contestants": len(r.result.get("standings", [])),
+                        },
+                    )
+        return {"matches": sorted(items.values(), key=lambda m: m["id"], reverse=True)}
+
+    @app.get("/api/agent-lab/matches/{match_id}")
+    async def lab_match(match_id: str) -> dict[str, Any]:
+        from ..lab import payload_from_live
+
+        for match, coord, code in live_matches():
+            if match.id == match_id:
+                return payload_from_live(match, coord, code)
+        if database is not None:
+            from ..lab_db import payload_from_db
+
+            async with database.sessions() as s:
+                payload = await payload_from_db(s, match_id)
+            if payload is not None:
+                return payload
+        raise HTTPException(404, detail={"code": "not_found", "message": "match not found"})
 
     @app.post("/api/rooms", status_code=201)
     async def create_room(

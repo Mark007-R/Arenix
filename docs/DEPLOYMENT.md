@@ -18,7 +18,7 @@ docker compose up --build    # db → migrate → backend (heuristic AI strategi
 
 1. **Database:** provision managed PostgreSQL, then set
    `ARENIX_DATABASE_URL=postgresql+asyncpg://USER:PASS@HOST/DB`. Run
-   `uv run alembic upgrade head` from `backend/` as a release step, before starting new backends.
+   `uv run python -m alembic upgrade head` from `backend/` as a release step, before starting new backends.
 2. **Backend environment:**
    * `ARENIX_CORS_ORIGINS=https://your-frontend.example`. This also restricts WebSocket origins.
    * `ARENIX_ADMIN_TOKEN=<random>` to protect experiment runs

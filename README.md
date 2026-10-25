@@ -57,8 +57,8 @@ cd backend
 uv sync
 # optional persistence (progression, crates, match history):
 export ARENIX_DATABASE_URL=postgresql+asyncpg://arenix:arenix@localhost/arenix
-uv run alembic upgrade head
-uv run uvicorn arenix.server.app:app --reload --port 8000
+uv run python -m alembic upgrade head
+uv run python -m uvicorn arenix.server.app:app --reload --port 8000
 
 # terminal 2: web client (http://localhost:3000)
 cd frontend
@@ -70,6 +70,13 @@ Open http://localhost:3000, enter a name, choose a contestant and press **Play p
 **Create room** and open the invite link in another browser or tab to play together.
 
 Or with Docker: `docker compose up --build`, then open http://localhost:3000.
+
+**Windows notes.** Use PowerShell syntax for variables (`$env:ARENIX_DATABASE_URL = "..."`, not
+`export`), and run the server and the web client in separate windows. Commands are written as
+`uv run python -m <tool>` on purpose: Smart App Control can block the small `.exe` launchers uv
+creates in `.venv\Scripts` ("An Application Control policy has blocked this file"), while
+`python -m` runs the same tool through the signed-off interpreter. The backend is pinned to
+Python 3.13 (`backend/.python-version`); uv downloads it automatically.
 
 ### Environment variables
 
@@ -106,8 +113,8 @@ slow, out of budget or failing.
 
 ```bash
 cd backend
-uv run pytest -q            # engine, bots, physics property tests, WebSocket server, vectors
-uv run ruff check . && uv run ruff format --check . && uv run mypy arenix
+uv run python -m pytest -q  # engine, bots, physics property tests, WebSocket server, vectors
+uv run python -m ruff check . && uv run python -m ruff format --check . && uv run python -m mypy arenix
 
 cd frontend
 npm test                    # physics parity (golden vectors), prediction, interpolation, feed

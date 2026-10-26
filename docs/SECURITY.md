@@ -51,14 +51,31 @@ Room creation is capped at 10/min per IP, guest creation at 5/min per IP, crate 
 phase). One experiment runs at a time, max 20 seeds, and the `llm` condition is off by default.
 When `ARENIX_ADMIN_TOKEN` is set, starting experiments requires it.
 
+## Accounts and moderation (added after Milestone 8)
+
+| Risk | Control | Test |
+|---|---|---|
+| Password theft from the database | scrypt (n=2^14, r=8, p=1) with a per-password random salt; only the hash string is stored | `test_password_hashing` |
+| Weak passwords | 10–128 characters, at least 4 distinct characters, not a common password, not the email name | `test_password_rules` |
+| Credential stuffing / guessing | 20 login attempts per IP per minute, and a 15-minute lock after 5 wrong passwords for an email | `test_lockout_after_repeated_failures` |
+| Account enumeration | Identical error for unknown email and wrong password; a dummy scrypt runs when the email doesn't exist so timing matches | `test_register_login_logout` |
+| Stolen session tokens | Sessions expire after 30 days, sign-out revokes them, and a password change signs out every other device; only sha256 hashes are stored | `test_register_login_logout`, `test_password_change_signs_out_other_devices` |
+| Losing guest progress | A guest upgrades in place (same user id, same progress); the old guest token stops working | `test_guest_upgrade_keeps_progress` |
+| Children | Registration requires confirming age 13+; the policy explains removal | `test_under_13_and_bad_names_are_refused` |
+| Right to erasure | `DELETE /api/players/me` (password required) deletes the user and cascades to progression; match history keeps names only | `test_delete_account` |
+| Abusive chat | Normalised word filter: leetspeak, stretched letters, spaced-out slurs and "kill yourself" phrases are rejected; mild swearing is masked; innocent words ("Scunthorpe", "cockpit") pass; shouting and stretching are toned down; repeating a message within 15 s is refused | `tests/test_moderation.py` |
+| Grooming / doxxing | Links, emails and phone numbers are refused in chat | `test_harmful_messages_are_rejected_with_a_reason` |
+| Offensive names | Display names go through the same filter at every entry point (practice, rooms, guest, register) | `test_display_names`, `test_bad_names_are_refused_at_join` |
+| Harassment | Players can mute anyone locally and report them; evidence is the reported player's chat as the reporter saw it, collected by the server (never sent by the client); one report per target per match, 5 per match; moderators review via `GET/POST /api/admin/reports` (admin token) | `test_reports_carry_server_side_evidence` |
+| Private messages exposed in the Lab | Text of private messages involving a human (whispers, ghost chat) is hidden from the public Agent Lab; admins see everything | `test_lab_hides_private_messages_involving_humans` |
+| Clickjacking / sniffing / caching of account data | API responses send `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, a restrictive CSP, and `Cache-Control: no-store` on auth, player, store and admin routes | `test_security_headers` |
+
 ## Open items (not done)
 
-* **Moderation:** the chat filter is a tiny placeholder blocklist. A real deployment needs a
-  moderation service, reporting, and muting or blocking.
-* **Accounts:** guest-only, with no recovery or account linking. Tokens never expire.
+* **Password reset by email** needs an email provider; until then players contact support.
+* **OAuth sign-in** (Google, GitHub) needs client ids from the deployer.
+* **Persistent bans:** moderators can review reports, but there is no ban list yet.
 * **Rate limits** are in-memory per process. Behind several processes, use a shared store.
-* **Agent Lab exposure:** after a match ends, its full record (including whispers) is readable by
-  anyone with the match id. Restrict this to participants or admins if players expect privacy.
 * **Payments:** a real provider needs webhook signature verification, refunds, spending limits and
   regional compliance review, especially for paid random rewards.
 * **Transport:** run behind TLS (wss/https) in production. Nothing here terminates TLS.

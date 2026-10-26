@@ -231,7 +231,20 @@ export interface RewardsMsg {
   balance: { game_points: number; diamonds: number };
 }
 
-export type ServerMsg = WelcomeMsg | SnapshotMsg | InteractResultMsg | PongMsg | LobbyMsg | ErrorMsg | RewardsMsg;
+export interface ReportAckMsg {
+  type: "report_ack";
+  target: string;
+}
+
+export type ServerMsg =
+  | WelcomeMsg
+  | SnapshotMsg
+  | InteractResultMsg
+  | PongMsg
+  | LobbyMsg
+  | ErrorMsg
+  | RewardsMsg
+  | ReportAckMsg;
 
 export type ClientMsg =
   | { type: "input"; seq: number; dx: number; dy: number }
@@ -247,7 +260,8 @@ export type ClientMsg =
   | { type: "respond"; proposer: string; accept: boolean }
   | { type: "break_alliance" }
   | { type: "kill"; target: string }
-  | { type: "ability"; target: string | null };
+  | { type: "ability"; target: string | null }
+  | { type: "report"; target: string; reason: string; note: string | null };
 
 export interface SeatGrant {
   code: string;

@@ -72,7 +72,8 @@ export default function Home() {
           <h1 className="text-6xl font-bold tracking-widest text-gold drop-shadow-[0_4px_0_#120c1c] sm:text-7xl">ARENIX</h1>
           <p className="mt-2 text-lg text-parchment/85">Explore. Cooperate. Betray. Survive the island.</p>
           <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>{" "}
-          <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>
+          <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>{" "}
+          <Link href="/account" className="btn btn-ghost mt-3 text-sm">👤 Account</Link>
         </header>
 
         <section className="panel w-full p-5 sm:p-6">
@@ -144,6 +145,10 @@ export default function Home() {
             AI contestants are rule-based: they act and talk only from what they actually saw (no LLM in this mode).
           </p>
         </section>
+        <footer className="pb-4 text-center text-xs text-parchment/50">
+          For players 13 and older · <Link className="underline" href="/privacy">Privacy</Link> ·{" "}
+          <Link className="underline" href="/terms">Terms</Link> · Be kind: report abuse from the in-game player list.
+        </footer>
       </div>
     </main>
   );

@@ -197,3 +197,19 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   `docs/benchmarks/README.md`)
 - ⬜ LLM strategists for impostor mode (the strategist layer drives classic mode only)
 - ⬜ Sabotage, vents, task mini-games
+
+## Milestone 9: Release readiness 🟡
+- ✅ Accounts: email + password (scrypt), 30-day revocable sessions, sign-out, password change
+  (signs out other devices), guest upgrade that keeps progress, account deletion, 13+ check
+- ✅ Login protection: per-IP rate limits, per-email lockout after 5 wrong passwords, no account
+  enumeration
+- ✅ Moderation: stronger chat filter (leetspeak, stretched letters, spaced slurs, harmful
+  phrases; mild swearing masked; links, emails and phone numbers blocked; duplicate spam), name
+  checks everywhere, mute and report from the player list and the meeting chat, server-side
+  evidence, admin review endpoints
+- ✅ Privacy: private human chat hidden in the public Lab; Privacy Policy and Terms pages; API
+  security headers
+- ⬜ Game feel and UI polish (sound, music, tutorial, settings, mobile)
+- ⬜ More content (roles, sabotage, a second map)
+- ⬜ Social (public lobbies, quick play, leaderboards, profiles)
+- ⬜ Release (single deployable service, portals, donations, real payments)

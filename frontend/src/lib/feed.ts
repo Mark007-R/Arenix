@@ -31,6 +31,12 @@ const REASONS: Record<string, string> = {
   ability_used: "You already used your ability this match.",
   no_active_skill: "Your skill works on its own — nothing to activate.",
   shielded: "A magic shield blocked your attack!",
+  links_not_allowed: "Links aren't allowed in chat.",
+  contact_not_allowed: "For your safety, don't share emails or phone numbers.",
+  duplicate_message: "You just said that.",
+  already_reported: "You already reported them this match.",
+  report_limit: "You've reached the report limit for this match.",
+  no_match: "There's no match to report from.",
 };
 
 /** "Old Mine" -> "the Old Mine"; "the wilds" stays as it is. */

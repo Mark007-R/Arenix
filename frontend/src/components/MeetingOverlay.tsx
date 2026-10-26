@@ -5,6 +5,7 @@ import type { GameClient } from "@/game/net/client";
 import { place } from "@/lib/feed";
 import { useHud, type HudStore } from "@/lib/store";
 import { Portrait } from "./Portrait";
+import { SafetyMenu } from "./SafetyMenu";
 
 const TITLES = { discuss: "Council meeting — discuss", vote: "Council meeting — vote", reveal: "The council has spoken" };
 
@@ -19,12 +20,14 @@ function nameColor(id: string): string {
 function MeetingChat({ client, store }: { client: GameClient; store: HudStore }) {
   const meeting = useHud(store, (s) => s.snapshot?.meeting ?? 0);
   const chat = useHud(store, (s) => s.chat);
+  const muted = useHud(store, (s) => s.muted);
+  const [menuFor, setMenuFor] = useState<number | null>(null);
   const roster = useHud(store, (s) => s.snapshot?.roster ?? []);
   const alive = useHud(store, (s) => s.snapshot?.roster.find((r) => r.id === s.you)?.alive ?? false);
   const ghost = client.isGhost;
   const [text, setText] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
-  const lines = chat.filter((c) => c.meeting === meeting);
+  const lines = chat.filter((c) => c.meeting === meeting && !muted.includes(c.sender));
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
@@ -49,10 +52,19 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
             <div key={c.id} className={`flex gap-2 ${c.mine ? "flex-row-reverse text-right" : ""} ${c.ghost ? "opacity-70" : ""}`}>
               {r && <Portrait archetype={r.archetype} scale={1} className="mt-1 h-5 w-4 shrink-0" cosmetics={r.cosmetics} />}
               <div className={`max-w-[85%] border-2 px-2 py-1 text-sm ${c.mine ? "border-gold/60 bg-[#2d2440]" : "border-dusk bg-[#1f1630]"}`}>
-                <div className="text-xs font-bold" style={{ color: c.mine ? "#ffe066" : nameColor(c.sender) }}>
-                  {c.mine ? "You" : c.senderName}{c.ghost && " 👻"}
+                <div className="flex items-center gap-2 text-xs font-bold" style={{ color: c.mine ? "#ffe066" : nameColor(c.sender) }}>
+                  <span>{c.mine ? "You" : c.senderName}{c.ghost && " 👻"}</span>
+                  {!c.mine && (
+                    <button className="ml-auto text-parchment/40 hover:text-parchment" aria-label={`Mute or report ${c.senderName}`}
+                      onClick={() => setMenuFor(menuFor === c.id ? null : c.id)}>⋯</button>
+                  )}
                 </div>
                 <div className="break-words">{c.text}</div>
+                {menuFor === c.id && (
+                  <div className="mt-1 flex flex-wrap gap-1 text-left">
+                    <SafetyMenu client={client} store={store} id={c.sender} onDone={() => setMenuFor(null)} />
+                  </div>
+                )}
               </div>
             </div>
           );

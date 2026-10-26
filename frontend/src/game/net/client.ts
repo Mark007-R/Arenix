@@ -172,6 +172,14 @@ export class GameClient {
     this.send({ type: "ability", target });
   }
 
+  report(target: string, reason: string, note: string | null): void {
+    this.send({ type: "report", target, reason, note });
+  }
+
+  isMuted(id: string): boolean {
+    return this.store.get().muted.includes(id);
+  }
+
   say(body: { text: string } | { quick: string }, to: string | null = null): void {
     this.send({ type: "chat", ...body, to });
   }
@@ -227,8 +235,12 @@ export class GameClient {
           this.store.set({ connection: "error", error: "This game was opened in another tab." });
           this.closedByUs = true;
         } else {
-          this.toast(msg.message);
+          const known = rejectionText(msg.code);
+          this.toast(known === "That didn't work." ? msg.message : known);
         }
+        break;
+      case "report_ack":
+        this.toast(`Thanks — your report about ${this.name(msg.target)} was sent to the moderators.`);
         break;
       case "welcome": {
         const isNewMatch = this.store.get().matchId !== msg.match_id;

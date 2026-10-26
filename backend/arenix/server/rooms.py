@@ -38,6 +38,8 @@ ROOM_IDLE_TTL_S = 120.0
 MATCH_TIME_LIMIT_S = 240  # classic mode
 IMPOSTOR_TIME_LIMIT_S = 540
 MAP_FOR_MODE = {"classic": "emerald_isle", "impostor": "moonfall_isle"}
+MAX_REPORTS_PER_MATCH = 5
+REPORT_EVIDENCE_LINES = 10
 BOT_NAMES = ["Brakka", "Lyra", "Fennick", "Morwen", "Tobble", "Sir Aldric", "Quill", "Nessa", "Grub"]
 
 SendText = Callable[[str], Awaitable[None]]
@@ -144,6 +146,7 @@ class Room:
         self.coordinator: AgentCoordinator | None = None
         # Finished matches kept for the Agent Lab and replays (most recent last).
         self.history: list[tuple[Match, AgentCoordinator | None]] = []
+        self.reports_sent: dict[tuple[str, str], set[str]] = {}  # (match id, reporter) -> reported ids
 
     # ------------------------------------------------------------ seats
     def add_seat(
@@ -381,6 +384,42 @@ class Room:
             return None
         return {"type": "error", "code": r.reason, "message": r.reason, "action": kind}
 
+    def build_report(self, seat: Seat, target: str, reason: str, note: str | None) -> dict[str, Any]:
+        """Validate a report and attach server-side evidence (what the reporter could see the target say)."""
+        from ..engine.social import moderate_chat
+
+        match = self.match
+        if match is None or seat.player_id not in match.contestants:
+            raise RoomError("no_match", "There is no match to report from.")
+        if target == seat.player_id or target not in match.contestants:
+            raise RoomError("invalid_target", "You can't report them.")
+        sent = self.reports_sent.setdefault((match.id, seat.player_id), set())
+        if target in sent:
+            raise RoomError("already_reported", "You already reported them this match.")
+        if len(sent) >= MAX_REPORTS_PER_MATCH:
+            raise RoomError("report_limit", "You've sent the maximum number of reports for this match.")
+        sent.add(target)
+        evidence = [
+            {"tick": e.tick, "text": e.data["text"], "private": e.visible_to is not None}
+            for e in match.events.visible_since(0, seat.player_id)
+            if e.type == "chat" and e.data.get("sender") == target
+        ][-REPORT_EVIDENCE_LINES:]
+        reported_seat = self.seats.get(target)
+        clean_note = moderate_chat(note)[0] if note else None
+        return {
+            "match_id": match.id,
+            "room_code": None if self.practice else self.code,
+            "reporter_contestant": seat.player_id,
+            "reporter_user_id": seat.user_id,
+            "reported_contestant": target,
+            "reported_name": match.contestants[target].name,
+            "reported_user_id": reported_seat.user_id if reported_seat else None,
+            "reported_is_bot": match.contestants[target].is_bot,
+            "reason": reason,
+            "note": clean_note,
+            "evidence": evidence,
+        }
+
     def handle_interact(self, seat: Seat, target_id: str) -> dict[str, Any]:
         if self.match is None or self.status != "running":
             return {"type": "interact_result", "target_id": target_id, "ok": False, "reason": "match_not_running"}
@@ -468,6 +507,7 @@ class RoomManager:
 
     def __init__(self, agents: AgentConfig | None = None, db: Database | None = None) -> None:
         self.rooms: dict[str, Room] = {}
+        self.memory_reports: deque[dict[str, Any]] = deque(maxlen=500)  # used when there is no database
         self.agents = agents or AgentConfig.from_env()
         self.db = db
 

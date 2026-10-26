@@ -36,8 +36,50 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     display_name: Mapped[str] = mapped_column(String(20))
-    session_token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256 hex; raw token never stored
+    # The guest token (sha256 hex; the raw token is never stored). Registered accounts sign in
+    # with email + password and get rows in auth_sessions instead.
+    session_token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     is_guest: Mapped[bool] = mapped_column(Boolean, default=True)
+    email: Mapped[str | None] = mapped_column(String(254), unique=True, nullable=True)  # stored lowercase
+    password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)  # scrypt, see accounts.py
+    created_at: Mapped[datetime] = _now()
+
+
+class AuthSession(Base):
+    """A signed-in device. Tokens expire and can be revoked (logout, password change)."""
+
+    __tablename__ = "auth_sessions"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = _now()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class PlayerReport(Base):
+    """A player report. Evidence is copied server-side from the match log, never from the client."""
+
+    __tablename__ = "player_reports"
+    __table_args__ = (
+        CheckConstraint(
+            "reason in ('harassment','hate','cheating','spam','inappropriate_name','other')",
+            name="ck_report_reason",
+        ),
+        CheckConstraint("status in ('open','reviewed','dismissed')", name="ck_report_status"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    match_id: Mapped[str] = mapped_column(String(64), index=True)
+    room_code: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    reporter_contestant: Mapped[str] = mapped_column(String(16))
+    reporter_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reported_contestant: Mapped[str] = mapped_column(String(16))
+    reported_name: Mapped[str] = mapped_column(String(20))
+    reported_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reason: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    evidence: Mapped[list[Any]] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String(16), default="open")
     created_at: Mapped[datetime] = _now()
 
 

@@ -515,6 +515,7 @@ export class WorldScene extends Phaser.Scene {
     const client = this.deps.client;
     if (!this.built) return;
     if (ev.type === "chat") {
+      if (client.isMuted(String(ev.data.sender))) return;
       this.showBubble(String(ev.data.sender), String(ev.data.text), !!ev.data.private);
       return;
     }

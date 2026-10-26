@@ -50,6 +50,8 @@ export interface HudState {
   /** Chat input focused: the game must ignore movement keys. */
   typing: boolean;
   prompt: { targetId: string; label: string } | null;
+  /** Contestants whose chat this player has muted (local only). */
+  muted: string[];
   /** Impostor mode: the islander currently in kill range (if the knife is ready). */
   killTarget: { id: string; name: string } | null;
   toast: { id: number; text: string } | null;
@@ -98,6 +100,7 @@ export const initialHud = (): HudState => ({
   typing: false,
   prompt: null,
   killTarget: null,
+  muted: [],
   toast: null,
   result: null,
   lastVote: null,

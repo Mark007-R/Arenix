@@ -18,7 +18,9 @@ const KIND_LABEL: Record<string, string> = {
 
 /** Public chat + ally whispers. Enter focuses the input, Esc leaves it, Q opens quick-chat. */
 export function ChatPanel({ client, store }: { client: GameClient; store: HudStore }) {
-  const chat = useHud(store, (s) => s.chat);
+  const allChat = useHud(store, (s) => s.chat);
+  const muted = useHud(store, (s) => s.muted);
+  const chat = allChat.filter((c) => !muted.includes(c.sender));
   const ally = useHud(store, (s) => s.snapshot?.me?.ally ?? null);
   const alive = useHud(store, (s) => s.snapshot?.roster.find((r) => r.id === s.you)?.alive ?? true);
   const ghost = useHud(store, (s) => s.snapshot?.mode === "impostor" && s.snapshot.me?.alive === false);

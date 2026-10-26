@@ -16,12 +16,14 @@ import hashlib
 import os
 import secrets
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import (
+    AuthSession,
     CosmeticItem,
     CrateDefinition,
     CrateOpening,
@@ -124,9 +126,19 @@ async def create_guest(s: AsyncSession, display_name: str) -> tuple[User, str]:
 
 
 async def user_for_token(s: AsyncSession, token: str) -> User | None:
+    """A guest token, or an unexpired, unrevoked session of a registered account."""
     if not token:
         return None
-    return await s.scalar(select(User).where(User.session_token_hash == hash_token(token)))
+    h = hash_token(token)
+    user = await s.scalar(select(User).where(User.session_token_hash == h, User.is_guest.is_(True)))
+    if user is not None:
+        return user
+    session = await s.scalar(
+        select(AuthSession).where(
+            AuthSession.token_hash == h, AuthSession.revoked.is_(False), AuthSession.expires_at > datetime.now(UTC)
+        )
+    )
+    return await s.get(User, session.user_id) if session is not None else None
 
 
 async def _locked_profile(s: AsyncSession, user_id: int) -> PlayerProfile:

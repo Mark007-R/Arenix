@@ -1,5 +1,5 @@
 /** The ARENIX palette: warm, saturated fantasy colours with a single deep outline tone. */
-export const P = {
+const SUMMER = {
   outline: "#1f1630",
   shadow: "rgba(20,12,30,0.35)",
 
@@ -58,4 +58,49 @@ export const P = {
   flowerPink: "#f08bb4",
   flowerYellow: "#ffe066",
   flowerWhite: "#fff7e8",
-} as const;
+};
+
+export type Palette = Record<keyof typeof SUMMER, string>;
+
+/** Frostpeak Isle: grass becomes snow, water turns icy, leaves are dark pine. */
+const WINTER: Partial<Palette> = {
+  grass: "#e8eef7",
+  grassDark: "#cfd9e8",
+  grassLight: "#ffffff",
+  forest: "#d5e0ee",
+  forestDark: "#b9c7da",
+  forestLight: "#edf3fb",
+  leaf: "#2e5e4e",
+  leafDark: "#1f4439",
+  leafLight: "#4b7f6b",
+  leafHi: "#dbe7f2",
+  sand: "#c9d3df",
+  sandDark: "#aab6c6",
+  water: "#4f8fc4",
+  waterDark: "#3a74a6",
+  waterLight: "#8fc3e8",
+  foam: "#f2fbff",
+  path: "#b3a395",
+  pathDark: "#94857a",
+  pathLight: "#cdbfb2",
+  dirt: "#7d6a5c",
+  dirtDark: "#64554a",
+  dirtLight: "#95826f",
+  flowerPink: "#a9d8ff",
+  flowerYellow: "#e0f2ff",
+  flowerWhite: "#ffffff",
+};
+
+const THEMES: Record<string, Partial<Palette>> = { summer: {}, winter: WINTER };
+
+/** Colours for a map theme, without touching the live palette. */
+export function themed(theme?: string): Palette {
+  return { ...SUMMER, ...(THEMES[theme ?? "summer"] ?? {}) };
+}
+
+/** The live palette the art builders draw with; `applyTheme` switches it before a map is drawn. */
+export const P: Palette = { ...SUMMER };
+
+export function applyTheme(theme?: string): void {
+  Object.assign(P, themed(theme));
+}

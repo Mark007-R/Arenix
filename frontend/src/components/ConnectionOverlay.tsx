@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useHud, type HudStore } from "@/lib/store";
 
-export function ConnectionOverlay({ store, onRetry, connectingText = "Sailing to Moonfall Isle…" }: {
+export function ConnectionOverlay({ store, onRetry, connectingText = "Sailing to the island…" }: {
   store: HudStore;
   onRetry: () => void;
   connectingText?: string;

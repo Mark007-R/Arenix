@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { MINIMAP_COLORS } from "@/game/art/tiles";
+import { minimapColors } from "@/game/art/tiles";
 import type { HudStore } from "@/lib/store";
 import { useHud } from "@/lib/store";
 
@@ -21,8 +21,9 @@ export function Minimap({ store }: { store: HudStore }) {
     c.width = map.width * SCALE;
     c.height = map.height * SCALE;
     const ctx = c.getContext("2d")!;
+    const colors = minimapColors(map.theme);
     map.tiles.forEach((t, i) => {
-      ctx.fillStyle = MINIMAP_COLORS[t] ?? "#000";
+      ctx.fillStyle = colors[t] ?? "#000";
       ctx.fillRect((i % map.width) * SCALE, Math.floor(i / map.width) * SCALE, SCALE, SCALE);
     });
     for (const o of map.objects) {

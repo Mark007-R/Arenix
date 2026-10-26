@@ -66,6 +66,7 @@ class GameMap:
         objects: list[MapObject],
         spawns: list[tuple[float, float]],
         regions: list[Region],
+        theme: str = "summer",
     ) -> None:
         if len(tiles) != width * height:
             raise ValueError("tile array does not match map dimensions")
@@ -78,6 +79,7 @@ class GameMap:
         self.objects_by_id = {o.id: o for o in objects}
         self.spawns = spawns
         self.regions = regions
+        self.theme = theme  # renderer palette: "summer" | "winter"
         self.collision = bytearray(width * height)
         for i, t in enumerate(tiles):
             if Tile(t) in SOLID_TILES:
@@ -116,6 +118,7 @@ class GameMap:
             "objects": [o.to_dict() for o in self.objects],
             "spawns": [list(s) for s in self.spawns],
             "regions": [r.__dict__ for r in self.regions],
+            "theme": self.theme,
         }
 
     def ascii(self) -> str:

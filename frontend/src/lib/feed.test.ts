@@ -25,6 +25,18 @@ describe("formatEvent", () => {
     expect(formatEvent(betray, names, "p1")).toEqual({ text: "Quill betrayed you in the vote!", tone: "bad" });
   });
 
+  it("describes sheriff shots, misfires, sabotage and the jester", () => {
+    const shot = { seq: 6, tick: 9, type: "contestant_killed", data: { killer: "p1", victim: "bot1", cause: "sheriff" } };
+    expect(formatEvent(shot, names, "p1")).toEqual({ text: "Bullseye! Lyra was an impostor.", tone: "good" });
+    const misfire = { seq: 7, tick: 9, type: "contestant_killed", data: { killer: "p1", victim: "p1", cause: "misfire" } };
+    expect(formatEvent(misfire, names, "p1")?.tone).toBe("bad");
+    const fog = { seq: 8, tick: 9, type: "sabotage", data: { kind: "fog" } };
+    expect(formatEvent(fog, names, "p1")?.text).toContain("fog");
+    const jester = { seq: 9, tick: 9, type: "vote_resolved", data: { eliminated: "bot2", was_jester: true, was_impostor: false } };
+    expect(formatEvent(jester, names, "p1")?.text).toBe("Quill was the JESTER — and that's exactly what they wanted!");
+    expect(rejectionText("bullet_used")).toBe("Your only bullet is spent.");
+  });
+
   it("ignores unknown events", () => {
     expect(formatEvent({ seq: 1, tick: 1, type: "resource_regenerated", data: {} }, names, "p1")).toBeNull();
   });

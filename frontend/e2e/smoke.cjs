@@ -1,5 +1,5 @@
 /**
- * End-to-end smoke test: a real browser plays a practice match (impostor mode, Moonfall Isle).
+ * End-to-end smoke test: a real browser plays a practice match (impostor mode, random island).
  * It reads its secret role, walks (with a breadth-first route over the server's collision map)
  * to the nearest wood, gathers 3, delivers to the Watchtower — islanders score, impostors only
  * pretend — checks client/server position agreement, skips a council vote if still alive and

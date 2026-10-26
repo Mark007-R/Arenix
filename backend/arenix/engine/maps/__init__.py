@@ -4,11 +4,12 @@ from collections.abc import Callable
 from functools import cache
 
 from ..map import GameMap
-from . import emerald_isle, moonfall_isle
+from . import emerald_isle, frostpeak_isle, moonfall_isle
 
 _BUILDERS: dict[str, Callable[[], GameMap]] = {
     emerald_isle.MAP_ID: emerald_isle.build,
     moonfall_isle.MAP_ID: moonfall_isle.build,
+    frostpeak_isle.MAP_ID: frostpeak_isle.build,
 }
 
 

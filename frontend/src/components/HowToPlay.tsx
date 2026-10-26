@@ -4,9 +4,10 @@ import { useState } from "react";
 import { markTutorialSeen } from "@/lib/settings";
 
 const STEPS: { icon: string; title: string; text: string }[] = [
-  { icon: "🏝️", title: "Welcome to Moonfall Isle", text: "Everyone gets a secret role. Most are islanders — but one (two in bigger games) is an impostor." },
+  { icon: "🏝️", title: "Welcome to ARENIX", text: "Everyone gets a secret role. Most are islanders — but one (two in bigger games) is an impostor." },
   { icon: "🪓", title: "Islanders: do the tasks", text: "Gather wood (forest, orchard) and stone (mine, quarry) with E, deliver them to the Watchtower, and carry wood to light the 5 beacons. Finish everything to win." },
   { icon: "🗡️", title: "Impostors: strike unseen", text: "Stand next to an islander and press K. Anyone nearby sees it — so wait until you're alone. Fake tasks to blend in. You win when you equal the islanders." },
+  { icon: "⭐", title: "Sheriff, jester and sabotage", text: "From 6 players one islander is the sheriff, with one bullet (K): hit an impostor and they die, hit an innocent and the sheriff dies. From 9 there's a jester who wins if voted out. Impostors can sabotage with fog or by dousing a beacon." },
   { icon: "☠️", title: "Bodies and meetings", text: "Found a body? Press E to report it. The council meets: say where you were, accuse, defend, then vote someone out — or skip. Ejections are confirmed." },
   { icon: "✨", title: "Your skill", text: "Every match you get a random skill: Swift, Scout, Strongback, Detective, Medic or Lookout. Use it to find — or hide — the truth." },
   { icon: "👻", title: "Ghosts and fair play", text: "If you die you become a ghost: roam freely and chat with other ghosts. Be kind — mute or report anyone who isn't, from the player list." },

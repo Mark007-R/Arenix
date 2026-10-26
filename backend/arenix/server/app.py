@@ -42,9 +42,12 @@ from .protocol import (
     ReadyMsg,
     ReportMsg,
     RespondMsg,
+    SabotageMsg,
     SeatGrant,
     SetArchetypeMsg,
     SetFillMsg,
+    SetMapMsg,
+    ShootMsg,
     StartMsg,
     VoteMsg,
     client_message_adapter,
@@ -482,6 +485,12 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
                             reply = room.handle_action(seat, "respond", proposer=msg.proposer, accept=msg.accept)
                         elif isinstance(msg, BreakMsg):
                             reply = room.handle_action(seat, "break")
+                        elif isinstance(msg, SetMapMsg):
+                            room.set_map(seat, msg.map_id)
+                        elif isinstance(msg, ShootMsg):
+                            reply = room.handle_action(seat, "shoot", target=msg.target)
+                        elif isinstance(msg, SabotageMsg):
+                            reply = room.handle_action(seat, "sabotage", what=msg.kind)
                         elif isinstance(msg, KillMsg):
                             reply = room.handle_action(seat, "kill", target=msg.target)
                         elif isinstance(msg, AbilityMsg):

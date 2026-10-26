@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { ARCHETYPES, FRAME, FRAME_H, buildCharacterSheet, cosmeticKey } from "../art/characters";
 import * as Obj from "../art/objects";
+import { applyTheme, P } from "../art/palette";
 import { TILE, renderTiles } from "../art/tiles";
 import type { GameClient } from "../net/client";
 import { DT } from "@/shared/physics";
@@ -79,7 +80,9 @@ export class WorldScene extends Phaser.Scene {
   private buildWorld(): void {
     const client = this.deps.client;
     const map = client.map!;
-    this.add.image(0, 0, this.texture("tiles", () => renderTiles(map))).setOrigin(0, 0).setDepth(-100000);
+    applyTheme(map.theme);
+    this.cameras.main.setBackgroundColor(P.waterDark);
+    this.add.image(0, 0, this.texture(`tiles-${map.id}`, () => renderTiles(map))).setOrigin(0, 0).setDepth(-100000);
 
     for (const o of map.objects) this.addObject(o);
 
@@ -452,16 +455,22 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Impostors: the closest islander within kill range, when the knife is ready. K (or the HUD button) strikes. */
+  /**
+   * Impostors: the closest islander within kill range, when the knife is ready. Sheriff: the closest
+   * contestant within shooting range, while the bullet is unfired. K (or the HUD button) strikes.
+   */
   private updateKillTarget(): void {
     const client = this.deps.client;
     const snap = client.snapshot;
     const store = client.store;
     const p = client.predictor;
+    const me = snap?.me;
+    const impostor = me?.role === "impostor" && (me.kill_cooldown ?? 1) <= 0;
+    const sheriff = me?.role === "sheriff" && me.bullet_used === false;
     let target: ContestantDTO | null = null;
-    if (p && snap?.me?.role === "impostor" && client.canAct && (snap.me.kill_cooldown ?? 1) <= 0) {
-      const range = client.constants?.kill_range ?? 1.5;
-      const fellow = new Set(snap.me.fellow_impostors ?? []);
+    if (p && snap && me && client.canAct && (impostor || sheriff)) {
+      const range = impostor ? (client.constants?.kill_range ?? 1.5) : (client.constants?.shoot_range ?? 2);
+      const fellow = new Set(me.fellow_impostors ?? []);
       // The server judges range from its own (slightly older) position of us, not our prediction.
       const server = snap.contestants.find((c) => c.id === client.you) ?? p;
       let bestD = Infinity;
@@ -483,9 +492,12 @@ export class WorldScene extends Phaser.Scene {
     }
     if (target) {
       const a = this.actors.get(target.id);
-      this.killBubble.setText(`K  Eliminate ${target.name}`).setVisible(true)
+      this.killBubble.setText(`K  ${sheriff ? "Shoot" : "Eliminate"} ${target.name}`).setVisible(true)
         .setPosition(a?.sprite.x ?? target.x * TILE, (a?.sprite.y ?? target.y * TILE) - FRAME_H - 16);
-      if (pressed && !store.get().typing) client.kill(target.id);
+      if (pressed && !store.get().typing) {
+        if (sheriff) client.shoot(target.id);
+        else client.kill(target.id);
+      }
     } else {
       this.killBubble.setVisible(false);
     }

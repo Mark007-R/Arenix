@@ -28,6 +28,14 @@ const REASONS: Record<string, string> = {
   tasks_done: "The Watchtower stands and every beacon burns.",
   impostors_outnumber: "The impostors now equal the islanders.",
   time_up: "Time ran out before the impostors were caught.",
+  jester_ejected: "The council voted out the jester — exactly what they wanted.",
+};
+
+const ROLE_STYLE: Record<string, [string, string]> = {
+  islander: ["Islander", "text-leaf"],
+  impostor: ["Impostor", "font-bold text-ember"],
+  sheriff: ["⭐ Sheriff", "text-gold"],
+  jester: ["🃏 Jester", "text-[#d6a6ff]"],
 };
 
 function Rewards({ store }: { store: HudStore }) {
@@ -48,13 +56,17 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
   const result = useHud(store, (s) => s.result)!;
   const you = useHud(store, (s) => s.you);
   const impostorsWon = result.winning_team === "impostor";
+  const jesterWon = result.winning_team === "jester";
   const youWon = !!you && (result.winners ?? []).includes(you);
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
       {youWon && <Confetti />}
       <div className="panel pop-in max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
-        <h2 id="result-title" className={`text-3xl font-bold ${impostorsWon ? "text-ember" : "text-leaf"}`}>
-          {impostorsWon ? "The impostors win!" : "The islanders win!"}
+        <h2
+          id="result-title"
+          className={`text-3xl font-bold ${jesterWon ? "text-[#d6a6ff]" : impostorsWon ? "text-ember" : "text-leaf"}`}
+        >
+          {jesterWon ? "🃏 The jester wins!" : impostorsWon ? "The impostors win!" : "The islanders win!"}
         </h2>
         <p className="mt-1 text-lg">{youWon ? "🎉 You won!" : "Your team lost."}</p>
         <p className="mt-1 text-parchment/80">
@@ -78,8 +90,8 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
                   {s.name}
                   {!s.alive && <span className="ml-1 text-xs">💀</span>}
                 </td>
-                <td className={s.role === "impostor" ? "font-bold text-ember" : "text-leaf"}>
-                  {s.role === "impostor" ? "Impostor" : "Islander"}
+                <td className={ROLE_STYLE[s.role ?? "islander"]?.[1] ?? "text-leaf"}>
+                  {ROLE_STYLE[s.role ?? "islander"]?.[0] ?? "Islander"}
                 </td>
                 <td className="text-xs">{s.skill?.name ?? "—"}</td>
                 <td className="text-right tabular-nums">

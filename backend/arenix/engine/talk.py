@@ -152,6 +152,17 @@ TEMPLATES: dict[str, list[str]] = {
         "Don't wander off alone!",
         "Whoever it is, we'll find you.",
     ],
+    "jester_tease": [
+        "Maybe it was me. Maybe it wasn't.",
+        "I'm not telling you where I was.",
+        "Go on, vote me. I dare you.",
+        "I was... around. Somewhere.",
+        "Funny, nobody asked what *I* was doing.",
+    ],
+    "sheriff_reveal": [
+        "I'm the sheriff — I shot {target} and they WERE an impostor!",
+        "Sheriff here. My bullet found {target}. Impostor down.",
+    ],
     "ejected_good": [
         "Got one! Nice work, everyone.",
         "Told you. Good vote.",

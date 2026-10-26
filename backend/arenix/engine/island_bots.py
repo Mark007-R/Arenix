@@ -73,6 +73,8 @@ class IslandBrain(BotBrain):
         self.meeting_lie: str | None = None
         self.flee_until = 0
         self.next_hunt_check = 0
+        self.next_sabotage_check = rng.randint(600, 1400)
+        self.shot_impostor: str | None = None
         self.next_chatter = rng.randint(900, 2200)
         self.shield_at = rng.randint(600, 2400)
 
@@ -95,7 +97,8 @@ class IslandBrain(BotBrain):
         self.talk_queue.append((obs.tick + delay, meeting, intent if not text else None, text, claim))
 
     def is_islander(self) -> bool:
-        return self.role == R.ISLANDER
+        """Islanders and the sheriff (the jester plays like a liar, the impostor like a hunter)."""
+        return R.team(self.role) == R.ISLANDER
 
     # ------------------------------------------------------------- perception
     def _observe(self, obs: Observation) -> None:
@@ -134,14 +137,20 @@ class IslandBrain(BotBrain):
         regions = [r for t, r in self.trail if obs.tick - t <= 900]
         if not regions:
             return self.my_region(obs)
-        return max(set(regions), key=regions.count)
+        return max(dict.fromkeys(regions), key=regions.count)
 
     # ------------------------------------------------------------- events
     def _learn_event(self, obs: Observation, ev: GameEvent) -> None:  # noqa: C901 — one branch per event type
         d = ev.data
         me = self.cid
         t = ev.type
-        if t == "kill_witnessed":
+        if t == "kill_witnessed" and d.get("cause", "impostor") != "impostor":
+            # A sheriff's shot: a hit proves the shooter innocent (the victim was an impostor).
+            self.dead.add(d["victim"])
+            if d.get("cause") == "sheriff":
+                self.cleared.add(d["killer"])
+                self.sus(d["killer"], -1.0)
+        elif t == "kill_witnessed":
             killer, victim = d["killer"], d["victim"]
             self.known_impostors.add(killer)
             self.suspicion[killer] = 1.0
@@ -159,6 +168,8 @@ class IslandBrain(BotBrain):
                 )
         elif t == "contestant_killed":
             self.dead.add(d["victim"])
+            if d.get("cause") == "sheriff" and d["killer"] == me:
+                self.shot_impostor = d["victim"]
         elif t == "ally_lost":
             self.dead.add(d["ally"])
         elif t == "lookout_alert":
@@ -389,6 +400,8 @@ class IslandBrain(BotBrain):
                 self.queue(obs, self.rng.randint(10, 25), "bell")
         if self.is_islander():
             self._plan_islander(obs, step)
+        elif self.role == R.JESTER:
+            self._plan_jester(obs, step)
         else:
             self._plan_impostor(obs, step)
         # Announce a vote near the end of the discussion, decided when it is due.
@@ -396,6 +409,12 @@ class IslandBrain(BotBrain):
 
     def _plan_islander(self, obs: Observation, step: Any) -> None:
         said = False
+        if self.shot_impostor:
+            self.queue(
+                obs, step(), "sheriff_reveal", {"type": "clear", "target": self.cid}, target=self.n(self.shot_impostor)
+            )
+            self.shot_impostor = None
+            said = True
         for killer, victim, region in self.witnessed:
             if killer not in self.dead:
                 self.queue(
@@ -464,6 +483,42 @@ class IslandBrain(BotBrain):
             said = True
         if not said and self.rng.random() < 0.5:
             self.queue(obs, step(), "no_info")
+
+    def _sheriff(self, obs: Observation) -> tuple[Any, ...] | None:
+        """Chase a contestant this sheriff knows is an impostor (saw a kill, was attacked) and shoot."""
+        known = [k for k in self.known_impostors if k in obs.visible_positions and k not in self.dead]
+        if not known:
+            return None
+        target = known[0]
+        tx, ty = obs.visible_positions[target]
+        if math.hypot(tx - obs.x, ty - obs.y) <= R.SHERIFF_RANGE - 0.2:
+            self._record(obs, f"shot {target} (known impostor)")
+            self.point_goal = None
+            return ("shoot", target)
+        self.point_goal = ("hunt", target)
+        return None
+
+    def _sabotage(self, obs: Observation) -> tuple[Any, ...] | None:
+        if not obs.sabotage_ready or obs.tick < self.next_sabotage_check:
+            return None
+        self.next_sabotage_check = obs.tick + self.rng.randint(200, 500)
+        if self.rng.random() > 0.5:
+            return None
+        lit = sum(obs.beacons.values())
+        kind = "douse" if lit >= 2 and self.rng.random() < 0.6 else "fog"
+        self._record(obs, f"sabotage: {kind}")
+        return ("sabotage", kind)
+
+    def _plan_jester(self, obs: Observation, step: Any) -> None:
+        """The jester wants to be voted out: vague, cagey and just suspicious enough."""
+        if self.rng.random() < 0.35:
+            self.queue(obs, step(), "jester_tease")
+        elif self.rng.random() < 0.6:
+            self.queue(obs, step(), "alibi", region=self.recent_region(obs))
+        if self.rng.random() < 0.3:
+            goat = self._scapegoat(obs)
+            if goat is not None:
+                self.queue(obs, step(), "suspect_vague", {"type": "accuse", "target": goat}, target=self.n(goat))
 
     def _plan_impostor(self, obs: Observation, step: Any) -> None:
         if self.rng.random() < 0.75:
@@ -594,6 +649,10 @@ class IslandBrain(BotBrain):
             if target is not None:
                 actions.append(("ability", target))
                 self.shield_at = 1 << 30
+        if self.role == R.IMPOSTOR and obs.phase == "explore":
+            sab = self._sabotage(obs)
+            if sab is not None:
+                actions.append(sab)
         if self.communicate:
             self._explore_chatter(obs)
             line = self._next_line(obs)
@@ -813,9 +872,13 @@ class IslandBrain(BotBrain):
             self.path = []
             self.awaiting_result = False
             return BotIntent(actions=tuple(actions))
-        if not self.is_islander():
+        if self.role == R.IMPOSTOR:
             kill = self._hunt(obs)
             if kill is not None:
                 return BotIntent(actions=(*actions, kill))
+        if self.role == R.SHERIFF and not obs.bullet_used:
+            shot = self._sheriff(obs)
+            if shot is not None:
+                return BotIntent(actions=(*actions, shot))
         move = self._navigate_island(obs)
         return BotIntent(move.dx, move.dy, move.interact_target, tuple(actions))

@@ -38,6 +38,7 @@ ROOM_IDLE_TTL_S = 120.0
 MATCH_TIME_LIMIT_S = 240  # classic mode
 IMPOSTOR_TIME_LIMIT_S = 540
 MAP_FOR_MODE = {"classic": "emerald_isle", "impostor": "moonfall_isle"}
+IMPOSTOR_MAPS = ("moonfall_isle", "frostpeak_isle")
 MAX_REPORTS_PER_MATCH = 5
 REPORT_EVIDENCE_LINES = 10
 BOT_NAMES = ["Brakka", "Lyra", "Fennick", "Morwen", "Tobble", "Sir Aldric", "Quill", "Nessa", "Grub"]
@@ -130,6 +131,8 @@ class Room:
     ) -> None:
         self.code = code
         self.mode = mode
+        # Impostor mode: a specific map, or "random" (a different island each match).
+        self.map_choice = "random" if practice else IMPOSTOR_MAPS[0]
         self.fill_to = fill_to
         self.practice = practice
         self.seed_override = seed
@@ -238,6 +241,22 @@ class Room:
         seat.archetype = archetype
         self.broadcast_lobby()
 
+    def set_map(self, seat: Seat, map_choice: str) -> None:
+        self._require_lobby()
+        if not seat.is_host:
+            raise RoomError("not_host", "only the host can change room settings")
+        if self.mode != "impostor" or (map_choice != "random" and map_choice not in IMPOSTOR_MAPS):
+            raise RoomError("bad_map", "unknown map")
+        self.map_choice = map_choice
+        self.broadcast_lobby()
+
+    def current_map(self) -> str:
+        if self.mode != "impostor":
+            return MAP_FOR_MODE[self.mode]
+        if self.map_choice != "random":
+            return self.map_choice
+        return IMPOSTOR_MAPS[secrets.randbelow(len(IMPOSTOR_MAPS))]
+
     def set_fill(self, seat: Seat, fill_to: int) -> None:
         self._require_lobby()
         if not seat.is_host:
@@ -267,7 +286,7 @@ class Room:
         impostor = self.mode == "impostor"
         match = Match(
             f"{self.code}-{self.matches_played}",
-            get_map(MAP_FOR_MODE[self.mode]),
+            get_map(self.current_map()),
             seed,
             time_limit_seconds=IMPOSTOR_TIME_LIMIT_S if impostor else MATCH_TIME_LIMIT_S,
             mode=self.mode,
@@ -375,6 +394,10 @@ class Room:
             r = match.kill(pid, kw["target"])
         elif kind == "ability":
             r = match.use_ability(pid, kw.get("target"))
+        elif kind == "shoot":
+            r = match.shoot(pid, kw["target"])
+        elif kind == "sabotage":
+            r = match.sabotage(pid, kw["what"])
         else:
             return {"type": "error", "code": "unknown_action", "message": "Unknown action."}
         for s in self.seats.values():
@@ -447,6 +470,7 @@ class Room:
                 "half_h": physics.HALF_H,
                 "interact_range": INTERACT_RANGE,
                 "kill_range": roles.KILL_RANGE,
+                "shoot_range": roles.SHERIFF_RANGE,
                 "report_range": roles.REPORT_RANGE,
             },
             "snapshot": self.match.snapshot(pid),
@@ -476,7 +500,8 @@ class Room:
             "fill_to": self.fill_to,
             "capacity": MAX_CONTESTANTS,
             "mode": self.mode,
-            "map_id": MAP_FOR_MODE[self.mode],
+            "map_id": self.map_choice if self.mode == "impostor" else MAP_FOR_MODE[self.mode],
+            "maps": ["random", *IMPOSTOR_MAPS] if self.mode == "impostor" else [MAP_FOR_MODE[self.mode]],
             "min_contestants": roles.MIN_CONTESTANTS if self.mode == "impostor" else 1,
             "seats": [s.public() for s in self.seats.values()],
             "can_start": self.can_start()[0],

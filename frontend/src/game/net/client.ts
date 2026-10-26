@@ -168,6 +168,14 @@ export class GameClient {
     this.send({ type: "kill", target });
   }
 
+  shoot(target: string): void {
+    this.send({ type: "shoot", target });
+  }
+
+  sabotage(kind: "fog" | "douse"): void {
+    this.send({ type: "sabotage", kind });
+  }
+
   ability(target: string | null): void {
     this.send({ type: "ability", target });
   }

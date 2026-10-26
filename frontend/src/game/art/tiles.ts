@@ -1,6 +1,6 @@
 /** Renders the whole tile layer into one canvas (one draw call per frame in Phaser). */
 import type { MapDTO } from "@/shared/protocol";
-import { P } from "./palette";
+import { P, themed } from "./palette";
 import { hash2, makeCanvas } from "./pixels";
 
 export const TILE = 16;
@@ -251,18 +251,22 @@ function drawPillar(ctx: Ctx, ox: number, oy: number): void {
 }
 
 /** Simple averaged colour per tile for the minimap. */
-export const MINIMAP_COLORS: Record<number, string> = {
-  [T.WATER]: P.water,
-  [T.SAND]: P.sand,
-  [T.GRASS]: P.grass,
-  [T.PATH]: P.path,
-  [T.BRIDGE]: P.plank,
-  [T.TREE]: P.leafDark,
-  [T.WALL]: P.stoneDark,
-  [T.ROCK]: P.rockDark,
-  [T.FLOOR]: P.floor,
-  [T.FLOWERS]: P.grassLight,
-  [T.FOREST_FLOOR]: P.forest,
-  [T.DIRT]: P.dirt,
-  [T.RUIN]: P.stone,
-};
+/** Flat colour per tile type for minimaps and previews. */
+export function minimapColors(theme?: string): Record<number, string> {
+  const c = themed(theme);
+  return {
+    [T.WATER]: c.water,
+    [T.SAND]: c.sand,
+    [T.GRASS]: c.grass,
+    [T.PATH]: c.path,
+    [T.BRIDGE]: c.plank,
+    [T.TREE]: c.leafDark,
+    [T.WALL]: c.stoneDark,
+    [T.ROCK]: c.rockDark,
+    [T.FLOOR]: c.floor,
+    [T.FLOWERS]: c.grassLight,
+    [T.FOREST_FLOOR]: c.forest,
+    [T.DIRT]: c.dirt,
+    [T.RUIN]: c.stone,
+  };
+}

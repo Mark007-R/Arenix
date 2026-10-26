@@ -35,6 +35,8 @@ export interface MapDTO {
   objects: MapObjectDTO[];
   spawns: [number, number][];
   regions: RegionDTO[];
+  /** "summer" (default) or "winter". */
+  theme?: string;
 }
 
 export interface ContestantDTO {
@@ -74,7 +76,8 @@ export interface ObjectiveDTO {
 
 export type Phase = "explore" | "discuss" | "vote" | "reveal";
 export type GameMode = "classic" | "impostor";
-export type Role = "islander" | "impostor";
+export type Role = "islander" | "impostor" | "sheriff" | "jester";
+export type Team = "islander" | "impostor" | "jester";
 
 export interface SkillDTO {
   id: "swift" | "scout" | "strongback" | "detective" | "medic" | "lookout";
@@ -147,7 +150,13 @@ export interface SnapshotDTO {
     speed?: number;
     /** Seconds until the impostor may kill again (null for islanders). */
     kill_cooldown?: number | null;
+    /** Impostors: seconds until the next sabotage. */
+    sabotage_cooldown?: number | null;
+    /** Sheriff: the single bullet has been fired. */
+    bullet_used?: boolean | null;
   };
+  /** Impostor mode: seconds of fog left (islanders see less). */
+  fog_left?: number;
 }
 
 export interface Constants {
@@ -157,6 +166,7 @@ export interface Constants {
   half_h: number;
   interact_range: number;
   kill_range?: number;
+  shoot_range?: number;
   report_range?: number;
 }
 
@@ -207,6 +217,8 @@ export interface LobbyMsg {
   fill_to: number;
   capacity: number;
   map_id: string;
+  /** Impostor mode: map choices for the host ("random" or a map id). */
+  maps?: string[];
   mode?: GameMode;
   min_contestants?: number;
   seats: SeatDTO[];
@@ -260,6 +272,9 @@ export type ClientMsg =
   | { type: "respond"; proposer: string; accept: boolean }
   | { type: "break_alliance" }
   | { type: "kill"; target: string }
+  | { type: "shoot"; target: string }
+  | { type: "sabotage"; kind: "fog" | "douse" }
+  | { type: "set_map"; map_id: string }
   | { type: "ability"; target: string | null }
   | { type: "report"; target: string; reason: string; note: string | null };
 
@@ -291,7 +306,7 @@ export interface MatchResult {
   shrine_activated: boolean;
   standings: Standing[];
   mode?: GameMode;
-  winning_team?: Role;
+  winning_team?: Team;
   winners?: string[];
   beacons_lit?: number;
   beacons_total?: number;

@@ -470,6 +470,7 @@ class Room:
                 "half_h": physics.HALF_H,
                 "interact_range": INTERACT_RANGE,
                 "kill_range": roles.KILL_RANGE,
+                "shoot_range": roles.SHERIFF_RANGE,
                 "report_range": roles.REPORT_RANGE,
             },
             "snapshot": self.match.snapshot(pid),

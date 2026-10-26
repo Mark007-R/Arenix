@@ -210,6 +210,11 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
 - ✅ Privacy: private human chat hidden in the public Lab; Privacy Policy and Terms pages; API
   security headers
 - ✅ Game feel: generated sound effects and music (Web Audio, no asset files), settings menu (volumes, speech bubbles, hide chat, reduced motion), a how-to-play guide shown before the first match, a touch kill button, and a visual polish pass (animated sky, dialog transitions, pulsing kill button, confetti on wins)
-- ⬜ More content (roles, sabotage, a second map)
+- ✅ More content: a secret **sheriff** from 6 players (one bullet; hitting an innocent kills the
+  sheriff instead), a **jester** from 9 players (wins alone if voted out), impostor **sabotage**
+  (fog that shrinks islanders' view, or dousing a lit beacon), and a winter map, **Frostpeak
+  Isle**, with its own palette. The host picks Moonfall, Frostpeak or Random in the lobby;
+  practice picks a random island. Bots play all three new roles, and kill cooldowns were retuned
+  on both maps (see `docs/benchmarks/README.md`)
 - ⬜ Social (public lobbies, quick play, leaderboards, profiles)
 - ⬜ Release (single deployable service, portals, donations, real payments)

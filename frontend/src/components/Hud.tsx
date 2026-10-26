@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { GameClient } from "@/game/net/client";
+import type { WorldScene } from "@/game/scenes/WorldScene";
 import { AllianceOffers } from "./AllianceOffers";
 import { ChatPanel } from "./ChatPanel";
-import { BeaconProgress, KillButton, RoleCard, RoleIntro } from "./ImpostorHud";
+import { BeaconProgress, FogOverlay, KillButton, RoleCard, RoleIntro, SabotageButtons } from "./ImpostorHud";
 import { SafetyMenu } from "./SafetyMenu";
 import { SettingsMenu } from "./SettingsMenu";
 import { MeetingOverlay } from "./MeetingOverlay";
@@ -189,11 +190,22 @@ function Toast({ store }: { store: HudStore }) {
   return <div className="panel slide-down px-4 py-2 text-center" role="status">{toast.text}</div>;
 }
 
-export function Hud({ store, client, onToggleMotion }: { store: HudStore; client: GameClient; onToggleMotion: () => void }) {
+export function Hud({
+  store,
+  client,
+  onToggleMotion,
+  scene,
+}: {
+  store: HudStore;
+  client: GameClient;
+  onToggleMotion: () => void;
+  scene: () => WorldScene | null;
+}) {
   const ping = useHud(store, (s) => s.pingMs);
   const reduced = useHud(store, (s) => s.reducedMotion);
   const meeting = useHud(store, (s) => s.snapshot?.status === "running" && s.snapshot.phase !== "explore");
   const impostor = useHud(store, (s) => s.snapshot?.me?.role === "impostor");
+  const sheriff = useHud(store, (s) => s.snapshot?.me?.role === "sheriff" && !s.snapshot.me.bullet_used);
   return (
     <div className="pointer-events-none absolute inset-0 select-none p-3">
       <div className="absolute left-3 top-3"><MissionPanel store={store} client={client} /></div>
@@ -212,12 +224,16 @@ export function Hud({ store, client, onToggleMotion }: { store: HudStore; client
       </div>
       <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-end gap-2">
         <Pack store={store} />
-        <KillButton store={store} client={client} />
+        <div className="flex flex-col items-center gap-2">
+          <SabotageButtons store={store} client={client} />
+          <KillButton store={store} scene={scene} />
+        </div>
       </div>
+      <FogOverlay store={store} />
       <RoleIntro store={store} client={client} />
       <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-3 text-xs text-parchment/60">
         <span className="hidden sm:inline">
-          WASD move · E interact{impostor ? " · K eliminate" : ""} · Enter chat · Q quick-chat
+          WASD move · E interact{impostor ? " · K eliminate" : sheriff ? " · K shoot" : ""} · Enter chat · Q quick-chat
         </span>
         {ping !== null && <span className="tabular-nums">{ping} ms</span>}
         <SettingsMenu reducedMotion={reduced} onToggleMotion={onToggleMotion} />

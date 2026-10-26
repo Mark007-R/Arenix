@@ -9,6 +9,13 @@ import { CharacterPicker } from "./CharacterPicker";
 import { MapPreview } from "./MapPreview";
 import { Portrait } from "./Portrait";
 
+
+const MAP_NAMES: Record<string, string> = {
+  emerald_isle: "Emerald Isle",
+  moonfall_isle: "Moonfall Isle",
+  frostpeak_isle: "❄️ Frostpeak Isle",
+  random: "🎲 Random",
+};
 export function Lobby({ client, store, you }: { client: GameClient; store: HudStore; you: string }) {
   const lobby = useHud(store, (s) => s.lobby);
   const [copied, setCopied] = useState(false);
@@ -138,8 +145,31 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
 
         <aside className="flex flex-col gap-4">
           <section className="panel p-4">
-            <h2 className="mb-2 font-bold text-gold">{impostorMode ? "Moonfall Isle" : "Emerald Isle"}</h2>
-            <MapPreview mapId={lobby.map_id} />
+            <h2 className="mb-2 font-bold text-gold">{MAP_NAMES[lobby.map_id] ?? "Emerald Isle"}</h2>
+            {impostorMode && lobby.maps && lobby.maps.length > 1 && (
+              <div className="mb-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Map">
+                {lobby.maps.map((m) => (
+                  <button
+                    key={m}
+                    role="radio"
+                    aria-checked={lobby.map_id === m}
+                    disabled={!isHost}
+                    title={isHost ? undefined : "Only the host can change the map"}
+                    className={`btn px-2 py-1 text-xs ${lobby.map_id === m ? "" : "btn-ghost"} disabled:cursor-default`}
+                    onClick={() => client.send({ type: "set_map", map_id: m })}
+                  >
+                    {MAP_NAMES[m] ?? m}
+                  </button>
+                ))}
+              </div>
+            )}
+            {lobby.map_id === "random" ? (
+              <div className="flex aspect-[4/3] items-center justify-center border-[3px] border-ink bg-[#2f68b8] text-center text-sm">
+                🎲 A different island every match
+              </div>
+            ) : (
+              <MapPreview mapId={lobby.map_id} />
+            )}
           </section>
           <section className="panel p-4 text-sm leading-relaxed text-parchment/85">
             <h2 className="mb-1 font-bold text-gold">Rules</h2>
@@ -151,6 +181,9 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                 <li>Find a body? Report it (E) and the council meets. Anyone can also ring the Council Bell once.</li>
                 <li>Everyone gets a random skill each match: Swift, Scout, Strongback, Detective, Medic or Lookout.</li>
                 <li>The dead become ghosts: they roam unseen and can only talk to other ghosts.</li>
+                <li>From 6 players an islander is the secret <b>sheriff</b> with one bullet: hit an impostor and they die, hit an innocent and the sheriff dies.</li>
+                <li>From 9 players someone is the <b>jester</b>, who wins alone if the council votes them out.</li>
+                <li>Impostors can sabotage: a fog that blinds islanders, or dousing a lit beacon.</li>
               </ul>
             ) : (
             <ul className="list-disc space-y-1 pl-5">

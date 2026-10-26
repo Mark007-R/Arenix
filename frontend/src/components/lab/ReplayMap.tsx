@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl } from "@/game/net/client";
-import { MINIMAP_COLORS } from "@/game/art/tiles";
+import { minimapColors } from "@/game/art/tiles";
 import type { MapDTO } from "@/shared/protocol";
 
 const S = 4;
@@ -19,8 +19,9 @@ export function ReplayMap({ mapId, positions, highlight }: { mapId: string; posi
     c.width = map.width * S;
     c.height = map.height * S;
     const ctx = c.getContext("2d")!;
+    const colors = minimapColors(map.theme);
     map.tiles.forEach((t, i) => {
-      ctx.fillStyle = MINIMAP_COLORS[t] ?? "#000";
+      ctx.fillStyle = colors[t] ?? "#000";
       ctx.fillRect((i % map.width) * S, Math.floor(i / map.width) * S, S, S);
     });
     return c;

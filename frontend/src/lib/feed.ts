@@ -31,6 +31,12 @@ const REASONS: Record<string, string> = {
   ability_used: "You already used your ability this match.",
   no_active_skill: "Your skill works on its own — nothing to activate.",
   shielded: "A magic shield blocked your attack!",
+  not_sheriff: "Only the sheriff can shoot.",
+  bullet_used: "Your only bullet is spent.",
+  sabotage_cooldown: "Sabotage isn't ready yet.",
+  nothing_to_douse: "No beacon is lit — nothing to douse.",
+  unknown_sabotage: "Unknown sabotage.",
+  bad_map: "Unknown map.",
   links_not_allowed: "Links aren't allowed in chat.",
   contact_not_allowed: "For your safety, don't share emails or phone numbers.",
   duplicate_message: "You just said that.",
@@ -78,16 +84,32 @@ export function formatEvent(
             text: `You are the IMPOSTOR${(d.fellow as string[]).length ? ` (with ${(d.fellow as string[]).map(whom).join(", ")})` : ""}. Eliminate islanders without being caught.`,
             tone: "bad",
           }
-        : { text: "You are an ISLANDER. Finish the tasks and vote out the impostor.", tone: "good" };
+        : d.role === "sheriff"
+          ? { text: "You are the SHERIFF. One bullet (K): an impostor dies, an innocent target costs you your life.", tone: "good" }
+          : d.role === "jester"
+            ? { text: "You are the JESTER. Get the council to vote you out and you win alone.", tone: "mine" }
+            : { text: "You are an ISLANDER. Finish the tasks and vote out the impostor.", tone: "good" };
     case "skill_assigned": {
       const sk = d.skill as { name: string; text: string };
       return { text: `Your skill this match: ${sk.name} — ${sk.text}`, tone: "mine" };
     }
     case "contestant_killed":
+      if (d.cause === "misfire")
+        return d.victim === you
+          ? { text: "Your shot hit an innocent — the sheriff pays with their life. You are now a ghost.", tone: "bad" }
+          : { text: `${who(d.victim)} misfired and paid with their life.`, tone: "info" };
+      if (d.cause === "sheriff") {
+        if (d.killer === you) return { text: `Bullseye! ${who(d.victim)} was an impostor.`, tone: "good" };
+        if (d.victim === you) return { text: `The sheriff ${who(d.killer)} shot you! You are now a ghost.`, tone: "bad" };
+        return { text: `The sheriff ${who(d.killer)} shot ${whom(d.victim)}.`, tone: "info" };
+      }
       if (d.victim === you) return { text: `${who(d.killer)} killed you! You are now a ghost.`, tone: "bad" };
       if (d.killer === you) return { text: `You eliminated ${whom(d.victim)}. Get away before someone finds the body.`, tone: "mine" };
       return { text: `${who(d.killer)} eliminated ${whom(d.victim)}.`, tone: "info" };
     case "kill_witnessed":
+      if (d.cause === "sheriff")
+        return { text: `You saw ${who(d.killer)} shoot ${whom(d.victim)} in ${place(d.region)}.`, tone: "info" };
+      if (d.cause === "misfire") return { text: `You saw ${who(d.victim)} misfire in ${place(d.region)}.`, tone: "info" };
       return { text: `You SAW ${who(d.killer)} kill ${whom(d.victim)} in ${place(d.region)}!`, tone: "bad" };
     case "lookout_alert":
       return { text: `Lookout: you sense a death near ${place(d.region)}.`, tone: "bad" };
@@ -147,8 +169,13 @@ export function formatEvent(
       };
     case "vote_started":
       return { text: "Voting is open.", tone: "info" };
+    case "sabotage":
+      return d.kind === "fog"
+        ? { text: "🌫️ Sabotage! A thick fog rolls in — islanders can barely see.", tone: "bad" }
+        : { text: `💧 Sabotage! The beacon in ${place(d.region)} was doused.`, tone: "bad" };
     case "vote_resolved":
       if (!d.eliminated) return { text: "No one was voted out.", tone: "info" };
+      if (d.was_jester === true) return { text: `${who(d.eliminated)} was the JESTER — and that's exactly what they wanted!`, tone: "bad" };
       if (d.was_impostor === true)
         return { text: `${who(d.eliminated)} was an impostor! (${String(d.impostors_left)} left)`, tone: "good" };
       if (d.was_impostor === false) return { text: `${who(d.eliminated)} was NOT an impostor.`, tone: "bad" };

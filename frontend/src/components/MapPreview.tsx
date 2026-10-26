@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiUrl } from "@/game/net/client";
-import { MINIMAP_COLORS } from "@/game/art/tiles";
+import { minimapColors } from "@/game/art/tiles";
 import type { MapDTO } from "@/shared/protocol";
 
 /** Small static render of a map for the lobby. */
@@ -22,8 +22,9 @@ export function MapPreview({ mapId }: { mapId: string }) {
   useEffect(() => {
     const ctx = ref.current?.getContext("2d");
     if (!ctx || !map) return;
+    const colors = minimapColors(map.theme);
     map.tiles.forEach((t, i) => {
-      ctx.fillStyle = MINIMAP_COLORS[t] ?? "#000";
+      ctx.fillStyle = colors[t] ?? "#000";
       ctx.fillRect((i % map.width) * 3, Math.floor(i / map.width) * 3, 3, 3);
     });
     for (const o of map.objects) {

@@ -64,8 +64,8 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
   return (
     <div className="absolute inset-0">
       <div ref={hostRef} className="absolute inset-0" />
-      <Hud store={store} client={client} onToggleMotion={toggleMotion} />
-      <TouchControls store={store} client={client} scene={() => sceneRef.current()} />
+      <Hud store={store} client={client} onToggleMotion={toggleMotion} scene={() => sceneRef.current()} />
+      <TouchControls store={store} scene={() => sceneRef.current()} />
       <GameAudio client={client} store={store} />
       {tutorial && <HowToPlay onClose={() => setTutorial(false)} />}
     </div>

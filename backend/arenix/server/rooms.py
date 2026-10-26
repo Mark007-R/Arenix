@@ -397,7 +397,7 @@ class Room:
         elif kind == "shoot":
             r = match.shoot(pid, kw["target"])
         elif kind == "sabotage":
-            r = match.sabotage(pid, kw["kind"])
+            r = match.sabotage(pid, kw["what"])
         else:
             return {"type": "error", "code": "unknown_action", "message": "Unknown action."}
         for s in self.seats.values():

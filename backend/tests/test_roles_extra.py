@@ -42,7 +42,7 @@ def field(game_map: GameMap, roles: dict[str, str], n: int = 6) -> Match:
 
 
 def test_special_roles_appear_with_enough_players() -> None:
-    for n, sheriff, jester in ((5, 0, 0), (6, 1, 0), (8, 1, 1), (10, 1, 1)):
+    for n, sheriff, jester in ((5, 0, 0), (6, 1, 0), (8, 1, 0), (9, 1, 1), (10, 1, 1)):
         roles = R.assign_roles([f"p{i}" for i in range(n)], random.Random(n))
         assert list(roles.values()).count(R.SHERIFF) == sheriff
         assert list(roles.values()).count(R.JESTER) == jester

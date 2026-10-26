@@ -59,8 +59,9 @@ class _Painter:
                                 self.set(px, py, tile, True)
 
 
-WOOD = [(12, 40), (18, 44), (24, 40), (14, 50), (22, 52), (28, 47), (32, 54)]
-STONE = [(60, 9), (66, 7), (72, 10), (63, 15), (70, 16), (76, 13)]
+# Spread out on purpose: clustered nodes keep islanders in groups and leave impostors no openings.
+WOOD = [(12, 40), (18, 44), (22, 52), (32, 54), (24, 34), (66, 48), (78, 26)]
+STONE = [(60, 9), (66, 7), (72, 10), (20, 16), (78, 48), (50, 58)]
 BEACONS = {
     "beacon_north": (42, 4, "North Cape Beacon"),
     "beacon_keep": (6, 26, "Frost Keep Beacon"),

@@ -490,7 +490,7 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
                         elif isinstance(msg, ShootMsg):
                             reply = room.handle_action(seat, "shoot", target=msg.target)
                         elif isinstance(msg, SabotageMsg):
-                            reply = room.handle_action(seat, "sabotage", kind=msg.kind)
+                            reply = room.handle_action(seat, "sabotage", what=msg.kind)
                         elif isinstance(msg, KillMsg):
                             reply = room.handle_action(seat, "kill", target=msg.target)
                         elif isinstance(msg, AbilityMsg):

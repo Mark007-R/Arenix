@@ -37,30 +37,45 @@ Emerald Isle). Numbers in this folder are never edited by hand. Re-run the comma
 
 ## Impostor-mode balance
 
-All-bot matches on Moonfall Isle with the rule-based impostor-mode bots (no LLM), 20 seeds per
-field size, 9-minute limit, measured on this repository's code. Reproduce with:
+All-bot matches with the rule-based impostor-mode bots (no LLM), 20 seeds per field size and
+map, 9-minute limit, measured on this repository's code. A sheriff joins at 6 players and a
+jester at 9. Reproduce with:
 
 ```bash
 cd backend
 uv run python -m arenix.sim.impostor_balance --seeds 20
+uv run python -m arenix.sim.impostor_balance --seeds 20 --map frostpeak_isle
 ```
 
-| players | impostors | kill cooldown | impostor wins | avg length | kills | meetings | ejected (impostor / innocent) |
-|---|---|---|---|---|---|---|---|
-| 5 | 1 | 38 s | 45% | 258 s | 2.0 | 1.7 | 11 / 0 |
-| 6 | 1 | 20 s | 50% | 314 s | 3.2 | 2.3 | 8 / 0 |
-| 7 | 2 | 80 s | 45% | 281 s | 2.3 | 1.9 | 14 / 1 |
-| 8 | 2 | 46 s | 55% | 269 s | 3.2 | 1.9 | 16 / 6 |
-| 9 | 2 | 28 s | 45% | 301 s | 3.8 | 2.2 | 20 / 5 |
-| 10 | 2 | 24 s | 40% | 366 s | 4.1 | 2.9 | 22 / 8 |
+Moonfall Isle:
+
+| players | impostors | kill cooldown | impostor wins | avg length | kills | meetings | ejected (impostor / innocent) | jester wins |
+|---|---|---|---|---|---|---|---|---|
+| 5 | 1 | 38 s | 60% | 269 s | 2.5 | 1.9 | 7 / 0 | 0 |
+| 6 | 1 | 16 s | 35% | 247 s | 2.6 | 1.8 | 12 / 3 | 0 |
+| 7 | 2 | 95 s | 70% | 365 s | 2.8 | 2.7 | 13 / 2 | 0 |
+| 8 | 2 | 46 s | 60% | 298 s | 3.4 | 2.1 | 17 / 4 | 0 |
+| 9 | 2 | 20 s | 45% | 284 s | 3.7 | 2.2 | 19 / 8 | 2 |
+| 10 | 2 | 16 s | 30% | 291 s | 3.9 | 2.3 | 25 / 6 | 2 |
+
+Frostpeak Isle:
+
+| players | impostors | kill cooldown | impostor wins | avg length | kills | meetings | ejected (impostor / innocent) | jester wins |
+|---|---|---|---|---|---|---|---|---|
+| 5 | 1 | 38 s | 35% | 258 s | 1.9 | 1.9 | 13 / 3 | 0 |
+| 6 | 1 | 16 s | 35% | 251 s | 2.5 | 1.9 | 12 / 3 | 0 |
+| 7 | 2 | 95 s | 15% | 357 s | 2 | 2.6 | 23 / 0 | 0 |
+| 8 | 2 | 46 s | 40% | 342 s | 3.5 | 2.5 | 23 / 4 | 0 |
+| 9 | 2 | 20 s | 50% | 273 s | 3.7 | 2.0 | 11 / 10 | 4 |
+| 10 | 2 | 16 s | 30% | 307 s | 3.8 | 2.5 | 22 / 9 | 5 |
 
 How the numbers were used: the kill cooldown per field size (`KILL_COOLDOWN_S_BY_FIELD` in
-`backend/arenix/engine/roles.py`) was adjusted until the impostor win rate sat near 50% at
-every size. With 20 seeds the uncertainty is about ±11 percentage points, so the remaining
-differences between sizes are within noise. A second impostor joins at 7 players, which is why
-the cooldown jumps there and then falls as the field grows.
+`backend/arenix/engine/roles.py`) was tuned against both maps together, using 40 seeds per map
+for the sizes that moved (7 and 10 players). With 20 seeds the uncertainty on a single cell is
+about ±11 percentage points, and small rule changes reshuffle every match, so single cells swing
+more than that between runs; 7 players averages about 45% across both maps at 80 matches.
 
-Caveats: these are bots playing bots. Bot islanders deduce only from what they saw (sightings,
-witnessed tasks and kills, skill clues, weighted chat claims), and bot impostors strike only when
-nobody is within 10 tiles of the victim or 11 tiles of themselves. Human players lie, coordinate
-and miss things differently, so treat this as a starting point for tuning, not a guarantee.
+Known weak spot: at 10 players the impostors win only about a quarter of bot matches, and the
+cooldown barely changes that (13–20 s all land at 15–24%). A third impostor overshoots to 60–70%,
+so the field keeps two. Frostpeak's wood and stone are spread around the island on purpose: when
+they were clustered, islanders worked in groups and impostors got almost no kills (0% wins at 10).

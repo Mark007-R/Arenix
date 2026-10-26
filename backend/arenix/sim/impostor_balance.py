@@ -22,8 +22,8 @@ NAMES = ["Brakka", "Lyra", "Fennick", "Morwen", "Tobble", "Sir Aldric", "Quill",
 TIME_LIMIT_S = 540  # same as rooms
 
 
-def play(n: int, seed: int) -> Match:
-    m = Match(f"balance-{n}-{seed}", get_map("moonfall_isle"), seed, time_limit_seconds=TIME_LIMIT_S, mode="impostor")
+def play(n: int, seed: int, map_id: str = "moonfall_isle") -> Match:
+    m = Match(f"balance-{n}-{seed}", get_map(map_id), seed, time_limit_seconds=TIME_LIMIT_S, mode="impostor")
     for i in range(n):
         m.add_contestant(f"bot{i + 1}", NAMES[i], ARCHETYPES[i % len(ARCHETYPES)], is_bot=True)
     m.start()
@@ -32,12 +32,12 @@ def play(n: int, seed: int) -> Match:
     return m
 
 
-def summarize(n: int, seeds: int) -> dict[str, Any]:
+def summarize(n: int, seeds: int, map_id: str = "moonfall_isle") -> dict[str, Any]:
     reasons: Counter[str] = Counter()
     lengths, kills, meetings = [], [], []
     caught = wrong = 0
     for seed in range(1, seeds + 1):
-        m = play(n, seed)
+        m = play(n, seed, map_id)
         assert m.result is not None
         reasons[m.result["reason"]] += 1
         lengths.append(m.tick / 20)
@@ -60,6 +60,7 @@ def summarize(n: int, seeds: int) -> dict[str, Any]:
         "avg_meetings": round(statistics.mean(meetings), 1),
         "ejected_impostors": caught,
         "ejected_innocents": wrong,
+        "jester_wins": reasons["jester_ejected"],
     }
 
 
@@ -67,18 +68,19 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sizes", default="5,6,7,8,9,10")
     ap.add_argument("--seeds", type=int, default=20)
+    ap.add_argument("--map", default="moonfall_isle")
     args = ap.parse_args()
     print(
         "| players | impostors | kill cooldown | impostor wins | avg length | kills | meetings "
-        "| ejected (impostor / innocent) |"
+        "| ejected (impostor / innocent) | jester wins |"
     )
-    print("|---|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|---|")
     for n in (int(x) for x in args.sizes.split(",")):
-        r = summarize(n, args.seeds)
+        r = summarize(n, args.seeds, args.map)
         print(
             f"| {n} | {r['impostors']} | {r['kill_cooldown_s']:.0f} s | {r['impostor_win_rate']:.0%} | "
             f"{r['avg_length_s']} s | {r['avg_kills']} | {r['avg_meetings']} | "
-            f"{r['ejected_impostors']} / {r['ejected_innocents']} |"
+            f"{r['ejected_impostors']} / {r['ejected_innocents']} | {r['jester_wins']} |"
         )
 
 

@@ -19,7 +19,7 @@ JESTER = "jester"  # neutral: wins alone by getting voted out
 # Who can only pretend to do tasks.
 FAKERS = frozenset({IMPOSTOR, JESTER})
 SHERIFF_MIN_FIELD = 6
-JESTER_MIN_FIELD = 8
+JESTER_MIN_FIELD = 9
 SHERIFF_RANGE = 2.0
 
 SABOTAGE_COOLDOWN_TICKS = 60 * physics.TICK_RATE  # shared by all impostors
@@ -75,7 +75,7 @@ SKILLS: dict[str, Skill] = {
 
 # Kill cooldown (seconds) per field size, set from all-bot simulations
 # (python -m arenix.sim.impostor_balance; results in docs/benchmarks/README.md).
-KILL_COOLDOWN_S_BY_FIELD = {5: 38, 6: 20, 7: 80, 8: 46, 9: 28, 10: 24}
+KILL_COOLDOWN_S_BY_FIELD = {5: 38, 6: 16, 7: 95, 8: 46, 9: 20, 10: 16}
 
 
 def kill_cooldown_ticks(n: int) -> int:

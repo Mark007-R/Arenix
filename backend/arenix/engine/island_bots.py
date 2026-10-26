@@ -137,7 +137,7 @@ class IslandBrain(BotBrain):
         regions = [r for t, r in self.trail if obs.tick - t <= 900]
         if not regions:
             return self.my_region(obs)
-        return max(set(regions), key=regions.count)
+        return max(dict.fromkeys(regions), key=regions.count)
 
     # ------------------------------------------------------------- events
     def _learn_event(self, obs: Observation, ev: GameEvent) -> None:  # noqa: C901 — one branch per event type
@@ -511,8 +511,11 @@ class IslandBrain(BotBrain):
 
     def _plan_jester(self, obs: Observation, step: Any) -> None:
         """The jester wants to be voted out: vague, cagey and just suspicious enough."""
-        self.queue(obs, step(), "jester_tease")
-        if self.rng.random() < 0.5:
+        if self.rng.random() < 0.35:
+            self.queue(obs, step(), "jester_tease")
+        elif self.rng.random() < 0.6:
+            self.queue(obs, step(), "alibi", region=self.recent_region(obs))
+        if self.rng.random() < 0.3:
             goat = self._scapegoat(obs)
             if goat is not None:
                 self.queue(obs, step(), "suspect_vague", {"type": "accuse", "target": goat}, target=self.n(goat))

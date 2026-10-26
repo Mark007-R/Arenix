@@ -9,7 +9,8 @@ import Link from "next/link";
 import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
-import { cleanName, createRoom, loadPrefs, normalizeCode, savePrefs } from "@/lib/rooms";
+import { PublicRooms } from "@/components/PublicRooms";
+import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, savePrefs } from "@/lib/rooms";
 
 export default function Home() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const p = loadPrefs();
@@ -50,7 +52,22 @@ export default function Home() {
     setError(null);
     try {
       await ensureAccount(clean).catch(() => null); // optional: rewards + cosmetics when the server has a DB
-      const grant = await createRoom(clean, archetype, fillTo);
+      const grant = await createRoom(clean, archetype, fillTo, isPublic);
+      router.push(`/room/${grant.code}`);
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+
+  async function quick() {
+    if (!valid) return setError("Enter a name first.");
+    remember();
+    setBusy(true);
+    setError(null);
+    try {
+      await ensureAccount(clean).catch(() => null);
+      const grant = await quickPlay(clean, archetype);
       router.push(`/room/${grant.code}`);
     } catch (e) {
       setError((e as Error).message);
@@ -81,6 +98,7 @@ export default function Home() {
           <button className="btn btn-ghost mt-3 text-sm" onClick={() => setHelp(true)}>📖 How to play</button>{" "}
           <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>{" "}
           <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>{" "}
+          <Link href="/leaderboard" className="btn btn-ghost mt-3 text-sm">🏆 Leaderboard</Link>{" "}
           <Link href="/account" className="btn btn-ghost mt-3 text-sm">👤 Account</Link>
         </header>
 
@@ -107,7 +125,18 @@ export default function Home() {
             </div>
           </div>
           {error && <p className="mt-4 text-ember" role="alert">{error}</p>}
+          <button className="btn pulse-glow mt-5 w-full py-3 text-xl" onClick={quick} disabled={busy}>
+            {busy ? "Finding a room…" : "⚡ Quick play"}
+          </button>
+          <p className="mt-1 text-center text-xs text-parchment/60">Jump into a public match with other players — AI fills the empty seats.</p>
         </section>
+
+        <PublicRooms
+          onJoin={(c) => {
+            if (valid) remember();
+            router.push(`/room/${c}`);
+          }}
+        />
 
         <div className="grid w-full gap-4 md:grid-cols-3">
           <section className="panel flex flex-col gap-3 p-5">
@@ -119,9 +148,13 @@ export default function Home() {
           </section>
           <section className="panel flex flex-col gap-3 p-5">
             <h2 className="text-lg font-bold text-gold">Create room</h2>
-            <p className="text-sm text-parchment/75">Get a code to share. AI fills empty seats.</p>
+            <p className="text-sm text-parchment/75">Get a code to share with friends. AI fills empty seats.</p>
             <label htmlFor="fill" className="text-sm">Contestants: {fillTo}</label>
             <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#f4c542]" />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#f4c542]" />
+              List in public rooms
+            </label>
             <button className="btn mt-auto" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create room"}</button>
           </section>
           <section className="panel flex flex-col gap-3 p-5">

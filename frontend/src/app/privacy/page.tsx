@@ -35,6 +35,11 @@ export default function Privacy() {
         Other players see your display name, character and public chat during a match. Private messages that involve
         a human player are hidden from the public Agent Lab. Moderators can read reports and their evidence.
       </p>
+      <p>
+        If you create an account, your display name, level, match stats, achievements and recent match results appear
+        on a public profile and on the leaderboards. Your email, currencies and items are never shown. Guest players are
+        not listed. Deleting your account removes your profile and leaderboard entries.
+      </p>
       <h2>Children</h2>
       <p>You must be 13 or older to create an account. If you believe a child under 13 has registered, contact us and we will delete the account.</p>
       <h2>Your choices</h2>

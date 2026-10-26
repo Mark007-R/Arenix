@@ -92,8 +92,30 @@ async function post(path: string, body: unknown): Promise<SeatGrant> {
   return grant;
 }
 
-export function createRoom(name: string, archetype: string, fillTo: number): Promise<SeatGrant> {
-  return post("/api/rooms", { name, archetype, fill_to: fillTo });
+export function createRoom(name: string, archetype: string, fillTo: number, isPublic = false): Promise<SeatGrant> {
+  return post("/api/rooms", { name, archetype, fill_to: fillTo, public: isPublic });
+}
+
+/** Join the busiest open quick-play lobby (or start a new one); it starts itself with bots filling in. */
+export function quickPlay(name: string, archetype: string): Promise<SeatGrant> {
+  return post("/api/quickplay", { name, archetype });
+}
+
+export interface PublicRoom {
+  code: string;
+  host: string | null;
+  players: number;
+  fill_to: number;
+  capacity: number;
+  map_id: string;
+  quick: boolean;
+  matches_played: number;
+}
+
+export async function listPublicRooms(): Promise<PublicRoom[]> {
+  const res = await fetch(`${apiUrl()}/api/rooms/public`);
+  if (!res.ok) throw new RoomRequestError("Could not load public rooms.");
+  return ((await res.json()) as { rooms: PublicRoom[] }).rooms;
 }
 
 export function joinRoom(code: string, name: string, archetype: string): Promise<SeatGrant> {

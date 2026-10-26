@@ -86,9 +86,12 @@ export default function AccountPage() {
                 Signed in as <b>{me.display_name}</b>
                 <span className="block text-sm text-parchment/70">{me.email}</span>
               </p>
-              <button className="btn btn-ghost mt-3" disabled={busy} onClick={() => run(logout, "Signed out on this device.")}>
-                Sign out
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link className="btn" href={`/profile?id=${me.user_id}`}>🪪 Your public profile</Link>
+                <button className="btn btn-ghost" disabled={busy} onClick={() => run(logout, "Signed out on this device.")}>
+                  Sign out
+                </button>
+              </div>
             </section>
             <section className="panel space-y-3 p-5">
               <h2 className="font-bold text-gold">Change password</h2>

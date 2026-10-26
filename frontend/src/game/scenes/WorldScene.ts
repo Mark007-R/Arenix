@@ -4,6 +4,7 @@ import * as Obj from "../art/objects";
 import { TILE, renderTiles } from "../art/tiles";
 import type { GameClient } from "../net/client";
 import { DT } from "@/shared/physics";
+import { loadSettings } from "@/lib/settings";
 import type { BodyDTO, ContestantDTO, Facing, GameEventDTO, MapObjectDTO } from "@/shared/protocol";
 
 const STEP_MS = DT * 1000;
@@ -515,7 +516,8 @@ export class WorldScene extends Phaser.Scene {
     const client = this.deps.client;
     if (!this.built) return;
     if (ev.type === "chat") {
-      if (client.isMuted(String(ev.data.sender))) return;
+      const s = loadSettings();
+      if (client.isMuted(String(ev.data.sender)) || !s.bubbles || (s.hideChat && ev.data.sender !== client.you)) return;
       this.showBubble(String(ev.data.sender), String(ev.data.text), !!ev.data.private);
       return;
     }

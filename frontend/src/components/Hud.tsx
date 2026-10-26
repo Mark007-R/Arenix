@@ -6,6 +6,7 @@ import { AllianceOffers } from "./AllianceOffers";
 import { ChatPanel } from "./ChatPanel";
 import { BeaconProgress, KillButton, RoleCard, RoleIntro } from "./ImpostorHud";
 import { SafetyMenu } from "./SafetyMenu";
+import { SettingsMenu } from "./SettingsMenu";
 import { MeetingOverlay } from "./MeetingOverlay";
 import { Minimap } from "./Minimap";
 import { Portrait } from "./Portrait";
@@ -185,7 +186,7 @@ function Toast({ store }: { store: HudStore }) {
     return () => clearTimeout(t);
   }, [toast]);
   if (!toast || visible !== toast.id) return null;
-  return <div className="panel px-4 py-2 text-center" role="status">{toast.text}</div>;
+  return <div className="panel slide-down px-4 py-2 text-center" role="status">{toast.text}</div>;
 }
 
 export function Hud({ store, client, onToggleMotion }: { store: HudStore; client: GameClient; onToggleMotion: () => void }) {
@@ -219,9 +220,7 @@ export function Hud({ store, client, onToggleMotion }: { store: HudStore; client
           WASD move · E interact{impostor ? " · K eliminate" : ""} · Enter chat · Q quick-chat
         </span>
         {ping !== null && <span className="tabular-nums">{ping} ms</span>}
-        <button className="underline decoration-dotted" onClick={onToggleMotion} aria-pressed={reduced}>
-          Reduced motion: {reduced ? "on" : "off"}
-        </button>
+        <SettingsMenu reducedMotion={reduced} onToggleMotion={onToggleMotion} />
       </div>
     </div>
   );

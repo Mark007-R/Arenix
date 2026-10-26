@@ -1,12 +1,14 @@
 "use client";
 
 import type { PointerEvent } from "react";
+import type { GameClient } from "@/game/net/client";
 import type { WorldScene } from "@/game/scenes/WorldScene";
 import { useHud, type HudStore } from "@/lib/store";
 
 /** Optional on-screen controls for touch devices. */
-export function TouchControls({ store, scene }: { store: HudStore; scene: () => WorldScene | null }) {
+export function TouchControls({ store, client, scene }: { store: HudStore; client: GameClient; scene: () => WorldScene | null }) {
   const prompt = useHud(store, (s) => s.prompt);
+  const killTarget = useHud(store, (s) => s.killTarget);
   const set = (dx: number, dy: number) => (e: PointerEvent) => {
     e.preventDefault();
     const s = scene();
@@ -26,6 +28,13 @@ export function TouchControls({ store, scene }: { store: HudStore; scene: () => 
         <button className={pad} onPointerDown={set(0, 1)} onPointerUp={set(0, 0)} onPointerLeave={set(0, 0)} aria-label="Down">▼</button>
         <span />
       </div>
+      <div className="flex flex-col items-end gap-2">
+      {killTarget && (
+        <button className="pointer-events-auto h-16 w-20 border-[3px] border-ink bg-[#9a3029] text-sm font-bold text-parchment"
+          onPointerDown={(e) => { e.preventDefault(); client.kill(killTarget.id); }} aria-label={`Eliminate ${killTarget.name}`}>
+          🗡️ Kill
+        </button>
+      )}
       <button
         className="btn pointer-events-auto h-20 w-20 rounded-none text-sm"
         disabled={!prompt}
@@ -38,6 +47,7 @@ export function TouchControls({ store, scene }: { store: HudStore; scene: () => 
       >
         {prompt ? prompt.label.split(" ")[0] : "Use"}
       </button>
+      </div>
     </div>
   );
 }

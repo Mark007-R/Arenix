@@ -3,6 +3,26 @@
 import type { ReactNode } from "react";
 import { useHud, type HudStore } from "@/lib/store";
 
+const CONFETTI_COLORS = ["#f4c542", "#86d35f", "#6aa8ee", "#d6453b", "#d8c2ff", "#fbf7ee"];
+
+/** Falling pixel confetti (skipped for reduced motion by the global CSS rule). */
+function Confetti() {
+  const pieces = Array.from({ length: 48 }, (_, i) => ({
+    left: (i * 37) % 100,
+    delay: ((i * 13) % 20) / 10,
+    duration: 2.5 + ((i * 7) % 15) / 10,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  }));
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {pieces.map((p, i) => (
+        <span key={i} className="confetti"
+          style={{ left: `${p.left}%`, background: p.color, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s` }} />
+      ))}
+    </div>
+  );
+}
+
 const REASONS: Record<string, string> = {
   impostors_caught: "Every impostor was voted out.",
   tasks_done: "The Watchtower stands and every beacon burns.",
@@ -31,7 +51,8 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
   const youWon = !!you && (result.winners ?? []).includes(you);
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
-      <div className="panel max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
+      {youWon && <Confetti />}
+      <div className="panel pop-in max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
         <h2 id="result-title" className={`text-3xl font-bold ${impostorsWon ? "text-ember" : "text-leaf"}`}>
           {impostorsWon ? "The impostors win!" : "The islanders win!"}
         </h2>
@@ -90,7 +111,7 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
   const youWon = result.winner === you;
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
-      <div className="panel max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
+      <div className="panel pop-in max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
         <h2 id="result-title" className={`text-3xl font-bold ${youWon ? "text-gold" : "text-leaf"}`}>
           {youWon ? "You won the island!" : `${winner?.name ?? "Nobody"} wins!`}
         </h2>

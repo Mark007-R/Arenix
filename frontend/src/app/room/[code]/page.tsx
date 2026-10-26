@@ -52,7 +52,7 @@ export default function RoomPage() {
 
   // Arrived via an invite link without a seat in this tab: join form.
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[radial-gradient(ellipse_at_top,#3f6fbf_0%,#2a1f3d_55%,#1f1630_100%)] p-4">
+    <main className="flex min-h-dvh items-center justify-center sky p-4">
       <section className="panel w-full max-w-lg p-6">
         <h1 className="text-2xl font-bold text-gold">Join room {code}</h1>
         <label className="mb-1 mt-4 block text-sm uppercase tracking-wider text-gold" htmlFor="name">Your name</label>

@@ -125,7 +125,7 @@ export default function CollectionPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#3f6fbf_0%,#2a1f3d_55%,#1f1630_100%)] px-4 py-6">
+    <main className="min-h-dvh sky px-4 py-6">
       <div className="mx-auto max-w-5xl">
         <header className="panel mb-4 flex flex-wrap items-center gap-4 p-4">
           <Portrait archetype={archetype} scale={3} cosmetics={equipped} />

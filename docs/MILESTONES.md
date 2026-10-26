@@ -209,7 +209,7 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   evidence, admin review endpoints
 - ✅ Privacy: private human chat hidden in the public Lab; Privacy Policy and Terms pages; API
   security headers
-- ⬜ Game feel and UI polish (sound, music, tutorial, settings, mobile)
+- ✅ Game feel: generated sound effects and music (Web Audio, no asset files), settings menu (volumes, speech bubbles, hide chat, reduced motion), a how-to-play guide shown before the first match, a touch kill button, and a visual polish pass (animated sky, dialog transitions, pulsing kill button, confetti on wins)
 - ⬜ More content (roles, sabotage, a second map)
 - ⬜ Social (public lobbies, quick play, leaderboards, profiles)
 - ⬜ Release (single deployable service, portals, donations, real payments)

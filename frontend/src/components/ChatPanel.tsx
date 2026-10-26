@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GameClient } from "@/game/net/client";
 import { useHud, type HudStore } from "@/lib/store";
 import { QUICK_CHAT } from "@/shared/protocol";
+import { useSettings } from "@/lib/settings";
 
 const KIND_LABEL: Record<string, string> = {
   PLAN_PROPOSAL: "plan",
@@ -20,7 +21,8 @@ const KIND_LABEL: Record<string, string> = {
 export function ChatPanel({ client, store }: { client: GameClient; store: HudStore }) {
   const allChat = useHud(store, (s) => s.chat);
   const muted = useHud(store, (s) => s.muted);
-  const chat = allChat.filter((c) => !muted.includes(c.sender));
+  const hideChat = useSettings().hideChat;
+  const chat = allChat.filter((c) => !muted.includes(c.sender) && (!hideChat || c.mine));
   const ally = useHud(store, (s) => s.snapshot?.me?.ally ?? null);
   const alive = useHud(store, (s) => s.snapshot?.roster.find((r) => r.id === s.you)?.alive ?? true);
   const ghost = useHud(store, (s) => s.snapshot?.mode === "impostor" && s.snapshot.me?.alive === false);

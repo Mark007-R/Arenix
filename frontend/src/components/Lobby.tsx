@@ -34,7 +34,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
   }
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#3f6fbf_0%,#2a1f3d_55%,#1f1630_100%)] px-4 py-6">
+    <main className="min-h-dvh sky px-4 py-6">
       <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[1fr_320px]">
         <section className="panel p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">

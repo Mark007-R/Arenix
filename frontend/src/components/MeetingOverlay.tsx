@@ -6,6 +6,7 @@ import { place } from "@/lib/feed";
 import { useHud, type HudStore } from "@/lib/store";
 import { Portrait } from "./Portrait";
 import { SafetyMenu } from "./SafetyMenu";
+import { useSettings } from "@/lib/settings";
 
 const TITLES = { discuss: "Council meeting — discuss", vote: "Council meeting — vote", reveal: "The council has spoken" };
 
@@ -27,7 +28,8 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
   const ghost = client.isGhost;
   const [text, setText] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
-  const lines = chat.filter((c) => c.meeting === meeting && !muted.includes(c.sender));
+  const hideChat = useSettings().hideChat;
+  const lines = chat.filter((c) => c.meeting === meeting && !muted.includes(c.sender) && (!hideChat || c.mine));
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
@@ -45,7 +47,8 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
         Discussion {ghost && <span className="normal-case text-[#d8c2ff]">· ghost chat (only the dead can read you)</span>}
       </div>
       <div ref={logRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" aria-live="polite" aria-label="Meeting chat">
-        {lines.length === 0 && <p className="text-sm text-parchment/50">No one has spoken yet. Say what you saw!</p>}
+        {hideChat && <p className="text-xs text-parchment/50">Other players&apos; chat is hidden (Settings).</p>}
+        {lines.length === 0 && !hideChat && <p className="text-sm text-parchment/50">No one has spoken yet. Say what you saw!</p>}
         {lines.map((c) => {
           const r = roster.find((x) => x.id === c.sender);
           return (
@@ -127,7 +130,7 @@ export function MeetingOverlay({ client, store }: { client: GameClient; store: H
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-[#120c1c]/55 p-3 pt-16 sm:pt-20">
-      <section className="panel pointer-events-auto flex max-h-[calc(100dvh-6rem)] w-full max-w-5xl flex-col p-4" aria-live="polite">
+      <section className="panel pop-in pointer-events-auto flex max-h-[calc(100dvh-6rem)] w-full max-w-5xl flex-col p-4" aria-live="polite">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-xl font-bold text-gold">{TITLES[phase]}</h2>
           <span className="text-lg tabular-nums">{Math.ceil(snap.phase_left)}s</span>

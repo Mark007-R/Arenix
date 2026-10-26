@@ -1,17 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameClient } from "@/game/net/client";
 import type { WorldScene } from "@/game/scenes/WorldScene";
 import { saveReducedMotion } from "@/lib/useGameClient";
 import type { HudStore } from "@/lib/store";
+import { GameAudio } from "./GameAudio";
+import { HowToPlay } from "./HowToPlay";
 import { Hud } from "./Hud";
+import { tutorialSeen } from "@/lib/settings";
 import { TouchControls } from "./TouchControls";
 
 /** Mounts the Phaser world + HUD for the client's current match. Unmount destroys the game. */
 export function GameStage({ client, store }: { client: GameClient; store: HudStore }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<() => WorldScene | null>(() => null);
+  const [tutorial, setTutorial] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- first match ever: show the guide once
+    if (!tutorialSeen()) setTutorial(true);
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -57,7 +65,9 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
     <div className="absolute inset-0">
       <div ref={hostRef} className="absolute inset-0" />
       <Hud store={store} client={client} onToggleMotion={toggleMotion} />
-      <TouchControls store={store} scene={() => sceneRef.current()} />
+      <TouchControls store={store} client={client} scene={() => sceneRef.current()} />
+      <GameAudio client={client} store={store} />
+      {tutorial && <HowToPlay onClose={() => setTutorial(false)} />}
     </div>
   );
 }

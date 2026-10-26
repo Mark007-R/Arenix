@@ -6,6 +6,8 @@ import { ARCHETYPE_KEYS, CharacterPicker } from "@/components/CharacterPicker";
 import { Portrait } from "@/components/Portrait";
 import { ARCHETYPES } from "@/game/art/characters";
 import Link from "next/link";
+import { HowToPlay } from "@/components/HowToPlay";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
 import { cleanName, createRoom, loadPrefs, normalizeCode, savePrefs } from "@/lib/rooms";
 
@@ -64,13 +66,19 @@ export default function Home() {
   }
 
   const chosen = ARCHETYPES[archetype]!;
+  const [help, setHelp] = useState(false);
 
   return (
-    <main className="min-h-full bg-[radial-gradient(ellipse_at_top,#3f6fbf_0%,#2a1f3d_55%,#1f1630_100%)] px-4 py-8">
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-6">
+    <main className="sky min-h-full px-4 py-8">
+      <span className="cloud left-0 top-16 w-16" style={{ animationDuration: "70s" }} aria-hidden />
+      <span className="cloud left-0 top-40 w-24" style={{ animationDuration: "95s", animationDelay: "-40s" }} aria-hidden />
+      <span className="cloud left-0 top-72 w-12" style={{ animationDuration: "60s", animationDelay: "-20s" }} aria-hidden />
+      <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6">
+        <div className="absolute right-0 top-0"><SettingsMenu /></div>
         <header className="text-center">
-          <h1 className="text-6xl font-bold tracking-widest text-gold drop-shadow-[0_4px_0_#120c1c] sm:text-7xl">ARENIX</h1>
-          <p className="mt-2 text-lg text-parchment/85">Explore. Cooperate. Betray. Survive the island.</p>
+          <h1 className="title-bob text-6xl font-bold tracking-widest text-gold sm:text-7xl">ARENIX</h1>
+          <p className="mt-2 text-lg text-parchment/85">Do your tasks. Find the impostor. Or be one.</p>
+          <button className="btn btn-ghost mt-3 text-sm" onClick={() => setHelp(true)}>📖 How to play</button>{" "}
           <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>{" "}
           <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>{" "}
           <Link href="/account" className="btn btn-ghost mt-3 text-sm">👤 Account</Link>
@@ -145,6 +153,7 @@ export default function Home() {
             AI contestants are rule-based: they act and talk only from what they actually saw (no LLM in this mode).
           </p>
         </section>
+        {help && <HowToPlay onClose={() => setHelp(false)} />}
         <footer className="pb-4 text-center text-xs text-parchment/50">
           For players 13 and older · <Link className="underline" href="/privacy">Privacy</Link> ·{" "}
           <Link className="underline" href="/terms">Terms</Link> · Be kind: report abuse from the in-game player list.

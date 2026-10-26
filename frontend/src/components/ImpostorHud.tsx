@@ -86,7 +86,7 @@ export function KillButton({ store, client }: { store: HudStore; client: GameCli
   const cd = Math.ceil(me.kill_cooldown ?? 0);
   return (
     <button
-      className="pointer-events-auto border-[3px] border-ink bg-[#9a3029] px-3 py-2 font-bold text-parchment disabled:opacity-50"
+      className={`pointer-events-auto border-[3px] border-ink bg-[#9a3029] px-3 py-2 font-bold text-parchment disabled:opacity-50 ${target && cd <= 0 ? "pulse-glow" : ""}`}
       disabled={!target || cd > 0}
       onClick={() => target && client.kill(target.id)}
       title="Eliminate the islander next to you (K)"
@@ -111,7 +111,8 @@ export function RoleIntro({ store, client }: { store: HudStore; client: GameClie
   return (
     <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-[#120c1c]/75 p-4"
       onClick={() => setHidden(intro)} role="dialog" aria-label="Your role">
-      <div className={`panel max-w-md p-6 text-center ${impostor ? "border-ember" : ""}`}>
+      <div className={`panel pop-in max-w-md p-6 text-center ${impostor ? "border-ember" : ""}`}
+        style={{ boxShadow: impostor ? "0 0 40px rgba(214,69,59,.45), 0 4px 0 #120c1c" : "0 0 40px rgba(134,211,95,.35), 0 4px 0 #120c1c" }}>
         <div className="text-sm uppercase tracking-[0.3em] text-parchment/70">You are</div>
         <div className={`text-5xl font-bold ${impostor ? "text-ember" : "text-leaf"}`}>{impostor ? "IMPOSTOR" : "ISLANDER"}</div>
         <p className="mt-3 text-parchment/85">

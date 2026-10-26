@@ -125,6 +125,7 @@ class Contestant:
     death_known: bool = False
     kill_ready_tick: int = 0
     ability_used: bool = False
+    bullet_used: bool = False
     shielded_by: str | None = None
     last_interact_tick: int = -10_000
     last_chat_tick: int = -10_000
@@ -245,6 +246,9 @@ class Observation:
     speed: float = 1.0
     visible_bodies: dict[str, tuple[float, float]] = field(default_factory=dict)
     beacons: dict[str, bool] = field(default_factory=dict)
+    bullet_used: bool = False
+    sabotage_ready: bool = False
+    fog: bool = False
 
 
 class Match:
@@ -287,6 +291,9 @@ class Match:
         self.result: dict[str, Any] | None = None
         self.bodies: dict[str, Body] = {}  # victim id -> body (impostor mode)
         self.kill_cooldown = 0  # ticks, set when roles are assigned
+        self.sabotage_ready_tick = R.FIRST_SABOTAGE_TICKS
+        self.fog_until = 0
+        self.jester_winner: str | None = None
         self.beacons: dict[str, bool] = {o.id: False for o in game_map.objects if o.kind == "beacon"}
         self.nodes: dict[str, NodeState] = {}
         for o in game_map.objects:
@@ -423,7 +430,10 @@ class Match:
         return R.SWIFT_SPEED if self.has_skill(c, "swift") else 1.0
 
     def view_radius(self, c: Contestant) -> float:
-        return R.SCOUT_VIEW_RADIUS if self.has_skill(c, "scout") else VIEW_RADIUS
+        base = R.SCOUT_VIEW_RADIUS if self.has_skill(c, "scout") else VIEW_RADIUS
+        if self.fog_active() and c.role != R.IMPOSTOR:
+            return min(base, R.FOG_VIEW_RADIUS)
+        return base
 
     def region(self, x: float, y: float) -> str:
         return self.map.region_at(x, y) or "the wilds"
@@ -549,8 +559,8 @@ class Match:
             return ActionResult(False, "mission_closed")
         if c.carry_total() == 0:
             return ActionResult(False, "nothing_to_deliver")
-        if c.role == R.IMPOSTOR:
-            # Impostors can only pretend: the cargo vanishes and the tower doesn't change.
+        if c.role in R.FAKERS:
+            # Impostors (and the jester) can only pretend: the cargo vanishes, the tower doesn't change.
             c.carrying = {r: 0 for r in c.carrying}
             c.last_interact_tick = self.tick
             ev = self.events.append(self.tick, "delivery_faked", visible_to=frozenset({c.id}), contestant=c.id)
@@ -660,10 +670,10 @@ class Match:
     def _light_beacon(self, c: Contestant, beacon_id: str) -> ActionResult:
         if self.beacons.get(beacon_id):
             return ActionResult(False, "already_lit")
-        if c.role != R.IMPOSTOR and c.carrying["wood"] < 1:
+        if c.role not in R.FAKERS and c.carrying["wood"] < 1:
             return ActionResult(False, "need_wood")  # a beacon burns one wood
         c.last_interact_tick = self.tick
-        if c.role == R.IMPOSTOR:
+        if c.role in R.FAKERS:
             ev = self.events.append(
                 self.tick, "beacon_faked", visible_to=frozenset({c.id}), contestant=c.id, beacon=beacon_id
             )
@@ -716,6 +726,73 @@ class Match:
                 region=region,
             )
             return ActionResult(True, "shielded", events=(ev,))
+        c.score += R.KILL_POINTS
+        events = self._slay(c, t, "impostor", R.KILL_POINTS)
+        self._check_team_win()
+        return ActionResult(True, events=tuple(events))
+
+    def shoot(self, cid: str, target: str) -> ActionResult:
+        """The sheriff's single bullet. An impostor dies; anyone else and the sheriff dies instead."""
+        c, reason = self._check_actor(cid)
+        if c is None:
+            return ActionResult(False, reason)
+        if self.mode != "impostor" or c.role != R.SHERIFF:
+            return ActionResult(False, "not_sheriff")
+        if c.bullet_used:
+            return ActionResult(False, "bullet_used")
+        if self.phase != "explore":
+            return ActionResult(False, "meeting_in_progress")
+        t = self._alive(target)
+        if t is None or t.id == cid:
+            return ActionResult(False, "invalid_target")
+        if math.hypot(c.x - t.x, c.y - t.y) > R.SHERIFF_RANGE:
+            return ActionResult(False, "out_of_range")
+        c.bullet_used = True
+        if t.role == R.IMPOSTOR:
+            c.score += R.SHERIFF_POINTS
+            events = self._slay(c, t, "sheriff", R.SHERIFF_POINTS)
+        else:
+            events = self._slay(c, c, "misfire", 0)
+        self._check_team_win()
+        return ActionResult(True, "hit" if t.role == R.IMPOSTOR else "misfire", events=tuple(events))
+
+    def sabotage(self, cid: str, kind: str) -> ActionResult:
+        """Impostors: roll fog over the island (islanders see less) or douse a lit beacon."""
+        c, reason = self._check_actor(cid)
+        if c is None:
+            return ActionResult(False, reason)
+        if self.mode != "impostor" or c.role != R.IMPOSTOR:
+            return ActionResult(False, "not_impostor")
+        if self.phase != "explore":
+            return ActionResult(False, "meeting_in_progress")
+        if kind not in R.SABOTAGES:
+            return ActionResult(False, "unknown_sabotage")
+        if self.tick < self.sabotage_ready_tick:
+            return ActionResult(False, "sabotage_cooldown")
+        detail: dict[str, Any] = {}
+        if kind == "fog":
+            self.fog_until = self.tick + R.FOG_TICKS
+            detail["seconds"] = R.FOG_TICKS // physics.TICK_RATE
+        else:
+            lit = sorted(b for b, on in self.beacons.items() if on)
+            if not lit:
+                return ActionResult(False, "nothing_to_douse")
+            beacon = self.rng.choice(lit)
+            self.beacons[beacon] = False
+            obj = self.map.objects_by_id[beacon]
+            detail.update(beacon=beacon, region=self.region(obj.x + 0.5, obj.y + 0.5))
+        self.sabotage_ready_tick = self.tick + R.SABOTAGE_COOLDOWN_TICKS
+        # Public, but anonymous: everyone learns *that* it happened, not who did it.
+        ev = self.events.append(self.tick, "sabotage", kind=kind, **detail)
+        return ActionResult(True, events=(ev,))
+
+    def fog_active(self) -> bool:
+        return self.tick < self.fog_until
+
+    def _slay(self, c: Contestant, t: Contestant, cause: str, points: int) -> list[GameEvent]:
+        """`c` kills `t` (or itself, for a sheriff's misfire): body, witnesses, lookout alerts."""
+        cid = c.id
+        region = self.region(t.x, t.y)
         witnesses = sorted(
             o.id
             for o in self.contestants.values()
@@ -736,7 +813,6 @@ class Match:
         t.carrying = {r: 0 for r in t.carrying}
         t.inputs.clear()
         t.moving = False
-        c.score += R.KILL_POINTS
         self.bodies[t.id] = Body(t.id, cid, t.x, t.y, self.tick)
         if self.shrine.status == "channeling" and t.id in self.shrine.participants:
             self.shrine.participants.remove(t.id)
@@ -745,7 +821,7 @@ class Match:
         partner = self.alliances.dissolve(t.id)
         if partner is not None:
             events.append(self.events.append(self.tick, "ally_lost", visible_to=frozenset({partner}), ally=t.id))
-        insiders = frozenset({t.id, *(i.id for i in self.impostors(alive_only=False))})
+        insiders = frozenset({t.id, cid, *(i.id for i in self.impostors(alive_only=False))})
         events.append(
             self.events.append(
                 self.tick,
@@ -757,7 +833,8 @@ class Match:
                 y=round(t.y, 2),
                 region=region,
                 witnesses=witnesses,
-                points=R.KILL_POINTS,
+                points=points,
+                cause=cause,
             )
         )
         if witnesses:
@@ -769,12 +846,12 @@ class Match:
                     killer=cid,
                     victim=t.id,
                     region=region,
+                    cause=cause,
                 )
             )
         if lookouts:
             events.append(self.events.append(self.tick, "lookout_alert", visible_to=frozenset(lookouts), region=region))
-        self._check_team_win()
-        return ActionResult(True, events=tuple(events))
+        return events
 
     def use_ability(self, cid: str, target: str | None = None) -> ActionResult:
         """Active skills. Today only the Medic's one-time shield."""
@@ -1093,6 +1170,9 @@ class Match:
         if self.mode == "impostor" and eliminated is not None:
             # Ejections are confirmed: everyone learns whether the council got it right.
             extra["was_impostor"] = self.contestants[eliminated].role == R.IMPOSTOR
+            if self.contestants[eliminated].role == R.JESTER:
+                extra["was_jester"] = True
+                self.jester_winner = eliminated
             extra["impostors_left"] = sum(1 for c in self.impostors() if c.id != eliminated)
         self.events.append(
             self.tick,
@@ -1142,6 +1222,9 @@ class Match:
             self._resolve_votes()
             self._set_phase("reveal", self.phase_seconds["reveal"])
         elif self.phase == "reveal":
+            if self.jester_winner is not None:
+                self._finish("jester_ejected")
+                return
             if self._check_team_win():
                 return
             self._set_phase("explore", self.phase_seconds["explore"])
@@ -1222,6 +1305,9 @@ class Match:
             speed=self.speed(c),
             visible_bodies={b.victim: (b.x, b.y) for b in self.visible_bodies(cid)},
             beacons=dict(self.beacons),
+            bullet_used=c.bullet_used,
+            sabotage_ready=c.role == R.IMPOSTOR and self.tick >= self.sabotage_ready_tick and self.phase == "explore",
+            fog=self.fog_active(),
         )
 
     # ------------------------------------------------------------------ simulation
@@ -1316,6 +1402,10 @@ class Match:
             r = self.kill(cid, action[1])
         elif kind == "ability":
             r = self.use_ability(cid, action[1])
+        elif kind == "shoot":
+            r = self.shoot(cid, action[1])
+        elif kind == "sabotage":
+            r = self.sabotage(cid, action[1])
         elif kind == "vote":
             r = self.vote(cid, action[1])
         elif kind == "propose":
@@ -1392,8 +1482,12 @@ class Match:
 
     def _finish_teams(self, reason: str) -> GameEvent:
         self.status = "finished"
-        team = R.ISLANDER if reason in ("impostors_caught", "tasks_done") else R.IMPOSTOR
-        winners = sorted(c.id for c in self.contestants.values() if c.role == team)
+        if reason == "jester_ejected":
+            team = R.JESTER
+            winners = [self.jester_winner] if self.jester_winner else []
+        else:
+            team = R.ISLANDER if reason in ("impostors_caught", "tasks_done") else R.IMPOSTOR
+            winners = sorted(c.id for c in self.contestants.values() if R.team(c.role) == team)
         bonuses: dict[str, dict[str, int]] = {}
         for c in self.contestants.values():
             b: dict[str, int] = {}
@@ -1474,6 +1568,7 @@ class Match:
                 mine = self.mission.contributions.get(viewer)
                 snap["mission"]["contributions"] = {} if mine is None else {viewer: mine}
             snap["beacons"] = dict(self.beacons)
+            snap["fog_left"] = max(0, self.fog_until - self.tick) / physics.TICK_RATE
             snap["bodies"] = [
                 {"id": b.id, "victim": b.victim, "x": round(b.x, 2), "y": round(b.y, 2)}
                 for b in self.visible_bodies(viewer)
@@ -1505,6 +1600,10 @@ class Match:
                         "kill_cooldown": max(0, me.kill_ready_tick - self.tick) / physics.TICK_RATE
                         if me.role == R.IMPOSTOR
                         else None,
+                        "sabotage_cooldown": max(0, self.sabotage_ready_tick - self.tick) / physics.TICK_RATE
+                        if me.role == R.IMPOSTOR
+                        else None,
+                        "bullet_used": me.bullet_used if me.role == R.SHERIFF else None,
                     }
                 )
         return snap

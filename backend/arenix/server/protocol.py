@@ -51,6 +51,25 @@ class SetFillMsg(_Msg):
     fill_to: int = Field(ge=1, le=10)
 
 
+class SetMapMsg(_Msg):
+    type: Literal["set_map"]
+    map_id: str = Field(min_length=1, max_length=32, pattern=r"^[a-z_]+$")
+
+
+class ShootMsg(_Msg):
+    """Sheriff: fire the single bullet at a contestant in range."""
+
+    type: Literal["shoot"]
+    target: ContestantId
+
+
+class SabotageMsg(_Msg):
+    """Impostor: fog (islanders see less for a while) or douse (put out a lit beacon)."""
+
+    type: Literal["sabotage"]
+    kind: Literal["fog", "douse"]
+
+
 class StartMsg(_Msg):
     type: Literal["start"]
 
@@ -135,6 +154,9 @@ AnyClientMessage = (
     | KillMsg
     | AbilityMsg
     | ReportMsg
+    | SetMapMsg
+    | ShootMsg
+    | SabotageMsg
 )
 ClientMessage = Annotated[AnyClientMessage, Field(discriminator="type")]
 client_message_adapter: TypeAdapter[AnyClientMessage] = TypeAdapter(ClientMessage)

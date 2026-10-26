@@ -14,6 +14,19 @@ from . import physics
 
 ISLANDER = "islander"
 IMPOSTOR = "impostor"
+SHERIFF = "sheriff"  # an islander with one bullet: shooting an impostor kills them, anyone else kills the sheriff
+JESTER = "jester"  # neutral: wins alone by getting voted out
+# Who can only pretend to do tasks.
+FAKERS = frozenset({IMPOSTOR, JESTER})
+SHERIFF_MIN_FIELD = 6
+JESTER_MIN_FIELD = 8
+SHERIFF_RANGE = 2.0
+
+SABOTAGE_COOLDOWN_TICKS = 60 * physics.TICK_RATE  # shared by all impostors
+FIRST_SABOTAGE_TICKS = 30 * physics.TICK_RATE
+FOG_TICKS = 25 * physics.TICK_RATE
+FOG_VIEW_RADIUS = 6.0
+SABOTAGES = ("fog", "douse")
 
 KILL_RANGE = 1.5
 FIRST_KILL_TICKS = 20 * physics.TICK_RATE  # at least this long before the first kill
@@ -26,6 +39,7 @@ SWIFT_SPEED = 1.25
 STRONGBACK_CAPACITY = 5
 
 KILL_POINTS = 30
+SHERIFF_POINTS = 50
 BEACON_POINTS = 20
 VICTORY_BONUS = 100
 
@@ -83,9 +97,22 @@ def impostor_count(n: int) -> int:
     return 2 if n >= 7 else 1
 
 
+def team(role: str) -> str:
+    """islander (islanders and the sheriff), impostor, or jester."""
+    return ISLANDER if role in (ISLANDER, SHERIFF) else role
+
+
 def assign_roles(ids: list[str], rng: random.Random) -> dict[str, str]:
-    impostors = set(rng.sample(sorted(ids), impostor_count(len(ids))))
-    return {cid: IMPOSTOR if cid in impostors else ISLANDER for cid in ids}
+    ordered = sorted(ids)
+    impostors = set(rng.sample(ordered, impostor_count(len(ids))))
+    roles = {cid: IMPOSTOR if cid in impostors else ISLANDER for cid in ordered}
+    others = [cid for cid in ordered if cid not in impostors]
+    rng.shuffle(others)
+    if len(ids) >= SHERIFF_MIN_FIELD and others:
+        roles[others.pop()] = SHERIFF
+    if len(ids) >= JESTER_MIN_FIELD and others:
+        roles[others.pop()] = JESTER
+    return roles
 
 
 def assign_skills(ids: list[str], rng: random.Random) -> dict[str, Skill]:

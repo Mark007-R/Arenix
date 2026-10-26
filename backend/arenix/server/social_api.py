@@ -25,8 +25,8 @@ RECENT_MATCHES = 10
 
 def role_of(result: dict[str, Any], contestant_id: str) -> str | None:
     for s in result.get("standings", []):
-        if s.get("id") == contestant_id:
-            return s.get("role")
+        if s.get("id") == contestant_id and s.get("role") is not None:
+            return str(s["role"])
     return None
 
 

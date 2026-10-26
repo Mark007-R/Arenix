@@ -378,6 +378,26 @@ async def purchase_diamonds(
     }
 
 
+async def credit_paid_pack(
+    s: AsyncSession, user_id: int, pack_id: str, order_id: str, amount_paid_cents: int | None
+) -> dict[str, Any] | None:
+    """Credit a pack the payment provider has confirmed as paid. Idempotent on the provider order id.
+
+    Returns None (and credits nothing) when the user or pack no longer exists, or when the amount
+    paid does not match the pack price (a tampered or misconfigured checkout).
+    """
+    pack = catalog.PACKS_BY_ID.get(pack_id)
+    if pack is None or (amount_paid_cents is not None and amount_paid_cents != pack.price_usd_cents):
+        return None
+    if await s.get(PlayerProfile, user_id) is None:
+        return None
+    profile = await _locked_profile(s, user_id)
+    tx = await _apply(
+        s, profile, "diamonds", pack.diamonds, "purchase", f"stripe:{order_id}", "stripe_checkout", order_id
+    )
+    return {"user_id": user_id, "pack_id": pack.id, "diamonds": pack.diamonds, "balance": tx.balance_after}
+
+
 # ---------------------------------------------------------------- inventory
 async def inventory(s: AsyncSession, user_id: int) -> list[dict[str, Any]]:
     rows = (

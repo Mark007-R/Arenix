@@ -36,3 +36,21 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # The single-service image used for hosting (render.yaml): build it, start it, check it serves.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t arenix .
+      - run: docker run -d --name arenix -p 8000:8000 arenix
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do curl -fs localhost:8000/api/health && break; sleep 1; done
+          curl -fs localhost:8000/api/health
+          curl -fs localhost:8000/ | grep -q ARENIX
+          curl -fs localhost:8000/leaderboard/ > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/room/ABC123)" = "308"
+          curl -fs localhost:8000/api/config | grep -q '"payments":"off"'
+      - if: failure()
+        run: docker logs arenix

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -9,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import payments
 from ..db.models import MatchParticipant, MatchRow, PlayerProfile, User
 from ..db.session import Database
 from ..economy import catalog, service
@@ -26,6 +30,7 @@ def won(result: dict[str, Any], contestant_id: str) -> bool:
 
 
 router = APIRouter(prefix="/api")
+log = logging.getLogger("arenix.store")
 
 
 class _Body(BaseModel):
@@ -220,12 +225,20 @@ async def open_crate(
     }
 
 
+STORE_NOTICES = {
+    "mock": "Development build: purchases use a mock provider. No payment details are collected and nothing is "
+    "charged.",
+    "stripe": "Payments are processed securely by Stripe. We never see your card details.",
+    "off": "The store is not open yet.",
+}
+
+
 @router.get("/store/packs")
 async def packs() -> dict[str, Any]:
+    provider = payments.provider()
     return {
-        "provider": "mock",
-        "notice": "Development build: purchases use a mock provider. No payment details are collected "
-        "and nothing is charged.",
+        "provider": provider,
+        "notice": STORE_NOTICES[provider],
         "packs": [
             {"id": p.id, "label": p.label, "diamonds": p.diamonds, "price_usd_cents": p.price_usd_cents}
             for p in catalog.DIAMOND_PACKS
@@ -240,12 +253,81 @@ async def purchase(
     s: Session,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
 ) -> dict[str, Any]:
+    if payments.provider() != "mock":
+        raise HTTPException(409, detail={"code": "use_checkout", "message": "Buy through the checkout page."})
     try:
         result = await service.purchase_diamonds(s, user.id, body.pack_id, body.confirm, idempotency_key)
         await s.commit()
         return result
     except EconomyError as e:
         raise econ_error(e) from None
+
+
+class CheckoutRequest(_Body):
+    pack_id: str = Field(max_length=32, pattern=r"^[a-z0-9_]+$")
+    confirm: bool
+
+
+@router.post("/store/checkout")
+async def checkout(body: CheckoutRequest, request: Request, user: CurrentUser, s: Session) -> dict[str, Any]:
+    """Start a real payment: returns Stripe's hosted checkout page. Diamonds arrive via the webhook."""
+    if payments.provider() != "stripe":
+        raise HTTPException(503, detail={"code": "payments_disabled", "message": "Payments are not enabled."})
+    if not body.confirm:
+        raise HTTPException(400, detail={"code": "confirmation_required", "message": "Confirm the purchase first."})
+    pack = catalog.PACKS_BY_ID.get(body.pack_id)
+    if pack is None:
+        raise HTTPException(404, detail={"code": "unknown_pack", "message": "unknown diamond pack"})
+    if user.is_guest:
+        # A guest key lives in one browser: paid diamonds must survive a cleared cache.
+        raise HTTPException(403, detail={"code": "account_required", "message": "Create an account to buy diamonds."})
+    profile = await s.get(PlayerProfile, user.id)
+    if profile is None or not profile.adult_confirmed:
+        raise HTTPException(
+            403, detail={"code": "age_restricted", "message": "Purchases require confirming you are an adult."}
+        )
+    if not request.app.state.checkout_limiter.allow(str(user.id)):
+        raise HTTPException(429, detail={"code": "rate_limited", "message": "slow down"})
+    base = os.environ.get("ARENIX_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    try:
+        session = await payments.create_checkout(
+            user_id=user.id,
+            pack_id=pack.id,
+            label=pack.label,
+            diamonds=pack.diamonds,
+            price_usd_cents=pack.price_usd_cents,
+            return_url=f"{base}/collection/",
+        )
+    except payments.PaymentError as e:
+        raise HTTPException(e.status, detail={"code": e.code, "message": e.message}) from None
+    return {"url": session.url}
+
+
+@router.post("/stripe/webhook")
+async def stripe_webhook(request: Request, s: Session) -> dict[str, Any]:
+    """Stripe calls this after a payment. Only signed deliveries are trusted; crediting is idempotent."""
+    payload = await request.body()
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    if not payments.verify_signature(payload, request.headers.get("stripe-signature", ""), secret):
+        raise HTTPException(400, detail={"code": "bad_signature", "message": "invalid signature"})
+    event = json.loads(payload)
+    if event.get("type") not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        return {"received": True}
+    obj = event.get("data", {}).get("object", {})
+    if obj.get("payment_status") != "paid":
+        return {"received": True}  # e.g. a bank transfer still pending: async_payment_succeeded follows
+    meta = obj.get("metadata") or {}
+    try:
+        user_id = int(meta.get("user_id", ""))
+    except ValueError:
+        return {"received": True}
+    credited = await service.credit_paid_pack(
+        s, user_id, str(meta.get("pack_id", "")), str(obj["id"]), obj.get("amount_total")
+    )
+    await s.commit()
+    if credited is None:
+        log.warning("stripe session %s not credited (unknown user/pack or amount mismatch)", obj.get("id"))
+    return {"received": True, "credited": credited is not None}
 
 
 @router.get("/achievements")

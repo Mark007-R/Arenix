@@ -37,6 +37,7 @@ class AudioEngine {
   private step = 0;
   private nextTime = 0;
   private lastChat = 0;
+  private silenced = false;
 
   constructor() {
     if (typeof window === "undefined") return;
@@ -71,8 +72,15 @@ class AudioEngine {
   private applyVolumes(): void {
     if (!this.ctx || !this.sfxGain || !this.musicGain) return;
     const t = this.ctx.currentTime;
-    this.sfxGain.gain.setTargetAtTime(this.settings.sfx * 0.5, t, 0.05);
-    this.musicGain.gain.setTargetAtTime(this.settings.music * 0.18, t, 0.2);
+    const on = this.silenced ? 0 : 1;
+    this.sfxGain.gain.setTargetAtTime(this.settings.sfx * 0.5 * on, t, 0.05);
+    this.musicGain.gain.setTargetAtTime(this.settings.music * 0.18 * on, t, 0.2);
+  }
+
+  /** Mute everything (e.g. while a game portal plays an ad), without touching the player's settings. */
+  silence(on: boolean): void {
+    this.silenced = on;
+    this.applyVolumes();
   }
 
   /** One enveloped oscillator note. */

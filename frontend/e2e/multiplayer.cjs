@@ -46,12 +46,12 @@ async function hold(page, dx, dy, ms) {
   await host.goto(BASE);
   await host.fill("#name", "Hosty");
   await host.getByRole("button", { name: "Create room" }).click();
-  await host.waitForURL(/\/room\/[A-Z0-9]{6}$/);
-  const code = host.url().split("/").pop();
+  await host.waitForURL(/\/room\/?\?code=[A-Z0-9]{6}$/);
+  const code = new URL(host.url()).searchParams.get("code");
   await host.waitForSelector('[data-testid="room-code"]');
   log("room", code);
 
-  await guest.goto(`${BASE}/room/${code}`);
+  await guest.goto(`${BASE}/room?code=${code}`);
   await guest.fill("#name", "Guesty");
   await guest.getByRole("button", { name: "Join room" }).click();
   await guest.waitForSelector('[data-testid="room-code"]');

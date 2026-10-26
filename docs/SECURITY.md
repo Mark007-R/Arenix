@@ -44,6 +44,20 @@ where it is enforced or tested. Open items are listed at the end.
 | Regional restrictions | `ARENIX_PAID_RANDOM_CRATES=disabled` makes Diamond-priced crates unavailable (HTTP 451) | `test_paid_random_crates_can_be_disabled_by_region` |
 | Tampering with history | `game_events` UPDATE and DELETE are blocked by a database trigger | `test_persist_match_awards_once_and_event_log_is_append_only` |
 
+## Payments (Stripe)
+
+* Card details never touch ARENIX: buyers pay on Stripe's hosted Checkout page.
+* Diamonds are credited only from the webhook (`POST /api/stripe/webhook`). Each delivery must
+  carry a valid `Stripe-Signature` (HMAC-SHA256 with `STRIPE_WEBHOOK_SECRET`, timestamp within
+  5 minutes against replays). The amount paid must equal the pack price. Crediting is idempotent
+  on the Checkout Session id, so retries never double-credit. Tests:
+  `test_webhook_credits_once_and_only_when_signed_and_paid`, `test_signature_verification`.
+* Checkout requires a registered (non-guest) account, an adult confirmation and an explicit
+  confirmation, and is rate-limited per user. When Stripe is on, the mock purchase endpoint is
+  closed; in production without Stripe (`ARENIX_PRODUCTION=1`) the store is off.
+* Secret keys live only in the host's environment variables; `/api/config` exposes only the
+  payment mode, the donation link (https only) and the contact email.
+
 ## Abuse limits
 
 Room creation is capped at 10/min per IP, guest creation at 5/min per IP, crate openings at
@@ -76,6 +90,7 @@ When `ARENIX_ADMIN_TOKEN` is set, starting experiments requires it.
 * **OAuth sign-in** (Google, GitHub) needs client ids from the deployer.
 * **Persistent bans:** moderators can review reports, but there is no ban list yet.
 * **Rate limits** are in-memory per process. Behind several processes, use a shared store.
-* **Payments:** a real provider needs webhook signature verification, refunds, spending limits and
-  regional compliance review, especially for paid random rewards.
+* **Payments:** refunds are handled in the Stripe dashboard and do not yet claw back diamonds;
+  there are no spending limits; paid random rewards still need a regional compliance review
+  (`ARENIX_PAID_RANDOM_CRATES=disabled` where needed).
 * **Transport:** run behind TLS (wss/https) in production. Nothing here terminates TLS.

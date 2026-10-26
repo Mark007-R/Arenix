@@ -1,12 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useConfig } from "@/lib/config";
 
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "";
 export const UPDATED = "26 October 2026";
 
+/** The contact address set on the server (ARENIX_CONTACT_EMAIL). */
 export function Contact() {
-  return CONTACT_EMAIL ? (
-    <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+  const email = useConfig().contact_email;
+  return email ? (
+    <a className="underline" href={`mailto:${email}`}>{email}</a>
   ) : (
     <span>the contact address listed on the game&apos;s store page</span>
   );

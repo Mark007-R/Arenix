@@ -126,6 +126,11 @@ export function cleanName(name: string): string {
   return name.replace(/[^A-Za-z0-9 _-]/g, "").trim().slice(0, 20);
 }
 
+/** Link to a room (query string, so the site can be served as static files). */
+export function roomPath(code: string): string {
+  return `/room?code=${encodeURIComponent(code)}`;
+}
+
 export function normalizeCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 }

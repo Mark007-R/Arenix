@@ -31,7 +31,7 @@ export default function LabIndex() {
         <ul className="space-y-2">
           {matches?.map((m) => (
             <li key={m.id}>
-              <Link href={`/lab/${encodeURIComponent(m.id)}`} className="panel flex items-center justify-between p-3 hover:border-gold">
+              <Link href={`/lab/match?id=${encodeURIComponent(m.id)}`} className="panel flex items-center justify-between p-3 hover:border-gold">
                 <span className="font-bold">{m.id}</span>
                 <span className="text-sm text-parchment/70">
                   {m.contestants} contestants · AI: {m.ai_mode} · {Math.round(m.ticks / 20)} s ·{" "}

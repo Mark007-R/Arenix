@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARENIX</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1f1630; overflow: hidden; }
+    iframe { border: 0; width: 100%; height: 100%; display: block; }
+  </style>__SDK_SCRIPT__
+</head>
+<body>
+  <!-- The game itself is served by the ARENIX server; this page only bridges it to the portal SDK. -->
+  <iframe id="game" title="ARENIX" allow="autoplay; fullscreen; clipboard-write" src="__GAME_URL__/?portal=__PORTAL__"></iframe>
+  <script>
+    (function () {
+      var PORTAL = "__PORTAL__";
+      var GAME_ORIGIN = new URL("__GAME_URL__").origin;
+      var frame = document.getElementById("game");
+      var reply = function (type) { frame.contentWindow.postMessage({ arenix: type }, GAME_ORIGIN); };
+      var noop = function () {};
+
+      // One small adapter per portal; each SDK failure falls back to "no ad" so the game never stalls.
+      var adapters = {
+        crazygames: function () {
+          var sdk = window.CrazyGames && window.CrazyGames.SDK;
+          var ready = sdk ? sdk.init().catch(noop) : Promise.resolve();
+          return {
+            loaded: noop,
+            start: function () { ready.then(function () { sdk && sdk.game.gameplayStart(); }); },
+            stop: function () { ready.then(function () { sdk && sdk.game.gameplayStop(); }); },
+            adBreak: function (done) {
+              if (!sdk) return done();
+              ready.then(function () {
+                sdk.ad.requestAd("midgame", { adStarted: noop, adFinished: done, adError: done });
+              });
+            },
+          };
+        },
+        poki: function () {
+          var sdk = window.PokiSDK;
+          var ready = sdk ? sdk.init().catch(noop) : Promise.resolve();
+          return {
+            loaded: function () { ready.then(function () { sdk && sdk.gameLoadingFinished(); }); },
+            start: function () { ready.then(function () { sdk && sdk.gameplayStart(); }); },
+            stop: function () { ready.then(function () { sdk && sdk.gameplayStop(); }); },
+            adBreak: function (done) {
+              if (!sdk) return done();
+              ready.then(function () { return sdk.commercialBreak(); }).then(done, done);
+            },
+          };
+        },
+        itch: function () {
+          return { loaded: noop, start: noop, stop: noop, adBreak: function (done) { done(); } };
+        },
+      };
+      var portal = (adapters[PORTAL] || adapters.itch)();
+
+      frame.addEventListener("load", function () { portal.loaded(); });
+      window.addEventListener("message", function (e) {
+        if (e.origin !== GAME_ORIGIN || e.source !== frame.contentWindow || !e.data) return;
+        switch (e.data.arenix) {
+          case "gameplay_start": portal.start(); break;
+          case "gameplay_stop": portal.stop(); break;
+          case "break":
+            var finished = false;
+            portal.adBreak(function () { if (!finished) { finished = true; reply("break_done"); } });
+            break;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

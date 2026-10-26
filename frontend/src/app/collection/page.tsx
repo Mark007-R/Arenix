@@ -16,11 +16,13 @@ import {
 } from "@/components/economy/types";
 import type { Cosmetics } from "@/game/art/characters";
 import { ApiError, api, ensureAccount, newIdempotencyKey } from "@/lib/account";
+import { onPortal } from "@/lib/portal";
 import { loadPrefs } from "@/lib/rooms";
 import { loadReducedMotion } from "@/lib/useGameClient";
 
 type Tab = "crates" | "inventory" | "store" | "history";
 interface Pack { id: string; label: string; diamonds: number; price_usd_cents: number }
+interface StoreInfo { provider: "stripe" | "mock" | "off"; notice: string; packs: Pack[] }
 interface Tx { id: number; currency: "game_points" | "diamonds"; amount: number; balance_after: number; reason: string; created_at: string }
 
 const SLOT_FOR: Record<string, string | undefined> = { skin: "skin", hat: "hat", effect: "effect" };
@@ -30,7 +32,9 @@ export default function CollectionPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [crates, setCrates] = useState<CrateDTO[]>([]);
   const [items, setItems] = useState<ItemDTO[]>([]);
-  const [packs, setPacks] = useState<{ notice: string; packs: Pack[] } | null>(null);
+  const [packs, setPacks] = useState<StoreInfo | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [portal, setPortal] = useState(false);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [disabled, setDisabled] = useState(false);
@@ -52,7 +56,7 @@ export default function CollectionPage() {
         api<Profile>("/api/players/me"),
         api<{ crates: CrateDTO[] }>("/api/crates"),
         api<{ items: ItemDTO[] }>("/api/players/me/inventory"),
-        api<{ notice: string; packs: Pack[] }>("/api/store/packs"),
+        api<StoreInfo>("/api/store/packs"),
         api<{ transactions: Tx[] }>("/api/players/me/currencies"),
       ]);
       setProfile(p);
@@ -69,6 +73,20 @@ export default function CollectionPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load from the server
     void refresh();
+    setPortal(onPortal());
+    // Back from Stripe's checkout page: diamonds arrive when Stripe confirms the payment (a few seconds).
+    const result = new URLSearchParams(window.location.search).get("purchase");
+    if (result === "success") {
+      setTab("store");
+      setNotice("Payment received — thank you! Your diamonds will appear in a few seconds.");
+      const t1 = setTimeout(() => void refresh(), 3000);
+      const t2 = setTimeout(() => void refresh(), 10000);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+    if (result === "cancelled") setNotice("Purchase cancelled — you were not charged.");
   }, [refresh]);
 
   const equipped: Cosmetics = {};
@@ -104,6 +122,15 @@ export default function CollectionPage() {
   async function buy(p: Pack) {
     setConfirmPack(null);
     try {
+      if (packs?.provider === "stripe") {
+        // Real payment: Stripe's hosted page takes the card; we only get told when it is paid.
+        const { url } = await api<{ url: string }>("/api/store/checkout", {
+          method: "POST",
+          body: JSON.stringify({ pack_id: p.id, confirm: true }),
+        });
+        window.location.assign(url);
+        return;
+      }
       await api("/api/store/purchases", { method: "POST", idempotencyKey: newIdempotencyKey(),
         body: JSON.stringify({ pack_id: p.id, confirm: true }) });
       await refresh();
@@ -216,7 +243,13 @@ export default function CollectionPage() {
           </section>
         )}
 
-        {tab === "store" && packs && profile && (
+        {notice && <p className="panel mb-3 p-3 text-sm text-leaf" role="status">{notice}</p>}
+        {tab === "store" && portal && (
+          <section className="panel p-4 text-sm text-parchment/80">
+            Diamonds can&apos;t be bought on this site. Everything in the game can be earned by playing.
+          </section>
+        )}
+        {tab === "store" && !portal && packs && profile && (
           <section className="panel p-4">
             <p className="mb-3 text-sm text-parchment/80">
               Diamonds are a premium currency bought with <b>real money</b>, also earned occasionally through achievements.
@@ -239,8 +272,9 @@ export default function CollectionPage() {
                   <div className="font-bold">{p.label}</div>
                   <div>{p.diamonds} Diamonds</div>
                   <div className="text-lg text-gold">${(p.price_usd_cents / 100).toFixed(2)} USD</div>
-                  <button className="btn mt-2 text-sm" disabled={!profile.adult_confirmed}
-                    style={profile.adult_confirmed ? undefined : { opacity: 0.5 }} onClick={() => setConfirmPack(p)}>Buy…</button>
+                  <button className="btn mt-2 text-sm" disabled={!profile.adult_confirmed || packs.provider === "off"}
+                    style={profile.adult_confirmed && packs.provider !== "off" ? undefined : { opacity: 0.5 }}
+                    onClick={() => setConfirmPack(p)}>{packs.provider === "off" ? "Coming soon" : "Buy…"}</button>
                 </article>
               ))}
             </div>
@@ -312,7 +346,9 @@ export default function CollectionPage() {
             <p className="my-2">{confirmPack.diamonds} Diamonds for <b>${(confirmPack.price_usd_cents / 100).toFixed(2)} USD</b>.</p>
             <p className="text-xs text-parchment/60">{packs?.notice}</p>
             <div className="mt-4 flex justify-center gap-3">
-              <button className="btn" onClick={() => buy(confirmPack)}>Confirm purchase</button>
+              <button className="btn" onClick={() => buy(confirmPack)}>
+                {packs?.provider === "stripe" ? "Continue to secure checkout" : "Confirm purchase"}
+              </button>
               <button className="btn btn-ghost" onClick={() => setConfirmPack(null)}>Cancel</button>
             </div>
           </div>

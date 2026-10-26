@@ -26,7 +26,12 @@ export interface JoinParams {
 
 function serverHost(): { host: string; secure: boolean } {
   if (typeof window === "undefined") return { host: "localhost:8000", secure: false };
-  return { host: `${window.location.hostname}:8000`, secure: window.location.protocol === "https:" };
+  const { hostname, host, port, protocol } = window.location;
+  const secure = protocol === "https:";
+  // Local development runs the Next dev server on :3000 next to the game server on :8000.
+  // Anywhere else the game server also serves the pages, so it lives on the same origin.
+  if (port === "3000") return { host: `${hostname}:8000`, secure };
+  return { host, secure };
 }
 
 /** WebSocket base URL of the game server. */

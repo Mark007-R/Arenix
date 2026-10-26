@@ -9,12 +9,14 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from arenix.db.models import Base
+from arenix.db.session import normalize_url
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 url = os.environ.get("ARENIX_DATABASE_URL") or config.get_main_option("sqlalchemy.url")
-config.set_main_option("sqlalchemy.url", url or "")
+# Same URL clean-up as the app (plain postgres:// URLs from hosts like Neon). "%" is escaped for configparser.
+config.set_main_option("sqlalchemy.url", normalize_url(url).replace("%", "%%") if url else "")
 target_metadata = Base.metadata
 
 

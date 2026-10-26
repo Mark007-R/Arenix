@@ -6,6 +6,7 @@ import type { WorldScene } from "@/game/scenes/WorldScene";
 import { saveReducedMotion } from "@/lib/useGameClient";
 import type { HudStore } from "@/lib/store";
 import { GameAudio } from "./GameAudio";
+import { PortalBridge } from "./PortalBridge";
 import { HowToPlay } from "./HowToPlay";
 import { Hud } from "./Hud";
 import { tutorialSeen } from "@/lib/settings";
@@ -67,6 +68,7 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
       <Hud store={store} client={client} onToggleMotion={toggleMotion} scene={() => sceneRef.current()} />
       <TouchControls store={store} scene={() => sceneRef.current()} />
       <GameAudio client={client} store={store} />
+      <PortalBridge store={store} />
       {tutorial && <HowToPlay onClose={() => setTutorial(false)} />}
     </div>
   );

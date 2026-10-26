@@ -10,7 +10,8 @@ import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
 import { PublicRooms } from "@/components/PublicRooms";
-import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, savePrefs } from "@/lib/rooms";
+import { SupportLink } from "@/components/SupportLink";
+import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, roomPath, savePrefs } from "@/lib/rooms";
 
 export default function Home() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function Home() {
     try {
       await ensureAccount(clean).catch(() => null); // optional: rewards + cosmetics when the server has a DB
       const grant = await createRoom(clean, archetype, fillTo, isPublic);
-      router.push(`/room/${grant.code}`);
+      router.push(roomPath(grant.code));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -68,7 +69,7 @@ export default function Home() {
     try {
       await ensureAccount(clean).catch(() => null);
       const grant = await quickPlay(clean, archetype);
-      router.push(`/room/${grant.code}`);
+      router.push(roomPath(grant.code));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -79,7 +80,7 @@ export default function Home() {
     const c = normalizeCode(code);
     if (c.length !== 6) return setError("Room codes have 6 characters.");
     if (valid) remember();
-    router.push(`/room/${c}`);
+    router.push(roomPath(c));
   }
 
   const chosen = ARCHETYPES[archetype]!;
@@ -134,7 +135,7 @@ export default function Home() {
         <PublicRooms
           onJoin={(c) => {
             if (valid) remember();
-            router.push(`/room/${c}`);
+            router.push(roomPath(c));
           }}
         />
 
@@ -187,6 +188,7 @@ export default function Home() {
           </p>
         </section>
         {help && <HowToPlay onClose={() => setHelp(false)} />}
+        <SupportLink className="text-sm" />
         <footer className="pb-4 text-center text-xs text-parchment/50">
           For players 13 and older · <Link className="underline" href="/privacy">Privacy</Link> ·{" "}
           <Link className="underline" href="/terms">Terms</Link> · Be kind: report abuse from the in-game player list.

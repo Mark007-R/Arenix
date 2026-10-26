@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+backend/.venv
+frontend/out
+frontend/portal-build
+frontend/*.tsbuildinfo
+arenix.bundle

@@ -8,16 +8,22 @@ import hmac
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from .. import payments
 from ..db.session import Database, database_from_env
 from ..economy import service as economy
 from ..engine.maps import available_maps, get_map
@@ -124,7 +130,10 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
 
     def origin_allowed(ws: WebSocket) -> bool:
         origin = ws.headers.get("origin")
-        return origin is None or origin in origins  # non-browser clients send no Origin
+        if origin is None or origin in origins:  # non-browser clients send no Origin
+            return True
+        # The game's own pages (served by this server) connect from the same host.
+        return urlsplit(origin).netloc == ws.headers.get("host")
 
     admin_token = os.environ.get("ARENIX_ADMIN_TOKEN", "")
 
@@ -174,6 +183,7 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     app.state.register_limiter = RateLimiter(5, 60.0)
     app.state.login_limiter = RateLimiter(20, 60.0)
     app.state.login_failures = RateLimiter(auth_api.LOGIN_FAILURES_PER_EMAIL, 15 * 60.0)
+    app.state.checkout_limiter = RateLimiter(10, 60.0)
     app.include_router(economy_router)
     app.include_router(auth_api.router)
     app.include_router(social_api.router)
@@ -210,6 +220,10 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
         return HTTPException(status_code=ERROR_STATUS.get(e.code, 400), detail={"code": e.code, "message": str(e)})
 
     # ------------------------------------------------------------------ REST
+    @app.get("/api/config")
+    async def client_config() -> dict[str, Any]:
+        return payments.public_config()
+
     @app.get("/api/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -609,7 +623,27 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
             await room.close()
             manager.rooms.pop(room.code, None)
 
+    mount_site(app)
     return app
+
+
+def mount_site(app: FastAPI) -> None:
+    """Serve the statically exported web client, so one service runs the whole game.
+
+    Off unless ARENIX_STATIC_DIR points at a build (``npm run build:static`` → ``frontend/out``).
+    """
+    site = os.environ.get("ARENIX_STATIC_DIR", "")
+    if not site or not Path(site, "index.html").is_file():
+        return
+
+    @app.get("/room/{code}", include_in_schema=False)
+    async def old_invite_link(code: str) -> RedirectResponse:
+        # Invite links used to be /room/CODE; rooms now live at /room/?code=CODE.
+        if not re.fullmatch(r"[A-Za-z0-9]{6}", code):
+            raise HTTPException(404)
+        return RedirectResponse(f"/room/?code={code.upper()}", status_code=308)
+
+    app.mount("/", StaticFiles(directory=site, html=True), name="site")
 
 
 app = create_app()

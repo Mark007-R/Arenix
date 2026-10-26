@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ARCHETYPES } from "@/game/art/characters";
 import type { GameClient } from "@/game/net/client";
+import { roomPath } from "@/lib/rooms";
 import { MAP_NAMES } from "@/lib/social";
 import { useHud, type HudStore } from "@/lib/store";
 import { CharacterPicker } from "./CharacterPicker";
@@ -42,7 +43,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
   const waitingFor = lobby.seats.filter((s) => s.connected && !s.ready).map((s) => s.name);
 
   async function copyInvite() {
-    const link = `${window.location.origin}/room/${lobby!.code}`;
+    const link = `${window.location.origin}${roomPath(lobby!.code)}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);

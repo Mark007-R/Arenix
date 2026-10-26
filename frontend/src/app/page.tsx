@@ -10,7 +10,7 @@ import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
 import { PublicRooms } from "@/components/PublicRooms";
-import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, savePrefs } from "@/lib/rooms";
+import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, roomPath, savePrefs } from "@/lib/rooms";
 
 export default function Home() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function Home() {
     try {
       await ensureAccount(clean).catch(() => null); // optional: rewards + cosmetics when the server has a DB
       const grant = await createRoom(clean, archetype, fillTo, isPublic);
-      router.push(`/room/${grant.code}`);
+      router.push(roomPath(grant.code));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -68,7 +68,7 @@ export default function Home() {
     try {
       await ensureAccount(clean).catch(() => null);
       const grant = await quickPlay(clean, archetype);
-      router.push(`/room/${grant.code}`);
+      router.push(roomPath(grant.code));
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -79,7 +79,7 @@ export default function Home() {
     const c = normalizeCode(code);
     if (c.length !== 6) return setError("Room codes have 6 characters.");
     if (valid) remember();
-    router.push(`/room/${c}`);
+    router.push(roomPath(c));
   }
 
   const chosen = ARCHETYPES[archetype]!;
@@ -134,7 +134,7 @@ export default function Home() {
         <PublicRooms
           onJoin={(c) => {
             if (valid) remember();
-            router.push(`/room/${c}`);
+            router.push(roomPath(c));
           }}
         />
 

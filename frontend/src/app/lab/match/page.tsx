@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { DecisionInspector } from "@/components/lab/DecisionInspector";
 import { InteractionGraph } from "@/components/lab/InteractionGraph";
 import { ReplayMap } from "@/components/lab/ReplayMap";
@@ -31,8 +31,17 @@ function describe(t: string, d: Record<string, unknown>, name: (id: unknown) => 
   }
 }
 
-export default function LabMatch() {
-  const { id } = useParams<{ id: string }>();
+export default function LabMatchPage() {
+  // useSearchParams needs a Suspense boundary in a statically exported page.
+  return (
+    <Suspense fallback={null}>
+      <LabMatch />
+    </Suspense>
+  );
+}
+
+function LabMatch() {
+  const id = useSearchParams().get("id") ?? "";
   const [data, setData] = useState<LabPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);

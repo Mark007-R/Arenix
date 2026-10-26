@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { CharacterPicker } from "@/components/CharacterPicker";
 import { ensureAccount } from "@/lib/account";
 import { cleanName, joinRoom, loadPrefs, loadSeat, normalizeCode, savePrefs } from "@/lib/rooms";
@@ -12,8 +12,16 @@ import type { SeatGrant } from "@/shared/protocol";
 const RoomView = dynamic(() => import("@/components/RoomView"), { ssr: false });
 
 export default function RoomPage() {
-  const params = useParams<{ code: string }>();
-  const code = normalizeCode(params.code ?? "");
+  // useSearchParams needs a Suspense boundary in a statically exported page.
+  return (
+    <Suspense fallback={null}>
+      <Room />
+    </Suspense>
+  );
+}
+
+function Room() {
+  const code = normalizeCode(useSearchParams().get("code") ?? "");
   const [seat, setSeat] = useState<SeatGrant | null>(null);
   const [checked, setChecked] = useState(false);
   const [name, setName] = useState("");

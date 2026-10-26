@@ -223,6 +223,12 @@ export interface LobbyMsg {
   min_contestants?: number;
   seats: SeatDTO[];
   can_start: boolean;
+  /** Listed in the public room browser. */
+  public?: boolean;
+  /** Quick-play room: starts on its own. */
+  quick?: boolean;
+  /** Quick play: seconds until the match starts itself (null when not counting down). */
+  auto_start_in?: number | null;
   last_result: MatchResult | null;
   ai_mode: "rules" | "heuristic" | "anthropic";
 }
@@ -275,6 +281,7 @@ export type ClientMsg =
   | { type: "shoot"; target: string }
   | { type: "sabotage"; kind: "fog" | "douse" }
   | { type: "set_map"; map_id: string }
+  | { type: "set_public"; public: boolean }
   | { type: "ability"; target: string | null }
   | { type: "report"; target: string; reason: string; note: string | null };
 

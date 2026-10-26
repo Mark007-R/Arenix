@@ -40,6 +40,10 @@ IMPOSTOR_TIME_LIMIT_S = 540
 MAP_FOR_MODE = {"classic": "emerald_isle", "impostor": "moonfall_isle"}
 IMPOSTOR_MAPS = ("moonfall_isle", "frostpeak_isle")
 MAX_REPORTS_PER_MATCH = 5
+QUICKPLAY_FILL = 8  # quick-play rooms fill up with bots to this many contestants
+QUICKPLAY_COUNTDOWN_S = 45.0  # a quick-play lobby starts on its own this long after someone joins
+QUICKPLAY_READY_S = 5.0  # ... or this soon once every connected player is ready
+PUBLIC_LIST_SIZE = 30
 REPORT_EVIDENCE_LINES = 10
 BOT_NAMES = ["Brakka", "Lyra", "Fennick", "Morwen", "Tobble", "Sir Aldric", "Quill", "Nessa", "Grub"]
 
@@ -128,8 +132,14 @@ class Room:
         agents: AgentConfig | None = None,
         db: Database | None = None,
         mode: str = "impostor",
+        public: bool = False,
+        quick: bool = False,
     ) -> None:
         self.code = code
+        # Public rooms are listed in the room browser; quick-play rooms are public and start themselves.
+        self.public = public or quick
+        self.quick = quick
+        self.auto_start_at: float | None = None
         self.mode = mode
         # Impostor mode: a specific map, or "random" (a different island each match).
         self.map_choice = "random" if practice else IMPOSTOR_MAPS[0]
@@ -257,6 +267,54 @@ class Room:
             return self.map_choice
         return IMPOSTOR_MAPS[secrets.randbelow(len(IMPOSTOR_MAPS))]
 
+    def set_public(self, seat: Seat, public: bool) -> None:
+        self._require_lobby()
+        if not seat.is_host:
+            raise RoomError("not_host", "only the host can change room settings")
+        if self.practice:
+            raise RoomError("bad_request", "practice rooms are private")
+        self.public = public or self.quick
+        self.broadcast_lobby()
+
+    def humans_connected(self) -> int:
+        return sum(1 for s in self.seats.values() if s.connected)
+
+    def open_seats(self) -> int:
+        return MAX_CONTESTANTS - len(self.seats)
+
+    def public_info(self) -> dict[str, Any]:
+        host = next((s.name for s in self.seats.values() if s.is_host), None)
+        return {
+            "code": self.code,
+            "host": host,
+            "players": len(self.seats),
+            "fill_to": self.fill_to,
+            "capacity": MAX_CONTESTANTS,
+            "map_id": self.map_choice,
+            "quick": self.quick,
+            "matches_played": self.matches_played,
+        }
+
+    def tick_auto_start(self, now: float) -> None:
+        """Quick play: start on a countdown (sooner once everyone is ready); bots fill the empty seats."""
+        if not self.quick or self.status != "lobby":
+            self.auto_start_at = None
+            return
+        humans = [s for s in self.seats.values() if s.connected]
+        if not humans:
+            self.auto_start_at = None
+            return
+        if self.auto_start_at is None:
+            self.auto_start_at = now + QUICKPLAY_COUNTDOWN_S
+            self.broadcast_lobby()
+        if all(s.ready for s in humans) and self.auto_start_at - now > QUICKPLAY_READY_S:
+            self.auto_start_at = now + QUICKPLAY_READY_S
+            self.broadcast_lobby()
+        if now >= self.auto_start_at:
+            self.auto_start_at = None
+            with contextlib.suppress(RoomError):
+                self.start(None, auto=True)
+
     def set_fill(self, seat: Seat, fill_to: int) -> None:
         self._require_lobby()
         if not seat.is_host:
@@ -264,21 +322,21 @@ class Room:
         self.fill_to = max(len(self.seats), min(MAX_CONTESTANTS, fill_to))
         self.broadcast_lobby()
 
-    def can_start(self) -> tuple[bool, str]:
+    def can_start(self, auto: bool = False) -> tuple[bool, str]:
         if self.status != "lobby":
             return False, "in_progress"
         humans = [s for s in self.seats.values() if s.connected]
         if not humans:
             return False, "no_players"
-        if not self.practice and not all(s.ready for s in humans):
+        if not self.practice and not auto and not all(s.ready for s in humans):
             return False, "not_ready"
         return True, ""
 
-    def start(self, seat: Seat | None) -> None:
-        """Start a match. seat=None is used for practice rooms (auto start)."""
+    def start(self, seat: Seat | None, auto: bool = False) -> None:
+        """Start a match. seat=None is used for practice and quick-play rooms (auto start)."""
         if seat is not None and not seat.is_host:
             raise RoomError("not_host", "only the host can start the match")
-        ok, reason = self.can_start()
+        ok, reason = self.can_start(auto)
         if not ok:
             raise RoomError(reason, "cannot start yet")
         seed = self.seed_override if self.seed_override is not None else secrets.randbits(32)
@@ -505,6 +563,11 @@ class Room:
             "min_contestants": roles.MIN_CONTESTANTS if self.mode == "impostor" else 1,
             "seats": [s.public() for s in self.seats.values()],
             "can_start": self.can_start()[0],
+            "public": self.public,
+            "quick": self.quick,
+            "auto_start_in": (
+                max(0.0, round(self.auto_start_at - time.monotonic(), 1)) if self.auto_start_at is not None else None
+            ),
             "ai_mode": self.agent_config.provider if self.agent_config.enabled and self.mode == "classic" else "rules",
             "last_result": self.last_result,
         }
@@ -536,14 +599,51 @@ class RoomManager:
         self.agents = agents or AgentConfig.from_env()
         self.db = db
 
-    def create(self, fill_to: int = 6, practice: bool = False, seed: int | None = None) -> Room:
+    def create(
+        self,
+        fill_to: int = 6,
+        practice: bool = False,
+        seed: int | None = None,
+        public: bool = False,
+        quick: bool = False,
+    ) -> Room:
         if len(self.rooms) >= MAX_ROOMS:
             raise RoomError("busy", "server is full, try again later")
         room = Room(
-            self._new_code(), max(1, min(MAX_CONTESTANTS, fill_to)), practice=practice, seed=seed, agents=self.agents
+            self._new_code(),
+            max(1, min(MAX_CONTESTANTS, QUICKPLAY_FILL if quick else fill_to)),
+            practice=practice,
+            seed=seed,
+            agents=self.agents,
+            public=public and not practice,
+            quick=quick and not practice,
         )
+        if room.quick:
+            room.map_choice = "random"
         self.rooms[room.code] = room
         return room
+
+    def public_rooms(self) -> list[Room]:
+        """Open public lobbies, fullest first (the busiest room is the most fun to join)."""
+        rooms = [
+            r
+            for r in self.rooms.values()
+            if r.public and not r.practice and r.status == "lobby" and r.open_seats() > 0 and r.humans_connected() > 0
+        ]
+        rooms.sort(key=lambda r: (-r.humans_connected(), r.code))
+        return rooms[:PUBLIC_LIST_SIZE]
+
+    def quick_play_room(self) -> Room:
+        """An open quick-play lobby to join, or a new one."""
+        for r in self.public_rooms():
+            if r.quick:
+                return r
+        return self.create(quick=True)
+
+    def tick(self, now: float | None = None) -> None:
+        now = time.monotonic() if now is None else now
+        for room in list(self.rooms.values()):
+            room.tick_auto_start(now)
 
     def get(self, code: str) -> Room:
         room = self.rooms.get(code.upper())

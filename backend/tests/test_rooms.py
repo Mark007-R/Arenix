@@ -330,3 +330,68 @@ def test_room_runs_strategist_agents_when_enabled() -> None:
         await writer
 
     asyncio.run(scenario())
+
+
+def test_public_rooms_and_quick_play(client: Live) -> None:
+    private = create(client, "Priv")
+    r = client.post("/api/rooms", json={"name": "Pub", "archetype": "knight", "public": True})
+    assert r.status_code == 201
+    public = r.json()
+    # Rooms only show up once someone is actually connected to them.
+    with client.websocket_connect(f"/ws/rooms/{public['code']}?token={public['token']}") as ws:
+        recv_until(ws, is_type("lobby"))
+        listed = client.get("/api/rooms/public").json()["rooms"]
+        codes = [x["code"] for x in listed]
+        assert public["code"] in codes and private["code"] not in codes
+        assert "token" not in json.dumps(listed)
+        # Quick play makes its own room (the public room above is not a quick-play room) ...
+        q1 = client.post("/api/quickplay", json={"name": "Q1", "archetype": "rogue"}).json()
+        with client.websocket_connect(f"/ws/rooms/{q1['code']}?token={q1['token']}") as ws1:
+            lobby = recv_until(ws1, lambda m: m["type"] == "lobby" and m.get("auto_start_in") is not None)
+            assert lobby["quick"] and lobby["public"] and lobby["fill_to"] == 8
+            # ... and the next quick-play player lands in the same one.
+            q2 = client.post("/api/quickplay", json={"name": "Q2", "archetype": "wizard"}).json()
+            assert q2["code"] == q1["code"] and q2["player_id"] != q1["player_id"]
+
+
+def test_host_can_toggle_public(client: Live) -> None:
+    host = create(client)
+    with client.websocket_connect(f"/ws/rooms/{host['code']}?token={host['token']}") as ws:
+        assert recv_until(ws, is_type("lobby"))["public"] is False
+        ws.send(json.dumps({"type": "set_public", "public": True}))
+        assert recv_until(ws, lambda m: m["type"] == "lobby" and m["public"])["public"] is True
+        assert host["code"] in [x["code"] for x in client.get("/api/rooms/public").json()["rooms"]]
+
+
+def test_quick_play_room_starts_itself() -> None:
+    from arenix.server.app import encode
+    from arenix.server.rooms import QUICKPLAY_COUNTDOWN_S, QUICKPLAY_READY_S, Connection, RoomManager
+
+    async def scenario() -> None:
+        async def send_text(text: str) -> None:
+            return None
+
+        mgr = RoomManager()
+        room = mgr.quick_play_room()
+        assert room.quick and room.public and room.map_choice == "random"
+        seat = room.add_seat("Solo", "knight")
+        conn = Connection(send_text, encode)
+        writer = asyncio.create_task(conn.writer())
+        room.attach(seat, conn)
+        now = time.monotonic()
+        mgr.tick(now)
+        assert room.auto_start_at == pytest.approx(now + QUICKPLAY_COUNTDOWN_S)
+        mgr.tick(now + 1)
+        assert room.status == "lobby"  # nobody ready: still counting down
+        room.set_ready(seat, True)
+        mgr.tick(now + 2)
+        assert room.auto_start_at == pytest.approx(now + 2 + QUICKPLAY_READY_S)  # everyone ready: hurry up
+        mgr.tick(now + 2 + QUICKPLAY_READY_S)
+        assert room.status == "running" and room.match is not None
+        assert len(room.match.contestants) == 8  # bots filled the empty seats
+        await room.close()
+        conn.closed = True
+        conn.wake.set()
+        await writer
+
+    asyncio.run(scenario())

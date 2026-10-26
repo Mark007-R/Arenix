@@ -216,5 +216,9 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   Isle**, with its own palette. The host picks Moonfall, Frostpeak or Random in the lobby;
   practice picks a random island. Bots play all three new roles, and kill cooldowns were retuned
   on both maps (see `docs/benchmarks/README.md`)
-- ⬜ Social (public lobbies, quick play, leaderboards, profiles)
+- ✅ Social: **quick play** (one click into the busiest open public lobby, which starts itself
+  after a 45 s countdown — 5 s once everyone is ready — with AI filling up to 8), a **public room
+  browser** (hosts can list a room when creating it or from the lobby), **leaderboards** by wins,
+  level and win rate (registered accounts only; win rate needs 10+ matches), and **public
+  profiles** with stats, achievements and recent matches (no email, currencies or items)
 - ⬜ Release (single deployable service, portals, donations, real payments)

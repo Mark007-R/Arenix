@@ -1,21 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ARCHETYPES } from "@/game/art/characters";
 import type { GameClient } from "@/game/net/client";
+import { MAP_NAMES } from "@/lib/social";
 import { useHud, type HudStore } from "@/lib/store";
 import { CharacterPicker } from "./CharacterPicker";
 import { MapPreview } from "./MapPreview";
 import { Portrait } from "./Portrait";
 
 
-const MAP_NAMES: Record<string, string> = {
-  emerald_isle: "Emerald Isle",
-  moonfall_isle: "Moonfall Isle",
-  frostpeak_isle: "❄️ Frostpeak Isle",
-  random: "🎲 Random",
-};
+/** Quick play: seconds until the match starts on its own (counted down locally between lobby updates). */
+function AutoStart({ seconds }: { seconds: number }) {
+  const [left, setLeft] = useState(seconds);
+  useEffect(() => {
+    const end = performance.now() + seconds * 1000;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restart the countdown when the server sends a new one
+    setLeft(seconds);
+    const t = setInterval(() => setLeft(Math.max(0, (end - performance.now()) / 1000)), 250);
+    return () => clearInterval(t);
+  }, [seconds]);
+  return (
+    <div className="pop-in mt-3 border-[3px] border-gold bg-[#33290f] p-2 text-center" role="status">
+      ⚡ Starting in <b className="tabular-nums">{Math.ceil(left)}s</b> — press Ready to start sooner. AI fills the empty seats.
+    </div>
+  );
+}
+
 export function Lobby({ client, store, you }: { client: GameClient; store: HudStore; you: string }) {
   const lobby = useHud(store, (s) => s.lobby);
   const [copied, setCopied] = useState(false);
@@ -54,6 +66,20 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               <Link className="btn btn-ghost" href="/">Leave</Link>
             </div>
           </div>
+
+          {lobby.auto_start_in != null && <AutoStart seconds={lobby.auto_start_in} />}
+          {isHost && !lobby.quick && (
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!lobby.public}
+                onChange={(e) => client.send({ type: "set_public", public: e.target.checked })}
+                className="accent-[#f4c542]"
+              />
+              List this room in public rooms (anyone can join)
+            </label>
+          )}
+          {!isHost && lobby.public && <p className="mt-3 text-xs text-parchment/60">🌍 Public room — anyone can join.</p>}
 
           <h2 className="mb-2 mt-5 text-sm uppercase tracking-wider text-gold">
             Contestants ({humans} {humans === 1 ? "player" : "players"} + {aiCount} AI)

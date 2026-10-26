@@ -221,4 +221,10 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   browser** (hosts can list a room when creating it or from the lobby), **leaderboards** by wins,
   level and win rate (registered accounts only; win rate needs 10+ matches), and **public
   profiles** with stats, achievements and recent matches (no email, currencies or items)
-- ⬜ Release (single deployable service, portals, donations, real payments)
+- ✅ Release tooling: one deployable container (`Dockerfile`, static web client served by the
+  game server, migrations on start), a Render Blueprint (`render.yaml`) for the free plan with
+  Neon, runtime settings (`/api/config`), a Ko-fi-style donation button, real diamond packs via
+  Stripe Checkout with a signed, idempotent webhook (18+, registered accounts only; the mock store
+  is off in production), and a portal launcher with ad breaks between matches for CrazyGames, Poki
+  and itch.io. Step-by-step guide: [RELEASE.md](RELEASE.md)
+- ⬜ Going live needs the owner's accounts (Render, Neon, Ko-fi, Stripe, portals): see RELEASE.md

@@ -1,0 +1,33 @@
+# Render Blueprint: one free web service runs all of ARENIX. Pair it with a free Neon database.
+# Step-by-step: docs/RELEASE.md. Values marked "sync: false" are asked for when you create it.
+services:
+  - type: web
+    name: arenix
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Neon connection string (postgres://…?sslmode=require). Leave empty to run without progression.
+      - key: ARENIX_DATABASE_URL
+        sync: false
+      # Your site's address, e.g. https://arenix.onrender.com (used for payment return links).
+      - key: ARENIX_PUBLIC_URL
+        sync: false
+      # Optional: https link to your Ko-fi / donation page.
+      - key: ARENIX_DONATE_URL
+        sync: false
+      # Public contact address shown on the Privacy and Terms pages.
+      - key: ARENIX_CONTACT_EMAIL
+        sync: false
+      # Optional, for real payments: from the Stripe dashboard (never commit these).
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Protects admin endpoints (reports, experiments). Render generates a random value.
+      - key: ARENIX_ADMIN_TOKEN
+        generateValue: true
+      - key: ARENIX_AGENT_PROVIDER
+        value: "off"

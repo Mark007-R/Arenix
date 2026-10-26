@@ -1,6 +1,12 @@
 # Deployment
 
-ARENIX is two services plus PostgreSQL:
+**The simple way: one service.** The root `Dockerfile` builds the web client as static files and
+serves them from the game server, so a single container runs everything (pages, API, WebSockets,
+migrations on start). `render.yaml` deploys it to Render's free plan; pair it with a free Neon
+database. Follow [RELEASE.md](RELEASE.md) for the step-by-step guide, including donations,
+Stripe and game portals.
+
+**Or two services**, as used by `docker-compose.yml` for local development:
 
 | Service | Build | Runs |
 |---|---|---|

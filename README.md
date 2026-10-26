@@ -4,16 +4,18 @@ A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomo
 explore an island, do tasks, argue in council meetings and try to find out who among them is the
 **impostor** — while the impostor quietly picks them off.
 
-> **Status: Milestones 1–6 and 8 done, 7 partly done.** Play practice matches or multiplayer
-> rooms (share a code; AI fills empty seats) in **impostor mode** on the 96×72 Moonfall Isle:
-> hidden roles, kills, body reports, ghosts, random per-match skills and council meetings with a
-> real chat room. AI contestants do tasks, report bodies and talk in natural sentences built
-> from what they actually saw (rule-based, no LLM). The original **classic (council) mode**
-> remains in the engine with strategist agents (offline heuristic planner or an LLM) for the
-> benchmarks. With a database, players earn Game Points and open cosmetic crates (odds always
-> shown). The **Agent Lab** (`/lab`) shows interaction graphs, timelines, decision inspection,
-> replays and experiment comparisons. See [docs/MILESTONES.md](docs/MILESTONES.md) for exact
-> status and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
+> **Status: release-ready.** Impostor mode with secret roles (islander, impostor, sheriff,
+> jester), sabotage, random per-match skills, body reports, ghosts and council meetings with a
+> real chat room, on two islands (Moonfall and the winter Frostpeak). Play solo practice, **quick
+> play** with others, public or private rooms (AI fills empty seats), with accounts, leaderboards,
+> public profiles, cosmetic crates (odds always shown), sound and music, moderation and reports.
+> One container serves everything; [docs/RELEASE.md](docs/RELEASE.md) walks through free
+> hosting (Render + Neon) and earning (Ko-fi donations, Stripe diamond packs, portal ads). The
+> **Agent Lab** (`/lab`) shows interaction graphs, replays and experiment comparisons. See
+> [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Mark007-R/Arenix)
 
 ## Screenshots
 
@@ -119,6 +121,14 @@ Python 3.13 (`backend/.python-version`); uv downloads it automatically.
 | `ARENIX_ADMIN_TOKEN` | backend | unset | when set, required (Bearer) to start experiments |
 | `ARENIX_ALLOW_LLM_EXPERIMENTS` | backend | unset | `1` allows the costly `llm` condition through the experiments API |
 | `ARENIX_TEST_DATABASE_URL` | tests | `postgresql+asyncpg://arenix:arenix@localhost/arenix_test` | database the economy tests reset and use |
+| `ARENIX_STATIC_DIR` | backend | unset | serve the statically exported web client from this folder (one-service hosting; set in the Docker image) |
+| `ARENIX_PRODUCTION` | backend | unset | `1` turns the mock store off when Stripe isn't configured |
+| `ARENIX_PUBLIC_URL` | backend | request host | public site address; Stripe returns buyers here |
+| `ARENIX_DONATE_URL` | backend | unset | `https://` donation link shown as "Support ARENIX" (hidden on portals) |
+| `ARENIX_CONTACT_EMAIL` | backend | unset | contact address on the Privacy and Terms pages |
+| `STRIPE_SECRET_KEY` | backend | unset | enables real diamond purchases through Stripe Checkout |
+| `STRIPE_WEBHOOK_SECRET` | backend | unset | verifies Stripe's payment webhooks (`/api/stripe/webhook`) |
+| `ARENIX_CURRENCY` | backend | `usd` | Stripe checkout currency |
 | `ANTHROPIC_API_KEY` | backend | — | read by the Anthropic SDK when `ARENIX_AGENT_PROVIDER=anthropic`; never sent to clients |
 
 **Cost note for `anthropic` mode.** Each strategist decision is one request: roughly 2–4K
@@ -162,6 +172,7 @@ If you change `backend/arenix/engine/physics.py`, regenerate the cross-language 
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): design and protocols
 * [docs/MILESTONES.md](docs/MILESTONES.md): what is done and what is not
 * [docs/SECURITY.md](docs/SECURITY.md): security review and open items
+* [docs/RELEASE.md](docs/RELEASE.md): **put the game online for free and start earning**, step by step
 * [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): production checklist
 * [docs/benchmarks/](docs/benchmarks/): generated benchmark report and how to read it
 
@@ -187,9 +198,11 @@ docs/                   architecture and milestone checklist
 * AI chat in impostor mode is generated from templates (many wordings per intent, grounded in
   what the bot saw). It reacts to names, accusations and "where were you?", but it can't hold
   an open-ended conversation.
-* The chat filter is a small placeholder blocklist, not real moderation.
-* Guest accounts only (no login or recovery). Clearing browser storage loses the account.
-* Payments are mocked. There is no real payment provider, regional detection or direct-purchase
-  shop yet.
+* The chat filter is rule-based (blocklist with leetspeak and spacing tricks, link and contact
+  blocking, spam limits), not a trained moderation model. Reports go to admins for review.
+* Password reset by email is not available yet.
+* Stripe payments are unit-tested against signed fake webhooks, not yet run against a live
+  Stripe account from this repository. Test in Stripe's test mode first (docs/RELEASE.md).
+* Portal SDK calls follow the CrazyGames v3 and Poki v2 SDKs; check them in each portal's QA
+  tool before submitting.
 * Match events are persisted when the match ends, not continuously.
-* There is no audio.

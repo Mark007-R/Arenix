@@ -10,6 +10,7 @@ import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
 import { PublicRooms } from "@/components/PublicRooms";
+import { SupportLink } from "@/components/SupportLink";
 import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, roomPath, savePrefs } from "@/lib/rooms";
 
 export default function Home() {
@@ -187,6 +188,7 @@ export default function Home() {
           </p>
         </section>
         {help && <HowToPlay onClose={() => setHelp(false)} />}
+        <SupportLink className="text-sm" />
         <footer className="pb-4 text-center text-xs text-parchment/50">
           For players 13 and older · <Link className="underline" href="/privacy">Privacy</Link> ·{" "}
           <Link className="underline" href="/terms">Terms</Link> · Be kind: report abuse from the in-game player list.

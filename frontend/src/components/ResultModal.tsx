@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useHud, type HudStore } from "@/lib/store";
+import { SupportLink } from "./SupportLink";
 
 const CONFETTI_COLORS = ["#f4c542", "#86d35f", "#6aa8ee", "#d6453b", "#d8c2ff", "#fbf7ee"];
 
@@ -107,7 +108,10 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
           </tbody>
         </table>
         <Rewards store={store} />
-        <div className="mt-6 flex justify-center gap-3">{actions}</div>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {actions}
+          <SupportLink />
+        </div>
       </div>
     </div>
   );

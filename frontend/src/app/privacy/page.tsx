@@ -49,8 +49,10 @@ export default function Privacy() {
       </ul>
       <h2>Payments</h2>
       <p>
-        If real-money purchases are offered, payments are handled by the payment provider shown at checkout; we never
-        see or store your card details.
+        Diamond packs are paid on Stripe&apos;s checkout page; we never see or store your card details. We keep the
+        order reference and what you bought, to credit your account and handle refunds. Donations go through the
+        donation site linked from the game, under its own privacy policy. On game portals, ads are shown by the
+        portal under its policy.
       </p>
       <h2>Changes</h2>
       <p>We will update this page when what we collect changes, and show the date above.</p>

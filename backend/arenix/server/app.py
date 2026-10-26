@@ -22,7 +22,7 @@ from ..db.session import Database, database_from_env
 from ..economy import service as economy
 from ..engine.maps import available_maps, get_map
 from ..engine.match import ARCHETYPES
-from . import auth_api
+from . import auth_api, social_api
 from .economy_api import bearer
 from .economy_api import router as economy_router
 from .protocol import (
@@ -47,6 +47,7 @@ from .protocol import (
     SetArchetypeMsg,
     SetFillMsg,
     SetMapMsg,
+    SetPublicMsg,
     ShootMsg,
     StartMsg,
     VoteMsg,
@@ -140,9 +141,16 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         async def sweeper() -> None:
+            last_sweep = time.monotonic()
             while True:
-                await asyncio.sleep(SWEEP_INTERVAL_S)
-                await manager.sweep()
+                await asyncio.sleep(1.0)
+                try:
+                    manager.tick()  # quick-play countdowns
+                except Exception:  # one broken room must not stop the loop for everyone
+                    log.exception("room tick failed")
+                if time.monotonic() - last_sweep >= SWEEP_INTERVAL_S:
+                    last_sweep = time.monotonic()
+                    await manager.sweep()
 
         if database is not None:
             async with database.sessions.begin() as s:
@@ -168,6 +176,7 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
     app.state.login_failures = RateLimiter(auth_api.LOGIN_FAILURES_PER_EMAIL, 15 * 60.0)
     app.include_router(economy_router)
     app.include_router(auth_api.router)
+    app.include_router(social_api.router)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Any:
@@ -399,8 +408,35 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
             raise HTTPException(status_code=429, detail={"code": "rate_limited", "message": "slow down"})
         user_id, loadout = await identify(bearer(authorization))
         try:
-            room = manager.create(fill_to=body.fill_to)
+            room = manager.create(fill_to=body.fill_to, public=body.public)
             seat = room.add_seat(body.name, body.archetype, user_id, loadout)
+        except RoomError as e:
+            raise http_error(e) from None
+        return SeatGrant(code=room.code, player_id=seat.player_id, token=seat.token)
+
+    @app.get("/api/rooms/public")
+    async def public_rooms() -> dict[str, Any]:
+        return {"rooms": [r.public_info() for r in manager.public_rooms()]}
+
+    @app.post("/api/quickplay")
+    async def quick_play(
+        body: JoinRoomRequest, request: Request, authorization: str | None = Header(default=None)
+    ) -> SeatGrant:
+        """Join the busiest open quick-play lobby, or open a new one."""
+        ip = request.client.host if request.client else "unknown"
+        if not creates.allow(ip):
+            raise HTTPException(status_code=429, detail={"code": "rate_limited", "message": "slow down"})
+        user_id, loadout = await identify(bearer(authorization))
+        try:
+            room = manager.quick_play_room()
+            try:
+                seat = room.add_seat(body.name, body.archetype, user_id, loadout)
+            except RoomError as e:
+                if e.code != "already_joined":
+                    raise
+                # Already seated in the busiest lobby (another tab): open a fresh one instead.
+                room = manager.create(quick=True)
+                seat = room.add_seat(body.name, body.archetype, user_id, loadout)
         except RoomError as e:
             raise http_error(e) from None
         return SeatGrant(code=room.code, player_id=seat.player_id, token=seat.token)
@@ -487,6 +523,8 @@ def create_app(db: Database | None | object = _FROM_ENV) -> FastAPI:
                             reply = room.handle_action(seat, "break")
                         elif isinstance(msg, SetMapMsg):
                             room.set_map(seat, msg.map_id)
+                        elif isinstance(msg, SetPublicMsg):
+                            room.set_public(seat, msg.public)
                         elif isinstance(msg, ShootMsg):
                             reply = room.handle_action(seat, "shoot", target=msg.target)
                         elif isinstance(msg, SabotageMsg):

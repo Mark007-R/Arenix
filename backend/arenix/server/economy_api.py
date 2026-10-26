@@ -16,6 +16,15 @@ from ..economy.records import match_detail
 from ..economy.service import EconomyError
 from .protocol import PlayerName
 
+
+def won(result: dict[str, Any], contestant_id: str) -> bool:
+    """Team modes list every winner; classic mode names one."""
+    winners = result.get("winners")
+    if winners is not None:
+        return contestant_id in winners
+    return result.get("winner") == contestant_id
+
+
 router = APIRouter(prefix="/api")
 
 
@@ -156,7 +165,7 @@ async def my_matches(user: CurrentUser, s: Session) -> dict[str, Any]:
                 "placement": p.placement,
                 "score": p.score,
                 "alive": p.alive,
-                "won": m.result.get("winner") == p.contestant_id,
+                "won": won(m.result, p.contestant_id),
             }
             for p, m in rows
         ]

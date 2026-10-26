@@ -56,6 +56,13 @@ class SetMapMsg(_Msg):
     map_id: str = Field(min_length=1, max_length=32, pattern=r"^[a-z_]+$")
 
 
+class SetPublicMsg(_Msg):
+    """Host: list the room in the public room browser (or hide it)."""
+
+    type: Literal["set_public"]
+    public: bool
+
+
 class ShootMsg(_Msg):
     """Sheriff: fire the single bullet at a contestant in range."""
 
@@ -155,6 +162,7 @@ AnyClientMessage = (
     | AbilityMsg
     | ReportMsg
     | SetMapMsg
+    | SetPublicMsg
     | ShootMsg
     | SabotageMsg
 )
@@ -184,6 +192,7 @@ class CreateRoomRequest(_Msg):
     name: PlayerName
     archetype: Archetype
     fill_to: int = Field(default=6, ge=1, le=10)
+    public: bool = False
 
 
 class JoinRoomRequest(_Msg):

@@ -37,22 +37,93 @@ QUICK_CHAT: dict[str, str] = {
     "shrine_help": "Help me at the shrine!",
 }
 
-# Deliberately small placeholder list; a real deployment plugs in a moderation service here.
-_BLOCKLIST = ("fuck", "shit", "cunt", "nigger", "faggot", "retard")
-_CONTROL = re.compile(r"[\u0000-\u001f\u007f-\u009f​-‏ -‮⁦-⁩]")
+# ---------------------------------------------------------------- chat moderation
+# A word filter, not a moderation service: it catches the common cases (including leetspeak,
+# stretched letters and spaced-out slurs) without flagging innocent words like "Scunthorpe",
+# "cockpit" or "Dickens". Players can also mute and report each other.
+_CONTROL = re.compile(r"[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
+_LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
+# Rejected outright (slurs, telling people to harm themselves). Long, distinctive stems are also
+# matched across spaces ("n i g g e r").
+_SEVERE_SPACED = ("nigger", "nigga", "faggot", "retard", "tranny")
+_SEVERE_WORDS = frozenset({"kike", "spic", "chink", "kys", "fag", "fags", "coon", "coons", "gook"})
+_SEVERE_PHRASES = ("kill yourself", "killyourself", "go die", "hang yourself")
+# Masked with asterisks. "Safe" stems match inside words; "risky" stems only as whole words
+# (plus common endings), because they hide inside innocent words.
+_MILD_INSIDE = ("fuck", "shit", "bitch", "slut", "whore", "wank", "twat", "bastard", "asshole", "dumbass")
+_MILD_WORDS = ("dick", "cock", "cunt", "pussy", "ass", "piss", "crap", "damn", "prick", "tits")
+_ENDINGS = ("", "s", "es", "ed", "ing", "er", "ers", "y", "head", "heads", "hole", "holes")
+_LINK = re.compile(
+    r"(https?://|www\.|discord\.gg|\b[a-z0-9-]{2,}\.(com|net|org|io|gg|xyz|ru|me|ly|co|tv|link|app|dev|info)\b)",
+    re.IGNORECASE,
+)
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+_PHONE = re.compile(r"(\+?\d[\d\s().-]{7,}\d)")
 
 
-def sanitize_chat(text: str) -> str | None:
-    """Normalise free text. Returns None when it is empty or not allowed."""
+def _norm_word(word: str) -> str:
+    w = word.lower().translate(_LEET)
+    w = re.sub(r"[^a-z]", "", w)
+    return re.sub(r"(.)\1{2,}", r"\1\1", w)  # "fuuuuck" -> "fuuck"
+
+
+def _is_mild(w: str) -> bool:
+    squeezed = re.sub(r"(.)\1+", r"\1", w)  # "fuuck" -> "fuck", "asss" -> "as"
+    for cand in {w, squeezed}:
+        if any(stem in cand for stem in _MILD_INSIDE):
+            return True
+        if any(cand == stem + end for stem in _MILD_WORDS for end in _ENDINGS):
+            return True
+    return False
+
+
+def _is_severe_word(w: str) -> bool:
+    squeezed = re.sub(r"(.)\1+", r"\1", w)
+    return w in _SEVERE_WORDS or squeezed in _SEVERE_WORDS or any(s in w for s in _SEVERE_SPACED)
+
+
+def moderate_chat(text: str) -> tuple[str | None, str]:
+    """Normalise and check free text. Returns (clean text, "") or (None, reason)."""
     text = unicodedata.normalize("NFKC", text)
     text = _CONTROL.sub("", text)
     text = re.sub(r"\s+", " ", text).strip()
     if not text or len(text) > CHAT_MAX_LEN:
-        return None
-    lowered = re.sub(r"[^a-z]", "", text.lower())
-    if any(word in lowered for word in _BLOCKLIST):
-        return None
-    return text
+        return None, "message_rejected"
+    if _EMAIL.search(text) or _PHONE.search(text):
+        return None, "contact_not_allowed"
+    if _LINK.search(text):
+        return None, "links_not_allowed"
+    low = text.lower().translate(_LEET)
+    joined = re.sub(r"[^a-z]", "", low)
+    joined = re.sub(r"(.)\1+", r"\1", joined)
+    if any(re.sub(r"(.)\1+", r"\1", p.replace(" ", "")) in joined for p in _SEVERE_PHRASES) or any(
+        re.sub(r"(.)\1+", r"\1", s) in joined for s in _SEVERE_SPACED
+    ):
+        return None, "message_rejected"
+    words = text.split(" ")
+    out = []
+    for word in words:
+        w = _norm_word(word)
+        if w and _is_severe_word(w):
+            return None, "message_rejected"
+        out.append("*" * len(word) if w and _is_mild(w) else word)
+    text = " ".join(out)
+    text = re.sub(r"(.)\1{4,}", r"\1\1\1", text)  # "noooooooo" -> "nooo"
+    letters = [c for c in text if c.isalpha()]
+    if len(letters) > 12 and sum(c.isupper() for c in letters) > 0.8 * len(letters):
+        text = text[:1] + text[1:].lower()  # no shouting
+    return text, ""
+
+
+def sanitize_chat(text: str) -> str | None:
+    """Normalise free text. Returns None when it is empty or not allowed (mild swearing is masked)."""
+    return moderate_chat(text)[0]
+
+
+def name_allowed(name: str) -> bool:
+    """Display names: no slurs, swearing, links or contact details."""
+    clean, _ = moderate_chat(name)
+    return clean is not None and "*" not in clean and _norm_word(name.replace(" ", "")) not in _SEVERE_WORDS
 
 
 @dataclass

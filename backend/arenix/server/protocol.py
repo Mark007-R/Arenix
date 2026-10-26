@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+
+from ..engine.social import name_allowed
 
 MAX_MESSAGE_BYTES = 1024
 
@@ -91,6 +93,18 @@ class BreakMsg(_Msg):
     type: Literal["break_alliance"]
 
 
+REPORT_REASONS = ("harassment", "hate", "cheating", "spam", "inappropriate_name", "other")
+
+
+class ReportMsg(_Msg):
+    """Report a contestant. Evidence is collected server-side from the match log."""
+
+    type: Literal["report"]
+    target: ContestantId
+    reason: Literal["harassment", "hate", "cheating", "spam", "inappropriate_name", "other"]
+    note: str | None = Field(default=None, max_length=300)
+
+
 class KillMsg(_Msg):
     """Impostor mode: an impostor attacks someone in range. Range, role and cooldown are server-checked."""
 
@@ -120,11 +134,21 @@ AnyClientMessage = (
     | BreakMsg
     | KillMsg
     | AbilityMsg
+    | ReportMsg
 )
 ClientMessage = Annotated[AnyClientMessage, Field(discriminator="type")]
 client_message_adapter: TypeAdapter[AnyClientMessage] = TypeAdapter(ClientMessage)
 
-PlayerName = Annotated[str, Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 _\-]+$")]
+
+def _decent_name(name: str) -> str:
+    if not name_allowed(name):
+        raise ValueError("that name is not allowed")
+    return name
+
+
+PlayerName = Annotated[
+    str, Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9 _\-]+$"), AfterValidator(_decent_name)
+]
 Archetype = Annotated[str, Field(min_length=1, max_length=20, pattern=r"^[a-z]+$")]
 
 

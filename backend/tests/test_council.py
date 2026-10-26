@@ -229,9 +229,15 @@ def test_whispers_only_between_allies(emerald: GameMap) -> None:
     assert not r.events[0].visible("p2")
 
 
-@pytest.mark.parametrize("bad", ["", "   ", "x" * 141, "you shit", "f​u​c​k you"])
+@pytest.mark.parametrize("bad", ["", "   ", "x" * 141, "you n1gger", "visit www.example.com"])
 def test_chat_filter_rejects(bad: str) -> None:
     assert sanitize_chat(bad) is None
+
+
+@pytest.mark.parametrize("mild", ["you shit", "f\u200bu\u200bc\u200bk you"])
+def test_chat_filter_masks_mild_swearing(mild: str) -> None:
+    out = sanitize_chat(mild)
+    assert out is not None and "*" in out and "shit" not in out and "fuck" not in out
 
 
 def test_chat_strips_control_characters() -> None:

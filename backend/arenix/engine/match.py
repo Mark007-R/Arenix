@@ -47,6 +47,7 @@ from .social import (
     Objective,
     Proposal,
     assign_objectives,
+    moderate_chat,
     sanitize_chat,
 )
 
@@ -68,6 +69,7 @@ SHRINE_BONUS = 40
 SHRINE_WINDOW_TICKS = 10 * physics.TICK_RATE
 SHRINE_REQUIRED = 3
 VIEW_RADIUS = 13.0
+DUPLICATE_WINDOW_TICKS = 15 * physics.TICK_RATE  # the same message twice within 15 s is spam
 POSITION_SAMPLE_TICKS = 2 * physics.TICK_RATE  # replay-only position log (visible to no player)
 
 EXPLORE_SECONDS = 75
@@ -126,6 +128,7 @@ class Contestant:
     shielded_by: str | None = None
     last_interact_tick: int = -10_000
     last_chat_tick: int = -10_000
+    last_chat_text: str = ""
     last_ack_seq: int = 0
     last_queued_seq: int = 0
     input_tokens: float = INPUT_TOKEN_MAX
@@ -867,10 +870,13 @@ class Match:
                 return ActionResult(False, "unknown_phrase")  # locked packs can't be used
             body = body_or_none
         else:
-            clean = sanitize_chat(text or "")
+            clean, why = moderate_chat(text or "")
             if clean is None:
-                return ActionResult(False, "message_rejected")
+                return ActionResult(False, why)
+            if clean.lower() == c.last_chat_text and self.tick - c.last_chat_tick < DUPLICATE_WINDOW_TICKS:
+                return ActionResult(False, "duplicate_message")
             body = clean
+            c.last_chat_text = clean.lower()
         visible: frozenset[str] | None = None
         if ghost:
             to = None

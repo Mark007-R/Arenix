@@ -5,6 +5,7 @@ import type { GameClient } from "@/game/net/client";
 import { AllianceOffers } from "./AllianceOffers";
 import { ChatPanel } from "./ChatPanel";
 import { BeaconProgress, KillButton, RoleCard, RoleIntro } from "./ImpostorHud";
+import { SafetyMenu } from "./SafetyMenu";
 import { MeetingOverlay } from "./MeetingOverlay";
 import { Minimap } from "./Minimap";
 import { Portrait } from "./Portrait";
@@ -96,7 +97,7 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
             <button
               className={`flex w-full items-center gap-2 text-left text-sm ${c.id === you ? "text-[#ffe066]" : ""} ${c.alive ? "" : "line-through opacity-50"}`}
               onClick={() => setOpen(open === c.id ? null : c.id)}
-              disabled={c.id === you || !c.alive || !meAlive}
+              disabled={c.id === you}
               aria-expanded={open === c.id}
             >
               <Portrait archetype={c.archetype} scale={1} className="h-5 w-4" cosmetics={c.cosmetics} />
@@ -112,7 +113,7 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
             </button>
             {open === c.id && (
               <div className="my-1 flex flex-wrap gap-1 pl-6">
-                {c.id === ally ? (
+                {!c.alive || !meAlive ? null : c.id === ally ? (
                   <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={() => { client.breakAlliance(); setOpen(null); }}>
                     Break alliance
                   </button>
@@ -125,7 +126,8 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
                     Propose alliance
                   </button>
                 )}
-                {canShield && (
+                <SafetyMenu client={client} store={store} id={c.id} onDone={() => setOpen(null)} />
+                {canShield && c.alive && meAlive && (
                   <button className="btn btn-ghost px-2 py-0.5 text-xs" title="Medic: block the next attack on them (once per match)"
                     onClick={() => { client.ability(c.id); setOpen(null); }}>
                     🛡️ Shield

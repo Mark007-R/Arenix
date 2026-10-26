@@ -77,3 +77,52 @@ export async function ensureAccount(displayName: string): Promise<Account | null
 export function newIdempotencyKey(): string {
   return `${Date.now().toString(36)}-${crypto.randomUUID()}`;
 }
+
+interface AccountResponse extends Account {
+  email: string | null;
+}
+
+/** Create an account. If this browser has a guest account, it is upgraded in place (progress kept). */
+export async function register(email: string, password: string, displayName: string, over13: boolean): Promise<Account> {
+  const a = await api<AccountResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, display_name: displayName, over_13: over13 }),
+  });
+  saveAccount({ token: a.token, user_id: a.user_id, display_name: a.display_name });
+  return a;
+}
+
+export async function login(email: string, password: string): Promise<Account> {
+  const a = await api<AccountResponse>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  saveAccount({ token: a.token, user_id: a.user_id, display_name: a.display_name });
+  return a;
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await api("/api/auth/logout", { method: "POST" });
+  } finally {
+    saveAccount(null);
+  }
+}
+
+export async function whoami(): Promise<{ user_id: number; display_name: string; email: string | null; is_guest: boolean } | null> {
+  if (!loadAccount()) return null;
+  try {
+    return await api("/api/auth/me");
+  } catch {
+    return null;
+  }
+}
+
+export async function changePassword(current: string, next: string): Promise<void> {
+  await api("/api/auth/password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: current, new_password: next }),
+  });
+}
+
+export async function deleteAccount(password: string | null): Promise<void> {
+  await api("/api/players/me", { method: "DELETE", body: JSON.stringify({ confirm: true, password }) });
+  saveAccount(null);
+}

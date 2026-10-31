@@ -15,8 +15,6 @@ and try to find out who among them is the **impostor** — while the impostor qu
 > [docs/MILESTONES.md](docs/MILESTONES.md) for exact status and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Mark007-R/Arenix)
-
 ## Screenshots
 
 | | |

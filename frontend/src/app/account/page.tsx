@@ -12,7 +12,7 @@ function Field({ label, ...props }: { label: string } & React.InputHTMLAttribute
       <span className="mb-1 block text-xs uppercase tracking-wider text-gold">{label}</span>
       <input
         {...props}
-        className="w-full border-[3px] border-ink bg-[#120c1c] px-3 py-2 outline-none focus:border-sky"
+        className="w-full border-[1.5px] border-ink bg-well px-3 py-2 outline-none focus:border-sky"
       />
     </label>
   );
@@ -153,7 +153,7 @@ export default function AccountPage() {
                   <Field label="Confirm password" type="password" autoComplete="new-password" required value={confirm}
                     onChange={(e) => setConfirm(e.target.value)} />
                   <label className="flex items-start gap-2 text-sm">
-                    <input type="checkbox" checked={over13} onChange={(e) => setOver13(e.target.checked)} className="mt-1 accent-[#f4c542]" />
+                    <input type="checkbox" checked={over13} onChange={(e) => setOver13(e.target.checked)} className="mt-1 accent-[#4b5734]" />
                     <span>
                       I am 13 or older and agree to the <Link className="underline" href="/terms">Terms</Link> and{" "}
                       <Link className="underline" href="/privacy">Privacy Policy</Link>.

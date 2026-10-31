@@ -49,7 +49,7 @@ function RateBars({ title, metric, results }: { title: string; metric: string; r
           return (
             <li key={cond} className="grid grid-cols-[120px_1fr_52px] items-center gap-2 text-xs" title={`${cond}: ${fmt(v, "pct")}`}>
               <span className="truncate text-parchment/80">{cond}</span>
-              <span className="relative h-3 bg-[#120c1c]" aria-hidden>
+              <span className="relative h-3 bg-well" aria-hidden>
                 {v !== null && (
                   <span className="absolute inset-y-0 left-0 rounded-r-[4px]" style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%`, background: BAR }} />
                 )}
@@ -128,7 +128,7 @@ export default function Experiments() {
             ))}
           </div>
           <div className="mt-3 flex items-center gap-3 text-sm">
-            <label>Seeds <input value={seeds} onChange={(e) => setSeeds(e.target.value)} className="w-20 border-2 border-ink bg-[#120c1c] px-1" aria-label="Seeds" /></label>
+            <label>Seeds <input value={seeds} onChange={(e) => setSeeds(e.target.value)} className="w-20 border-2 border-ink bg-well px-1" aria-label="Seeds" /></label>
             <button className="btn text-sm" onClick={start} disabled={current?.status === "running" || chosen.size === 0}>Run</button>
             {current?.status === "running" && <span className="text-gold">Running… {current.progress}/{current.total} matches</span>}
           </div>

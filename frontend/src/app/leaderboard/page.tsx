@@ -71,7 +71,7 @@ export default function LeaderboardPage() {
               </thead>
               <tbody>
                 {data.entries.map((e) => (
-                  <tr key={e.user_id} className={`pop-in ${e.rank <= 3 ? "text-[#ffe066]" : ""}`}>
+                  <tr key={e.user_id} className={`pop-in ${e.rank <= 3 ? "text-[#a3591c]" : ""}`}>
                     <td className="py-1 pr-2 tabular-nums">{MEDAL[e.rank - 1] ?? e.rank}</td>
                     <td><Link className="underline-offset-2 hover:underline" href={`/profile?id=${e.user_id}`}>{e.display_name}</Link></td>
                     <td className="text-right tabular-nums">{e.level}</td>

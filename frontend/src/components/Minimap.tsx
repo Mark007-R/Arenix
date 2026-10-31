@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { minimapColors } from "@/game/art/tiles";
+import { groundColors as minimapColors } from "@/game/iso/palette3d";
 import type { HudStore } from "@/lib/store";
 import { useHud } from "@/lib/store";
 
@@ -28,7 +28,7 @@ export function Minimap({ store }: { store: HudStore }) {
     });
     for (const o of map.objects) {
       if (o.kind === "house") {
-        ctx.fillStyle = "#c8483c";
+        ctx.fillStyle = "#9c7468";
         ctx.fillRect(o.x * SCALE, o.y * SCALE, o.w * SCALE, o.h * SCALE);
       }
     }
@@ -43,34 +43,34 @@ export function Minimap({ store }: { store: HudStore }) {
     for (const o of map.objects) {
       if (o.kind !== "resource_node") continue;
       const left = snapshot.nodes[o.id] ?? 0;
-      ctx.fillStyle = left > 0 ? (o.props.resource === "wood" ? "#c58d55" : "#e5e8ee") : "#4b3a6b";
+      ctx.fillStyle = left > 0 ? (o.props.resource === "wood" ? "#8c6a52" : "#b3ada0") : "#d6cdb8";
       ctx.fillRect(o.x * SCALE, o.y * SCALE, SCALE, SCALE);
     }
     for (const o of map.objects) {
       if (o.kind !== "beacon") continue;
       const lit = snapshot.beacons?.[o.id];
-      ctx.fillStyle = "#1f1630";
+      ctx.fillStyle = "#2d2a25";
       ctx.fillRect(o.x * SCALE - 2, o.y * SCALE - 2, SCALE + 4, SCALE + 4);
-      ctx.fillStyle = lit ? "#f08a3c" : "#6e7482";
+      ctx.fillStyle = lit ? "#e9894a" : "#8f897d";
       ctx.fillRect(o.x * SCALE - 1, o.y * SCALE - 1, SCALE + 2, SCALE + 2);
     }
     for (const b of snapshot.bodies ?? []) {
-      ctx.fillStyle = "#fbf7ee";
+      ctx.fillStyle = "#b23b2a";
       ctx.fillRect(b.x * SCALE - 2, b.y * SCALE - 1, 4, 2);
       ctx.fillRect(b.x * SCALE - 1, b.y * SCALE - 2, 2, 4);
     }
     const tower = map.objects.find((o) => o.id === snapshot.mission.target_id);
     if (tower) {
-      ctx.fillStyle = snapshot.mission.status === "completed" ? "#86d35f" : "#f4c542";
+      ctx.fillStyle = snapshot.mission.status === "completed" ? "#4e7a34" : "#b4512f";
       ctx.fillRect(tower.x * SCALE - 1, tower.y * SCALE - 1, tower.w * SCALE + 2, tower.h * SCALE + 2);
     }
     const fellow = new Set(snapshot.me?.fellow_impostors ?? []);
     for (const c of snapshot.contestants) {
       if (!c.alive && c.id !== you) continue;
       const pos = c.id === you && me ? me : c;
-      ctx.fillStyle = "#1f1630";
+      ctx.fillStyle = "#2d2a25";
       ctx.fillRect(pos.x * SCALE - 2, pos.y * SCALE - 2, 4, 4);
-      ctx.fillStyle = c.id === you ? "#ffe066" : fellow.has(c.id) ? "#ff6b5e" : "#d9f0ff";
+      ctx.fillStyle = c.id === you ? "#c99a3a" : fellow.has(c.id) ? "#b23b2a" : "#f7f2e6";
       ctx.fillRect(pos.x * SCALE - 1, pos.y * SCALE - 1, 2, 2);
     }
   }, [base, map, snapshot, me, you]);

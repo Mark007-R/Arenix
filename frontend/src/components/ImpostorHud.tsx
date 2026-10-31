@@ -19,22 +19,22 @@ type RoleId = "islander" | "impostor" | "sheriff" | "jester";
 /** Name, colours and how-to-win text for each role. */
 const ROLE_INFO: Record<RoleId, { name: string; icon: string; text: string; border: string; bg: string; color: string; glow: string; intro: string }> = {
   islander: {
-    name: "Islander", icon: "🏝️", border: "border-leaf/70", bg: "bg-[#173018]", color: "text-leaf", glow: "rgba(134,211,95,.35)",
+    name: "Islander", icon: "🏝️", border: "border-leaf/70", bg: "bg-[#e1e8d6]", color: "text-leaf", glow: "rgba(134,211,95,.35)",
     text: "Finish the tower and light every beacon, report bodies, and vote out the impostor.",
     intro: "Repair the Watchtower and light all 5 beacons, report any body you find, and vote out every impostor.",
   },
   impostor: {
-    name: "Impostor", icon: "🗡️", border: "border-ember", bg: "bg-[#3a1418]", color: "text-ember", glow: "rgba(214,69,59,.45)",
+    name: "Impostor", icon: "🗡️", border: "border-ember", bg: "bg-[#f3dcd4]", color: "text-ember", glow: "rgba(214,69,59,.45)",
     text: "Eliminate islanders (K) when nobody is watching. Fake tasks to blend in, and sabotage to sow chaos.",
     intro: "Eliminate islanders when nobody is watching (press K next to them). Sabotage with fog or by dousing beacons. Lie in meetings. Win when you equal them in number — or when time runs out.",
   },
   sheriff: {
-    name: "Sheriff", icon: "⭐", border: "border-gold", bg: "bg-[#33290f]", color: "text-gold", glow: "rgba(244,197,66,.4)",
+    name: "Sheriff", icon: "⭐", border: "border-gold", bg: "bg-[#f1e6c8]", color: "text-gold", glow: "rgba(244,197,66,.4)",
     text: "You're an islander with one bullet (K). Shoot an impostor and they're gone — shoot an innocent and you die instead.",
     intro: "You're on the islanders' side, with one bullet. Press K next to someone to shoot: an impostor dies, but if you're wrong, you die instead. Choose carefully.",
   },
   jester: {
-    name: "Jester", icon: "🃏", border: "border-[#c77dff]", bg: "bg-[#2a1636]", color: "text-[#d6a6ff]", glow: "rgba(199,125,255,.4)",
+    name: "Jester", icon: "🃏", border: "border-[#7d5aa6]", bg: "bg-[#e8dff0]", color: "text-[#6b4f8f]", glow: "rgba(199,125,255,.4)",
     text: "You win alone if the council votes you out. Act suspicious — but not so much they see through it.",
     intro: "You're on nobody's side. Get yourself voted out by the council and you win alone. Fake tasks, act a little shifty, and let them come for you.",
   },
@@ -56,7 +56,7 @@ export function RoleCard({ store, client }: { store: HudStore; client: GameClien
   if (!ghost && impostor) status = (me.kill_cooldown ?? 0) > 0 ? `knife in ${Math.ceil(me.kill_cooldown ?? 0)}s` : "knife ready";
   if (!ghost && me.role === "sheriff") status = me.bullet_used ? "bullet spent" : "1 bullet";
   return (
-    <div className={`mb-2 border-[3px] p-2 ${info.border} ${info.bg}`}>
+    <div className={`mb-2 border-[1.5px] p-2 ${info.border} ${info.bg}`}>
       <div className="flex items-center justify-between">
         <span className={`font-bold uppercase tracking-wider ${info.color}`}>
           {ghost ? "👻 " : `${info.icon} `}{info.name}
@@ -99,7 +99,7 @@ export function BeaconProgress({ store }: { store: HudStore }) {
       </div>
       <div className="flex gap-1" aria-label={`${lit} of ${ids.length} beacons lit`}>
         {ids.map((b) => (
-          <span key={b} className={`h-2 flex-1 border-2 border-ink ${beacons[b] ? "bg-[#f08a3c]" : "bg-[#120c1c]"}`} />
+          <span key={b} className={`h-2 flex-1 border-2 border-ink ${beacons[b] ? "bg-[#f08a3c]" : "bg-well"}`} />
         ))}
       </div>
     </div>
@@ -120,7 +120,7 @@ export function KillButton({ store, scene }: { store: HudStore; scene: () => Wor
   const verb = sheriff ? "Shoot" : "Eliminate";
   return (
     <button
-      className={`pointer-events-auto border-[3px] border-ink px-3 py-2 font-bold text-parchment disabled:opacity-50 ${
+      className={`pointer-events-auto border-[1.5px] border-ink px-3 py-2 font-bold text-parchment disabled:opacity-50 ${
         sheriff ? "bg-[#8a6a14]" : "bg-[#9a3029]"
       } ${target && cd <= 0 ? "pulse-glow" : ""}`}
       disabled={!target || cd > 0}
@@ -143,7 +143,7 @@ export function SabotageButtons({ store, client }: { store: HudStore; client: Ga
   if (me?.role !== "impostor" || me.alive === false || phase !== "explore") return null;
   const cd = Math.ceil(me.sabotage_cooldown ?? 0);
   const anyLit = Object.values(beacons ?? {}).some(Boolean);
-  const btn = "pointer-events-auto border-[3px] border-ink bg-[#3b2a55] px-2 py-1 text-sm font-bold text-parchment disabled:opacity-50";
+  const btn = "pointer-events-auto border-[1.5px] border-ink bg-[#e6dfcd] px-2 py-1 text-sm font-bold text-parchment disabled:opacity-50";
   return (
     <div className="flex gap-2" role="group" aria-label="Sabotage">
       <button className={btn} disabled={cd > 0} onClick={() => client.sabotage("fog")} title="Islanders see much less for a while">
@@ -192,10 +192,10 @@ export function RoleIntro({ store, client }: { store: HudStore; client: GameClie
   const impostor = me.role === "impostor";
   const info = roleInfo(me.role);
   return (
-    <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-[#120c1c]/75 p-4"
+    <div className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-well/75 p-4"
       onClick={() => setHidden(intro)} role="dialog" aria-label="Your role">
       <div className={`panel pop-in max-w-md p-6 text-center ${info.border}`}
-        style={{ boxShadow: `0 0 40px ${info.glow}, 0 4px 0 #120c1c` }}>
+        style={{ boxShadow: `0 0 40px ${info.glow}, 0 2px 0 #2d2a25` }}>
         <div className="text-sm uppercase tracking-[0.3em] text-parchment/70">You are</div>
         <div className={`text-5xl font-bold uppercase ${info.color}`}>{info.icon} {info.name}</div>
         <p className="mt-3 text-parchment/85">{info.intro}</p>

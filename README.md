@@ -1,8 +1,8 @@
 # ARENIX
 
-A real-time 2D multiplayer fantasy game in pixel art. Human players and autonomous AI contestants
-explore an island, do tasks, argue in council meetings and try to find out who among them is the
-**impostor** — while the impostor quietly picks them off.
+A real-time multiplayer social-deduction game in a clean isometric 3D "drafting table" style.
+Human players and autonomous AI contestants explore an island, do tasks, argue in council meetings
+and try to find out who among them is the **impostor** — while the impostor quietly picks them off.
 
 > **Status: release-ready.** Impostor mode with secret roles (islander, impostor, sheriff,
 > jester), sabotage, random per-match skills, body reports, ghosts and council meetings with a
@@ -35,7 +35,7 @@ explore an island, do tasks, argue in council meetings and try to find out who a
 * **Practice** against 4–7 AI contestants, or **create a room** and share its 6-character code
   or invite link (AI fills the field up to at least 5). Friends join, everyone readies up, and the
   host starts. Reloading or a dropped connection puts you back into the same contestant.
-* Pick one of 8 original pixel-art contestants (cosmetic only, so everyone plays the same).
+* Pick one of 8 original low-poly contestants (cosmetic only, so everyone plays the same).
 * Explore **Moonfall Isle** (96×72 tiles): village plaza with the Council Bell, Whispering
   Forest and Moon Lake, the Watchtower, a river, the walled Old Mine, Misty Marsh, Lighthouse
   Point, the Castle Arena, an old quarry, fishing docks, an apple orchard, shrine ruins and a
@@ -181,7 +181,7 @@ If you change `backend/arenix/engine/physics.py`, regenerate the cross-language 
 ```
 backend/arenix/engine   pure, deterministic game engine (map, physics, A*, missions, bots, events)
 backend/arenix/server   FastAPI app, validated WebSocket protocol, practice session loop
-frontend/src/game       Phaser scene, procedural pixel art, network client
+frontend/src/game       Three.js isometric world, low-poly figures, network client
 frontend/src/shared     TS physics port, prediction, interpolation, protocol types
 frontend/src/components React HUD, minimap, results, touch controls
 shared/test-vectors     golden movement trajectories shared by both test suites

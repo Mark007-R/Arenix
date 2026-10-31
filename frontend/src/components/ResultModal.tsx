@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useHud, type HudStore } from "@/lib/store";
 import { SupportLink } from "./SupportLink";
 
-const CONFETTI_COLORS = ["#f4c542", "#86d35f", "#6aa8ee", "#d6453b", "#d8c2ff", "#fbf7ee"];
+const CONFETTI_COLORS = ["#b4512f", "#4e7a34", "#3f6f8f", "#c99a3a", "#7d5aa6", "#2d2a25"];
 
 /** Falling pixel confetti (skipped for reduced motion by the global CSS rule). */
 function Confetti() {
@@ -36,14 +36,14 @@ const ROLE_STYLE: Record<string, [string, string]> = {
   islander: ["Islander", "text-leaf"],
   impostor: ["Impostor", "font-bold text-ember"],
   sheriff: ["⭐ Sheriff", "text-gold"],
-  jester: ["🃏 Jester", "text-[#d6a6ff]"],
+  jester: ["🃏 Jester", "text-[#6b4f8f]"],
 };
 
 function Rewards({ store }: { store: HudStore }) {
   const rewards = useHud(store, (s) => s.rewards);
   if (!rewards) return null;
   return (
-    <div className="mt-4 border-[3px] border-gold bg-[#120c1c] p-3 text-sm" role="status">
+    <div className="mt-4 border-[1.5px] border-gold bg-well p-3 text-sm" role="status">
       <div className="font-bold text-gold">+{rewards.game_points} Game Points · Level {rewards.level}</div>
       {rewards.achievements.map((a) => (
         <div key={a.id} className="text-leaf">🏆 {a.name} (+{a.game_points} GP{a.diamonds ? `, +${a.diamonds} 💎` : ""})</div>
@@ -60,12 +60,12 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
   const jesterWon = result.winning_team === "jester";
   const youWon = !!you && (result.winners ?? []).includes(you);
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-well/70 p-4">
       {youWon && <Confetti />}
       <div className="panel pop-in max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
         <h2
           id="result-title"
-          className={`text-3xl font-bold ${jesterWon ? "text-[#d6a6ff]" : impostorsWon ? "text-ember" : "text-leaf"}`}
+          className={`text-3xl font-bold ${jesterWon ? "text-[#6b4f8f]" : impostorsWon ? "text-ember" : "text-leaf"}`}
         >
           {jesterWon ? "🃏 The jester wins!" : impostorsWon ? "The impostors win!" : "The islanders win!"}
         </h2>
@@ -85,7 +85,7 @@ function TeamResult({ store, actions }: { store: HudStore; actions: ReactNode })
           </thead>
           <tbody>
             {result.standings.map((s) => (
-              <tr key={s.id} className={`${s.id === you ? "text-[#ffe066]" : ""} ${s.alive ? "" : "opacity-60"} align-top`}>
+              <tr key={s.id} className={`${s.id === you ? "text-[#a3591c]" : ""} ${s.alive ? "" : "opacity-60"} align-top`}>
                 <td className="py-1">
                   {s.won && "🏆 "}
                   {s.name}
@@ -126,7 +126,7 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
   const winner = result.standings.find((s) => s.id === result.winner);
   const youWon = result.winner === you;
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#120c1c]/70 p-4">
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-well/70 p-4">
       <div className="panel pop-in max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-6 text-center" role="dialog" aria-labelledby="result-title">
         <h2 id="result-title" className={`text-3xl font-bold ${youWon ? "text-gold" : "text-leaf"}`}>
           {youWon ? "You won the island!" : `${winner?.name ?? "Nobody"} wins!`}
@@ -147,7 +147,7 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
           </thead>
           <tbody>
             {result.standings.map((s, i) => (
-              <tr key={s.id} className={`${s.id === you ? "text-[#ffe066]" : ""} ${s.alive ? "" : "opacity-60"} align-top`}>
+              <tr key={s.id} className={`${s.id === you ? "text-[#a3591c]" : ""} ${s.alive ? "" : "opacity-60"} align-top`}>
                 <td className="py-1">{i + 1}</td>
                 <td>
                   {s.name}
@@ -177,7 +177,7 @@ export function ResultModal({ store, actions }: { store: HudStore; actions: Reac
           </tbody>
         </table>
         {rewards && (
-          <div className="mt-4 border-[3px] border-gold bg-[#120c1c] p-3 text-sm" role="status">
+          <div className="mt-4 border-[1.5px] border-gold bg-well p-3 text-sm" role="status">
             <div className="font-bold text-gold">
               +{rewards.game_points} Game Points · Level {rewards.level}
             </div>

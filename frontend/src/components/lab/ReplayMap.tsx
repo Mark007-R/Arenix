@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl } from "@/game/net/client";
-import { minimapColors } from "@/game/art/tiles";
+import { groundColors as minimapColors } from "@/game/iso/palette3d";
 import type { MapDTO } from "@/shared/protocol";
 
 const S = 4;
@@ -41,5 +41,5 @@ export function ReplayMap({ mapId, positions, highlight }: { mapId: string; posi
     }
   }, [base, positions, highlight]);
   if (!map) return <div className="text-sm text-parchment/60">Loading map…</div>;
-  return <canvas ref={ref} width={map.width * S} height={map.height * S} className="block h-auto w-full border-[3px] border-ink" aria-label="Replay map" />;
+  return <canvas ref={ref} width={map.width * S} height={map.height * S} className="block h-auto w-full border-[1.5px] border-ink" aria-label="Replay map" />;
 }

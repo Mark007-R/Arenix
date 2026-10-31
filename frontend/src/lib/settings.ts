@@ -7,10 +7,11 @@ export interface Settings {
   sfx: number; // 0..1
   bubbles: boolean; // chat bubbles above heads
   hideChat: boolean; // hide all chat from other players (safety)
+  graphics: "auto" | "high" | "low"; // auto drops shadows and resolution when frames are slow
 }
 
 const KEY = "arenix.settings";
-const DEFAULTS: Settings = { music: 0.5, sfx: 0.8, bubbles: true, hideChat: false };
+const DEFAULTS: Settings = { music: 0.5, sfx: 0.8, bubbles: true, hideChat: false, graphics: "auto" };
 const listeners = new Set<(s: Settings) => void>();
 
 export function loadSettings(): Settings {

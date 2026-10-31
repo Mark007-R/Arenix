@@ -56,7 +56,7 @@ function MissionPanel({ store, client }: { store: HudStore; client: GameClient }
         {snap.shrine.status === "activated" ? (
           <span className="text-leaf">awakened ✔</span>
         ) : snap.shrine.status === "channeling" ? (
-          <span className="text-[#d8c2ff]">ritual {snap.shrine.count}/{snap.shrine.required} · {Math.ceil(snap.shrine.window_left)}s left!</span>
+          <span className="text-[#6b4f8f]">ritual {snap.shrine.count}/{snap.shrine.required} · {Math.ceil(snap.shrine.window_left)}s left!</span>
         ) : (
           <span className="text-parchment/60">dormant (needs {snap.shrine.required} together)</span>
         )}
@@ -97,7 +97,7 @@ function Scoreboard({ store, client }: { store: HudStore; client: GameClient }) 
         {rows.map((c) => (
           <li key={c.id}>
             <button
-              className={`flex w-full items-center gap-2 text-left text-sm ${c.id === you ? "text-[#ffe066]" : ""} ${c.alive ? "" : "line-through opacity-50"}`}
+              className={`flex w-full items-center gap-2 text-left text-sm ${c.id === you ? "text-[#a3591c]" : ""} ${c.alive ? "" : "line-through opacity-50"}`}
               onClick={() => setOpen(open === c.id ? null : c.id)}
               disabled={c.id === you}
               aria-expanded={open === c.id}
@@ -156,7 +156,7 @@ function Pack({ store }: { store: HudStore }) {
     <div className="panel flex items-center gap-2 px-3 py-2" aria-label="Your pack">
       <span className="mr-1 text-xs uppercase tracking-wider text-gold">Pack</span>
       {Array.from({ length: slots }, (_, i) => i).map((i) => (
-        <div key={i} className="flex h-8 w-8 items-center justify-center border-[3px] border-ink bg-[#120c1c] text-[10px] capitalize"
+        <div key={i} className="flex h-8 w-8 items-center justify-center border-[1.5px] border-ink bg-well text-[10px] capitalize"
           title={units[i] ?? "empty"}>
           {units[i] && <span className="block h-4 w-4" style={{ background: RES_COLOR[units[i]!], boxShadow: "inset -2px -2px 0 rgba(0,0,0,.3)" }} />}
         </div>
@@ -168,9 +168,9 @@ function Pack({ store }: { store: HudStore }) {
 
 function Feed({ store }: { store: HudStore }) {
   const feed = useHud(store, (s) => s.feed);
-  const tone = { info: "text-parchment/80", good: "text-leaf", bad: "text-ember", mine: "text-[#ffe066]" } as const;
+  const tone = { info: "text-parchment/80", good: "text-leaf", bad: "text-ember", mine: "text-[#a3591c]" } as const;
   return (
-    <ul className="w-80 max-w-[90vw] space-y-0.5 text-sm drop-shadow-[0_2px_0_#120c1c]" aria-live="polite">
+    <ul className="w-80 max-w-[90vw] space-y-0.5 text-sm drop-shadow-[0_1px_0_#f7f2e6]" aria-live="polite">
       {feed.map((f) => <li key={f.id} className={tone[f.tone]}>{f.text}</li>)}
     </ul>
   );

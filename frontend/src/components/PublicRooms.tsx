@@ -44,7 +44,7 @@ export function PublicRooms({ onJoin }: { onJoin: (code: string) => void }) {
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
           {rooms.map((r) => (
-            <li key={r.code} className="pop-in flex items-center justify-between gap-2 border-[3px] border-ink bg-[#120c1c] p-2">
+            <li key={r.code} className="pop-in flex items-center justify-between gap-2 border-[1.5px] border-ink bg-well p-2">
               <div className="min-w-0 text-sm">
                 <div className="truncate font-bold">
                   {r.quick ? "⚡ Quick play" : `${r.host ?? "Someone"}'s room`}

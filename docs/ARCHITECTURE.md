@@ -42,11 +42,11 @@ backend/                Python 3.12+, FastAPI, Pydantic (managed with uv)
     app.py              FastAPI app: REST endpoints, /ws/rooms/{code}, /ws/practice
   scripts/gen_movement_vectors.py   golden physics vectors for the client
   tests/                pytest (engine, bots, server, parity, property-based physics)
-frontend/               Next.js 16 + React 19 + TypeScript + Tailwind 4 + Phaser 3
+frontend/               Next.js 16 + React 19 + TypeScript + Tailwind 4 + Three.js
   src/shared/           physics.ts (exact port), prediction.ts, interpolation.ts, protocol.ts
-  src/game/art/         procedural pixel art (characters, tiles, objects): original assets
+  src/game/iso/         3D look: palette, jointed low-poly figures, island builder, portraits
   src/game/net/client.ts   socket + prediction + interpolation + HUD store updates
-  src/game/scenes/WorldScene.ts   Phaser rendering, input, prompts, markers
+  src/game/scenes/WorldScene.ts   Three.js isometric rendering, input, prompts, markers, overlays
   src/components/       React HUD, minimap, lobby, results, touch controls
   src/app/              routes: / (menu), /play (practice), /room/[code] (join form, lobby, match)
   e2e/                  browser scripts: smoke.cjs (practice), multiplayer.cjs (two players)
@@ -242,13 +242,32 @@ will need sticky routing by room code, or Redis-backed room ownership.
 
 ## Visual style
 
-All art is original and generated in code at load time (`frontend/src/game/art`). There are no
-external sprite files. One palette (`palette.ts`) and an automatic one-pixel outline pass keep
-proportions and outlines consistent. The terrain is rasterised once into a single canvas
-texture, and objects and characters are depth-sorted by their feet. Animation is deliberately
-light: a 4-frame walk cycle, a 1 px idle bob, floating "+1" text, and a bouncing mission marker.
-With reduced motion (OS preference or the in-game toggle), the bob, bounce, tweens and camera
-shake are all turned off.
+A clean "drafting table" look: an isometric 3D view (Three.js, orthographic camera at 35°/45°)
+of a cream, grid-lined island with muted low-poly geometry and thin ink outlines, and a paper-and-ink
+UI with monospace labels. All of it is generated in code (`frontend/src/game/iso`); there are no
+model or texture files.
+
+* **World.** The ground is painted once into one canvas texture (tile colours plus a drafting
+  grid). Walls, rocks, ruins and trees are `InstancedMesh` boxes with a single merged outline
+  mesh, so the whole island is a handful of draw calls. Houses, the watchtower, beacons, the bell,
+  the shrine and resource piles are small block models. A sun light follows the camera and casts
+  soft shadows.
+* **See-through hole.** Walls and trees between the camera and your character are dithered away
+  in a circle around you (a small shader patch shared by all world materials), so you never lose
+  sight of yourself indoors or in forests.
+* **Contestants.** Jointed block figures (hips, knees, shoulders, elbows, head) per archetype,
+  recoloured by cosmetic skins, with hats as headgear. Walking swings legs and arms with a body
+  bob; idle breathes and looks around; impostors and the sheriff raise a two-handed ready pose
+  when a target is in reach; the dead lie on their back; ghosts are translucent and float. Each
+  figure turns smoothly toward where it is moving and has a view cone drawn on the floor.
+* **Overlays.** Name tags, speech bubbles (speaker name + bold line), interaction prompts and
+  floating "+1" text are HTML elements projected from 3D positions every frame.
+* **Input.** Movement is screen-relative (W walks up the screen) and converted to map directions
+  before it goes into the same fixed-step prediction as before; the server is unchanged.
+* **Quality.** Settings → Graphics: Auto, High or Low. Auto drops shadows and resolution after a
+  few seconds of slow frames. Reduced motion turns off bobbing, spinning and float animations.
+* **Menus.** Character pictures in menus and lists are the same 3D figures, rendered once to
+  images and cached.
 
 ## Persistence (planned)
 

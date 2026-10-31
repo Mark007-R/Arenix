@@ -19,6 +19,11 @@ const fail = (msg) => {
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  // Headless browsers render 3D in software: use low graphics and skip the first-match guide.
+  await page.addInitScript(() => {
+    localStorage.setItem("arenix.settings", JSON.stringify({ graphics: "low" }));
+    localStorage.setItem("arenix.tutorial.seen", "1");
+  });
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
@@ -70,7 +75,8 @@ const fail = (msg) => {
           }
           if (d < best - 0.05) { best = d; lastProgress = performance.now(); }
           if (performance.now() - lastProgress > 3000) { sc.touch = { ...sc.touch, dx: 0, dy: 0 }; return res({ ok: false, reason: "stuck", at: [p.x, p.y] }); }
-          const k = Math.min(1, d * 3) / (d || 1);
+          // Gentle gain: at low frame rates several game steps run per animation frame.
+          const k = Math.min(1, d) / (d || 1);
           sc.touch = { ...sc.touch, dx: Math.max(-1, Math.min(1, dx * k)), dy: Math.max(-1, Math.min(1, dy * k)) };
           requestAnimationFrame(tick);
         };
@@ -149,6 +155,7 @@ const fail = (msg) => {
   const st = await status();
   let reveal = null;
   if (st.status === "running" && st.alive) {
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/meeting.png` });
     await page.getByRole("button", { name: "Skip vote" }).click();
     await page.waitForFunction(() => window.__ARENIX__.client.snapshot?.me?.vote === "skip", null, { timeout: 5000 });
     await page.waitForFunction(() => window.__ARENIX__.store.get().lastVote !== null, null, { timeout: 40000 });

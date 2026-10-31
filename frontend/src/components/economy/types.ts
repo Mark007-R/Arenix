@@ -1,4 +1,4 @@
-import type { Cosmetics } from "@/game/art/characters";
+import type { Cosmetics } from "@/game/archetypes";
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
@@ -39,11 +39,11 @@ export interface Profile {
 }
 
 export const RARITY_COLOR: Record<Rarity, string> = {
-  common: "#c4c9d2",
-  uncommon: "#86d35f",
-  rare: "#6aa8ee",
-  epic: "#d8a6ff",
-  legendary: "#f4c542",
+  common: "#7d776c",
+  uncommon: "#4e7a34",
+  rare: "#2f6a8c",
+  epic: "#7d5aa6",
+  legendary: "#b07a14",
 };
 
 export const CURRENCY_LABEL = { game_points: "Game Points", diamonds: "Diamonds" } as const;

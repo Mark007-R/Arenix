@@ -1,18 +1,19 @@
-import * as Phaser from "phaser";
 import { WorldScene, type SceneDeps } from "./scenes/WorldScene";
 
-export function createGame(parent: HTMLElement, deps: SceneDeps): { game: Phaser.Game; scene: () => WorldScene | null } {
-  const game = new Phaser.Game({
-    type: Phaser.AUTO,
-    parent,
-    pixelArt: true,
-    roundPixels: true,
-    backgroundColor: "#2f68b8",
-    scale: { mode: Phaser.Scale.RESIZE, width: parent.clientWidth, height: parent.clientHeight },
-    fps: { target: 60 },
-    banner: false,
-    audio: { noAudio: true },
-  });
-  game.scene.add("world", WorldScene, true, deps);
-  return { game, scene: () => (game.scene.getScene("world") as WorldScene | null) ?? null };
+/** A handle shaped like the old Phaser game, so the stage and the e2e scripts keep working. */
+export interface GameHandle {
+  destroy(removeCanvas?: boolean): void;
+  scene: { getScene(key: string): WorldScene | null };
+}
+
+export function createGame(parent: HTMLElement, deps: SceneDeps): { game: GameHandle; scene: () => WorldScene | null } {
+  let world: WorldScene | null = new WorldScene(parent, deps);
+  const game: GameHandle = {
+    destroy() {
+      world?.destroy();
+      world = null;
+    },
+    scene: { getScene: (key) => (key === "world" ? world : null) },
+  };
+  return { game, scene: () => world };
 }

@@ -11,7 +11,8 @@ import { useSettings } from "@/lib/settings";
 const TITLES = { discuss: "Council meeting — discuss", vote: "Council meeting — vote", reveal: "The council has spoken" };
 
 /** Stable per-contestant name colour so a busy chat is easy to follow. */
-const NAME_COLORS = ["#ffb4a2", "#9fd3f2", "#c9f29b", "#f2d59b", "#d8c2ff", "#f7a8d8", "#a8f0e0", "#ffd166", "#b5c7ff", "#f4a261"];
+// Dark, distinct inks that read well on paper.
+const NAME_COLORS = ["#a5432c", "#2f6a8c", "#4e7a34", "#8a6414", "#6b4f8f", "#a03d6e", "#2c7a6a", "#9a5b16", "#44589a", "#7a5640"];
 function nameColor(id: string): string {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -42,9 +43,9 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-[3px] border-ink bg-[#120c1c]">
+    <div className="flex min-h-0 flex-1 flex-col border-[1.5px] border-ink bg-well">
       <div className="border-b-[3px] border-ink px-3 py-1 text-xs uppercase tracking-wider text-gold">
-        Discussion {ghost && <span className="normal-case text-[#d8c2ff]">· ghost chat (only the dead can read you)</span>}
+        Discussion {ghost && <span className="normal-case text-[#6b4f8f]">· ghost chat (only the dead can read you)</span>}
       </div>
       <div ref={logRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" aria-live="polite" aria-label="Meeting chat">
         {hideChat && <p className="text-xs text-parchment/50">Other players&apos; chat is hidden (Settings).</p>}
@@ -54,8 +55,8 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
           return (
             <div key={c.id} className={`flex gap-2 ${c.mine ? "flex-row-reverse text-right" : ""} ${c.ghost ? "opacity-70" : ""}`}>
               {r && <Portrait archetype={r.archetype} scale={1} className="mt-1 h-5 w-4 shrink-0" cosmetics={r.cosmetics} />}
-              <div className={`max-w-[85%] border-2 px-2 py-1 text-sm ${c.mine ? "border-gold/60 bg-[#2d2440]" : "border-dusk bg-[#1f1630]"}`}>
-                <div className="flex items-center gap-2 text-xs font-bold" style={{ color: c.mine ? "#ffe066" : nameColor(c.sender) }}>
+              <div className={`max-w-[85%] border-2 px-2 py-1 text-sm ${c.mine ? "border-gold/60 bg-[#e6e0d2]" : "border-dusk bg-night"}`}>
+                <div className="flex items-center gap-2 text-xs font-bold" style={{ color: c.mine ? "#b4512f" : nameColor(c.sender) }}>
                   <span>{c.mine ? "You" : c.senderName}{c.ghost && " 👻"}</span>
                   {!c.mine && (
                     <button className="ml-auto text-parchment/40 hover:text-parchment" aria-label={`Mute or report ${c.senderName}`}
@@ -87,7 +88,7 @@ function MeetingChat({ client, store }: { client: GameClient; store: HudStore })
             }}
             placeholder={ghost ? "Whisper to the other ghosts…" : "Where were you? Who do you suspect?"}
             aria-label="Meeting message"
-            className="min-w-0 flex-1 border-[3px] border-ink bg-[#1f1630] px-2 py-1 text-sm outline-none focus:border-sky"
+            className="min-w-0 flex-1 border-[1.5px] border-ink bg-night px-2 py-1 text-sm outline-none focus:border-sky"
           />
           <button className="btn px-3 py-1 text-sm" onClick={send}>Send</button>
         </div>
@@ -129,7 +130,7 @@ export function MeetingOverlay({ client, store }: { client: GameClient; store: H
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-[#120c1c]/55 p-3 pt-16 sm:pt-20">
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center bg-well/55 p-3 pt-16 sm:pt-20">
       <section className="panel pop-in pointer-events-auto flex max-h-[calc(100dvh-6rem)] w-full max-w-5xl flex-col p-4" aria-live="polite">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-xl font-bold text-gold">{TITLES[phase]}</h2>
@@ -164,7 +165,7 @@ export function MeetingOverlay({ client, store }: { client: GameClient; store: H
                     <button
                       disabled={!canVote || r.id === you}
                       onClick={() => client.vote(r.id)}
-                      className={`flex w-full items-center gap-2 border-[3px] p-2 text-left ${out ? "border-ember" : myVote === r.id ? "border-gold" : "border-ink"} bg-[#120c1c] ${canVote && r.id !== you ? "hover:border-gold" : ""}`}
+                      className={`flex w-full items-center gap-2 border-[1.5px] p-2 text-left ${out ? "border-ember" : myVote === r.id ? "border-gold" : "border-ink"} bg-well ${canVote && r.id !== you ? "hover:border-gold" : ""}`}
                     >
                       <Portrait archetype={r.archetype} scale={2} cosmetics={r.cosmetics} />
                       <span className="min-w-0 flex-1">

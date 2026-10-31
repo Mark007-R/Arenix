@@ -27,7 +27,7 @@ export function OpeningModal({ result, crateName, reducedMotion, onEquip, onClos
   }, [revealed]);
   const color = RARITY_COLOR[result.item.rarity];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4" role="dialog" aria-label="Crate opening"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label="Crate opening"
       onClick={() => setRevealed(true)}>
       <div className="panel w-full max-w-sm p-6 text-center" onClick={(e) => e.stopPropagation()}>
         {!revealed ? (

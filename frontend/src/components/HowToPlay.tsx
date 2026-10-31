@@ -22,7 +22,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
     onClose();
   };
   return (
-    <div className="pop-in fixed inset-0 z-[60] flex items-center justify-center bg-[#120c1c]/75 p-4" role="dialog" aria-label="How to play">
+    <div className="pop-in fixed inset-0 z-[60] flex items-center justify-center bg-well/75 p-4" role="dialog" aria-label="How to play">
       <div className="panel w-full max-w-md p-6 text-center">
         <div className="text-5xl" aria-hidden>{step.icon}</div>
         <h2 className="mt-2 text-2xl font-bold text-gold">{step.title}</h2>

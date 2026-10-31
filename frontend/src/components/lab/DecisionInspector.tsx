@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { LabDecision } from "./types";
 
 function Json({ value }: { value: unknown }) {
-  return <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-[#120c1c] p-2 text-[11px] leading-snug">{JSON.stringify(value, null, 2)}</pre>;
+  return <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-well p-2 text-[11px] leading-snug">{JSON.stringify(value, null, 2)}</pre>;
 }
 
 /** One decision: authorised input → generated proposal → validation → authoritative outcome. */
@@ -12,7 +12,7 @@ export function DecisionInspector({ d, note }: { d: LabDecision; note: string })
   const [open, setOpen] = useState(false);
   const ctx = d.context ?? {};
   return (
-    <article className="border-[3px] border-ink bg-[#120c1c]/70 p-2 text-sm">
+    <article className="border-[1.5px] border-ink bg-well/70 p-2 text-sm">
       <button className="flex w-full items-baseline justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span>
           <b className="text-gold">#{d.id}</b> t{d.tick_requested} · <span className="text-sky">{d.trigger}</span> · {d.phase_id}

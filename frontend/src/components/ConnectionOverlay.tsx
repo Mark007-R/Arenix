@@ -21,7 +21,7 @@ export function ConnectionOverlay({ store, onRetry, connectingText = "Sailing to
   }
   if (connection !== "error") return null;
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/80 p-4">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/40 p-4">
       <div className="panel max-w-md p-6 text-center" role="alert">
         <h2 className="text-2xl font-bold text-ember">Connection problem</h2>
         <p className="mt-2 text-parchment/85">{error}</p>

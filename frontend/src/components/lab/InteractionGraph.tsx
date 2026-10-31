@@ -58,8 +58,8 @@ export function InteractionGraph({ contestants, edges, enabled, selected, onSele
           <g key={k.id} transform={`translate(${p.x},${p.y})`} onClick={() => onSelect(isSel ? null : k.id)}
             className="cursor-pointer" role="button" aria-label={`Inspect ${k.name}`}>
             <circle r={isSel ? 24 : 20} fill={k.alive ? "#2a1f3d" : "#120c1c"} stroke={isSel ? "#f4c542" : k.is_bot ? "#6aa8ee" : "#ffe066"} strokeWidth={3} />
-            <text textAnchor="middle" dy="4" fontSize="11" fill="#fbf7ee" fontFamily="Pixelify Sans, monospace">{k.id}</text>
-            <text textAnchor="middle" dy="38" fontSize="11" fill={k.alive ? "#fbf7ee" : "#888"} fontFamily="Pixelify Sans, monospace">
+            <text textAnchor="middle" dy="4" fontSize="11" fill="#fbf7ee" fontFamily="ui-monospace, monospace">{k.id}</text>
+            <text textAnchor="middle" dy="38" fontSize="11" fill={k.alive ? "#2d2a25" : "#8f877a"} fontFamily="ui-monospace, monospace">
               {k.name}{k.alive ? "" : " 💀"}
             </text>
           </g>

@@ -166,7 +166,7 @@ function LabMatch() {
               <button className="btn px-2 py-1 text-xs" onClick={() => setCursor((c) => Math.min(data.events.length - 1, c + 1))}>▶</button>
               <button className="btn px-2 py-1 text-xs" onClick={() => setCursor(data.events.length - 1)}>⏭</button>
               <input type="range" min={0} max={data.events.length - 1} value={cursor} onChange={(e) => setCursor(Number(e.target.value))}
-                className="flex-1 accent-[#f4c542]" aria-label="Replay position" />
+                className="flex-1 accent-[#4b5734]" aria-label="Replay position" />
               <span className="tabular-nums text-xs">t{state.tick} · #{seq}</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
@@ -194,11 +194,11 @@ function LabMatch() {
           <section className="panel p-3">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <h2 className="font-bold text-gold">Event timeline</h2>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-[#120c1c] text-xs" aria-label="Event type">
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="bg-well text-xs" aria-label="Event type">
                 <option value="all">key events</option>
                 {types.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-              <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)} className="bg-[#120c1c] text-xs" aria-label="Phase">
+              <select value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)} className="bg-well text-xs" aria-label="Phase">
                 <option value="all">all phases</option>
                 {phases.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>

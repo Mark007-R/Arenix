@@ -70,7 +70,7 @@ function Room() {
           maxLength={20}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && join()}
-          className="w-full border-[3px] border-ink bg-[#120c1c] px-3 py-2 text-lg outline-none focus:border-sky"
+          className="w-full border-[1.5px] border-ink bg-well px-3 py-2 text-lg outline-none focus:border-sky"
         />
         <h2 className="mb-2 mt-4 text-sm uppercase tracking-wider text-gold">Choose your contestant</h2>
         <CharacterPicker value={archetype} onChange={setArchetype} compact />

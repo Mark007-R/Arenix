@@ -1,6 +1,6 @@
 "use client";
 
-import { ARCHETYPES } from "@/game/art/characters";
+import { ARCHETYPES } from "@/game/archetypes";
 import { Portrait } from "./Portrait";
 
 export const ARCHETYPE_KEYS = Object.keys(ARCHETYPES);
@@ -18,8 +18,8 @@ export function CharacterPicker({ value, onChange, compact = false }: {
           role="radio"
           aria-checked={k === value}
           onClick={() => onChange(k)}
-          className={`flex flex-col items-center border-[3px] p-1 pt-2 ${
-            k === value ? "border-gold bg-dusk" : "border-ink bg-[#120c1c] hover:border-dusk"
+          className={`flex flex-col items-center border-[1.5px] p-1 pt-2 ${
+            k === value ? "border-gold bg-dusk" : "border-ink bg-well hover:border-dusk"
           }`}
         >
           <Portrait archetype={k} scale={compact ? 2 : 3} />

@@ -61,9 +61,9 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
 
   return (
     <div className="pointer-events-auto w-80 max-w-[90vw]">
-      <ul ref={logRef} className="mb-1 max-h-36 space-y-0.5 overflow-y-auto text-sm drop-shadow-[0_2px_0_#120c1c]" aria-live="polite" aria-label="Chat">
+      <ul ref={logRef} className="mb-1 max-h-36 space-y-0.5 overflow-y-auto text-sm drop-shadow-[0_1px_0_#f7f2e6]" aria-live="polite" aria-label="Chat">
         {chat.map((c) => (
-          <li key={c.id} className={c.ghost ? "text-[#b9a7d8] italic" : c.private ? "text-[#d8c2ff]" : c.mine ? "text-[#ffe066]" : "text-parchment"}>
+          <li key={c.id} className={c.ghost ? "text-[#6b4f8f] italic" : c.private ? "text-[#6b4f8f]" : c.mine ? "text-[#a3591c]" : "text-parchment"}>
             {c.ghost && "👻 "}
             {c.kind && <span className="mr-1 bg-dusk px-1 text-[10px] uppercase text-sky" title={c.kind}>{KIND_LABEL[c.kind] ?? c.kind}</span>}
             <b>{c.mine ? "You" : c.senderName}</b>
@@ -74,7 +74,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
       {quickOpen && alive && !ghost && (
         <div className="panel mb-1 grid max-h-48 grid-cols-2 gap-1 overflow-y-auto p-1 text-xs">
           {Object.entries({ ...QUICK_CHAT, ...(unlocked ?? {}) }).map(([id, phrase]) => (
-            <button key={id} className="border-2 border-ink bg-[#120c1c] px-1 py-1 text-left hover:border-gold"
+            <button key={id} className="border-2 border-ink bg-well px-1 py-1 text-left hover:border-gold"
               onClick={() => { client.say({ quick: id }, to); setQuickOpen(false); }}>
               {phrase}
             </button>
@@ -97,7 +97,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
             }}
             placeholder={ghost ? "Ghost chat — only the dead hear you" : to ? `Whisper to ${client.name(ally)}…` : "Press Enter to chat"}
             aria-label="Chat message"
-            className={`min-w-0 flex-1 border-[3px] border-ink px-2 py-1 text-sm outline-none focus:border-sky ${to ? "bg-[#43305c]" : "bg-[#120c1c]/90"}`}
+            className={`min-w-0 flex-1 border-[1.5px] border-ink px-2 py-1 text-sm outline-none focus:border-sky ${to ? "bg-[#e8e1ee]" : "bg-well/90"}`}
           />
           {!ghost && (
             <button className="btn btn-ghost px-2 py-1 text-xs" onClick={() => setQuickOpen((v) => !v)} title="Quick chat (Q)">💬</button>

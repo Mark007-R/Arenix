@@ -221,6 +221,10 @@ Legend: ✅ done and tested · 🟡 partial · ⬜ not started
   browser** (hosts can list a room when creating it or from the lobby), **leaderboards** by wins,
   level and win rate (registered accounts only; win rate needs 10+ matches), and **public
   profiles** with stats, achievements and recent matches (no email, currencies or items)
+- ✅ New look: isometric 3D world (Three.js) with jointed, animated low-poly contestants (walk,
+  idle, ready-to-strike, death, ghost), view cones, name tags and speech bubbles, a see-through
+  hole through walls and trees in front of you, screen-relative movement, auto graphics quality,
+  and a cream "drafting table" UI theme across every screen. The Milestone 1 pixel art is retired
 - ✅ Release tooling: one deployable container (`Dockerfile`, static web client served by the
   game server, migrations on start), a Render Blueprint (`render.yaml`) for the free plan with
   Neon, runtime settings (`/api/config`), a Ko-fi-style donation button, real diamond packs via

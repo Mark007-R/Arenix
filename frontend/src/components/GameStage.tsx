@@ -12,7 +12,7 @@ import { Hud } from "./Hud";
 import { tutorialSeen } from "@/lib/settings";
 import { TouchControls } from "./TouchControls";
 
-/** Mounts the Phaser world + HUD for the client's current match. Unmount destroys the game. */
+/** Mounts the 3D world + HUD for the client's current match. Unmount destroys the game. */
 export function GameStage({ client, store }: { client: GameClient; store: HudStore }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<() => WorldScene | null>(() => null);
@@ -28,8 +28,7 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
     let cancelled = false;
     let cleanup = () => {};
     (async () => {
-      // Load the pixel font before Phaser rasterises any text, and Phaser itself lazily.
-      await document.fonts.load('8px "Pixelify Sans"').catch(() => undefined);
+      // The 3D engine (Three.js) loads lazily, only when a match starts.
       const { createGame } = await import("@/game/createGame");
       if (cancelled) return;
       const { game, scene } = createGame(host, { client, reducedMotion: () => store.get().reducedMotion });

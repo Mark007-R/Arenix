@@ -1,6 +1,6 @@
 /** Wire types mirroring backend/arenix/server (welcome/snapshot) and engine payloads. */
 
-import type { Cosmetics } from "@/game/art/characters";
+import type { Cosmetics } from "@/game/archetypes";
 
 export type Facing = "up" | "down" | "left" | "right";
 export type Resource = "wood" | "stone";

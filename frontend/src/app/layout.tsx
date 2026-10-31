@@ -3,10 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ARENIX",
-  description: "A multiplayer pixel-art fantasy game of missions, alliances and betrayal.",
+  description: "A multiplayer social-deduction game: do your tasks, find the impostor, or be one.",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1f1630" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#ece6d6" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

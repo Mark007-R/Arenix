@@ -11,8 +11,7 @@ export function TouchControls({ store, scene }: { store: HudStore; scene: () => 
   const sheriff = useHud(store, (s) => s.snapshot?.me?.role === "sheriff");
   const set = (dx: number, dy: number) => (e: PointerEvent) => {
     e.preventDefault();
-    const s = scene();
-    if (s) s.touch = { ...s.touch, dx, dy };
+    scene()?.setTouchFromScreen(dx, dy);
   };
   const pad = "pointer-events-auto flex h-14 w-14 items-center justify-center panel text-xl active:bg-dusk";
   return (
@@ -30,7 +29,7 @@ export function TouchControls({ store, scene }: { store: HudStore; scene: () => 
       </div>
       <div className="flex flex-col items-end gap-2">
       {killTarget && (
-        <button className="pointer-events-auto h-16 w-20 border-[3px] border-ink bg-[#9a3029] text-sm font-bold text-parchment"
+        <button className="pointer-events-auto h-16 w-20 border-[1.5px] border-ink bg-[#9a3029] text-sm font-bold text-parchment"
           onPointerDown={(e) => {
             e.preventDefault();
             const sc = scene();

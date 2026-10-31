@@ -16,7 +16,14 @@ const log = (...a) => console.log("-", ...a);
 async function contestants(page) {
   return page.evaluate(() => {
     const c = window.__ARENIX__?.client;
-    return c?.snapshot ? { you: c.you, list: c.snapshot.contestants.map((x) => ({ id: x.id, x: x.x, y: x.y, bot: x.is_bot })) } : null;
+    return c?.snapshot
+      ? {
+          you: c.you,
+          // Everyone in the match (contestants below only lists who this player can currently see).
+          roster: c.snapshot.roster.map((x) => ({ id: x.id, bot: x.is_bot })),
+          list: c.snapshot.contestants.map((x) => ({ id: x.id, x: x.x, y: x.y, bot: x.is_bot })),
+        }
+      : null;
   });
 }
 
@@ -37,6 +44,10 @@ async function hold(page, dx, dy, ms) {
   const mk = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      localStorage.setItem("arenix.settings", JSON.stringify({ graphics: "low" }));
+      localStorage.setItem("arenix.tutorial.seen", "1");
+    });
     page.on("pageerror", (e) => errors.push(String(e)));
     return page;
   };
@@ -70,11 +81,11 @@ async function hold(page, dx, dy, ms) {
   for (const p of [host, guest]) await p.waitForFunction(() => window.__ARENIX__?.game?.scene?.getScene("world") && window.__ARENIX__.client.snapshot?.status === "running");
   const h0 = await contestants(host);
   const g0 = await contestants(guest);
-  if (h0.list.length !== g0.list.length) fail("contestant lists differ");
+  if (h0.roster.length !== g0.roster.length) fail("rosters differ");
   if (h0.you === g0.you) fail("both players got the same contestant");
-  const humans = h0.list.filter((c) => !c.bot).map((c) => c.id).sort();
+  const humans = h0.roster.filter((c) => !c.bot).map((c) => c.id).sort();
   if (humans.length !== 2) fail(`expected 2 humans, got ${humans}`);
-  log("match running with", h0.list.length, "contestants");
+  log("match running with", h0.roster.length, "contestants");
 
   const guestStart = h0.list.find((c) => c.id === g0.you);
   await hold(guest, 0, 1, 900);

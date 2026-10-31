@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ARCHETYPES } from "@/game/art/characters";
+import { ARCHETYPES } from "@/game/archetypes";
 import type { GameClient } from "@/game/net/client";
 import { roomPath } from "@/lib/rooms";
 import { MAP_NAMES } from "@/lib/social";
@@ -23,7 +23,7 @@ function AutoStart({ seconds }: { seconds: number }) {
     return () => clearInterval(t);
   }, [seconds]);
   return (
-    <div className="pop-in mt-3 border-[3px] border-gold bg-[#33290f] p-2 text-center" role="status">
+    <div className="pop-in mt-3 border-[1.5px] border-gold bg-[#f1e6c8] p-2 text-center" role="status">
       ⚡ Starting in <b className="tabular-nums">{Math.ceil(left)}s</b> — press Ready to start sooner. AI fills the empty seats.
     </div>
   );
@@ -75,7 +75,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                 type="checkbox"
                 checked={!!lobby.public}
                 onChange={(e) => client.send({ type: "set_public", public: e.target.checked })}
-                className="accent-[#f4c542]"
+                className="accent-[#4b5734]"
               />
               List this room in public rooms (anyone can join)
             </label>
@@ -87,7 +87,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
           </h2>
           <ul className="grid gap-2 sm:grid-cols-2">
             {lobby.seats.map((s) => (
-              <li key={s.player_id} className={`flex items-center gap-3 border-[3px] p-2 ${s.player_id === you ? "border-gold" : "border-ink"} bg-[#120c1c]`}>
+              <li key={s.player_id} className={`flex items-center gap-3 border-[1.5px] p-2 ${s.player_id === you ? "border-gold" : "border-ink"} bg-well`}>
                 <Portrait archetype={s.archetype} scale={2} cosmetics={s.cosmetics} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold">
@@ -105,7 +105,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               </li>
             ))}
             {Array.from({ length: aiCount }, (_, i) => (
-              <li key={`ai${i}`} className="flex items-center gap-3 border-[3px] border-dashed border-dusk bg-[#120c1c]/60 p-2 text-parchment/70">
+              <li key={`ai${i}`} className="flex items-center gap-3 border-[1.5px] border-dashed border-dusk bg-well/60 p-2 text-parchment/70">
                 <span className="flex h-10 w-8 items-center justify-center text-xl">🤖</span>
                 <div className="flex-1">
                   <div className="font-bold">AI contestant</div>
@@ -122,7 +122,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               </li>
             ))}
             {open > 0 && (
-              <li className="flex items-center justify-center border-[3px] border-dashed border-ink p-2 text-sm text-parchment/40 sm:col-span-2">
+              <li className="flex items-center justify-center border-[1.5px] border-dashed border-ink p-2 text-sm text-parchment/40 sm:col-span-2">
                 {open} open {open === 1 ? "seat" : "seats"} — share the code to invite friends
               </li>
             )}
@@ -149,7 +149,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                     max={lobby.capacity}
                     value={Math.max(lobby.fill_to, minField)}
                     onChange={(e) => client.send({ type: "set_fill", fill_to: Number(e.target.value) })}
-                    className="w-40 accent-[#f4c542] align-middle"
+                    className="w-40 accent-[#4b5734] align-middle"
                   />
                 </label>
                 <button
@@ -191,7 +191,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               </div>
             )}
             {lobby.map_id === "random" ? (
-              <div className="flex aspect-[4/3] items-center justify-center border-[3px] border-ink bg-[#2f68b8] text-center text-sm">
+              <div className="flex aspect-[4/3] items-center justify-center border-[1.5px] border-ink bg-[#a9bcbd] text-center text-sm">
                 🎲 A different island every match
               </div>
             ) : (

@@ -14,7 +14,7 @@ import {
   type ItemDTO,
   type Profile,
 } from "@/components/economy/types";
-import type { Cosmetics } from "@/game/art/characters";
+import type { Cosmetics } from "@/game/archetypes";
 import { ApiError, api, ensureAccount, newIdempotencyKey } from "@/lib/account";
 import { onPortal } from "@/lib/portal";
 import { loadPrefs } from "@/lib/rooms";
@@ -255,7 +255,7 @@ export default function CollectionPage() {
               Diamonds are a premium currency bought with <b>real money</b>, also earned occasionally through achievements.
               They open Platinum and Diamond crates. Everything in the game can be enjoyed without buying anything.
             </p>
-            <p className="mb-4 border-[3px] border-gold bg-[#120c1c] p-2 text-sm text-gold">{packs.notice}</p>
+            <p className="mb-4 border-[1.5px] border-gold bg-well p-2 text-sm text-gold">{packs.notice}</p>
             {!profile.adult_confirmed ? (
               <div className="mb-4 text-sm">
                 <p className="mb-2">Purchases are only available to adults.</p>
@@ -267,7 +267,7 @@ export default function CollectionPage() {
             ) : null}
             <div className="grid gap-3 sm:grid-cols-3">
               {packs.packs.map((p) => (
-                <article key={p.id} className="border-[3px] border-ink bg-[#120c1c] p-3 text-center">
+                <article key={p.id} className="border-[1.5px] border-ink bg-well p-3 text-center">
                   <div className="text-3xl">💎</div>
                   <div className="font-bold">{p.label}</div>
                   <div>{p.diamonds} Diamonds</div>
@@ -309,7 +309,7 @@ export default function CollectionPage() {
       </div>
 
       {odds && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/80 p-4" onClick={() => setOdds(null)} role="dialog" aria-label={`${odds.name} odds`}>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-4" onClick={() => setOdds(null)} role="dialog" aria-label={`${odds.name} odds`}>
           <div className="panel max-h-[85dvh] w-full max-w-md overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-2 text-xl font-bold text-gold">{odds.name} — exact odds</h2>
             <table className="w-full text-sm">
@@ -326,7 +326,7 @@ export default function CollectionPage() {
       )}
 
       {confirmCrate && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/80 p-4" role="dialog" aria-label="Confirm crate">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label="Confirm crate">
           <div className="panel w-full max-w-sm p-5 text-center">
             <h2 className="text-xl font-bold text-gold">Open {confirmCrate.name}?</h2>
             <p className="my-2">This costs <b>{CURRENCY_ICON[confirmCrate.currency]} {confirmCrate.price} {CURRENCY_LABEL[confirmCrate.currency]}</b>.</p>
@@ -340,7 +340,7 @@ export default function CollectionPage() {
       )}
 
       {confirmPack && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/80 p-4" role="dialog" aria-label="Confirm purchase">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-label="Confirm purchase">
           <div className="panel w-full max-w-sm p-5 text-center">
             <h2 className="text-xl font-bold text-gold">Confirm real-money purchase</h2>
             <p className="my-2">{confirmPack.diamonds} Diamonds for <b>${(confirmPack.price_usd_cents / 100).toFixed(2)} USD</b>.</p>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ARCHETYPE_KEYS, CharacterPicker } from "@/components/CharacterPicker";
 import { Portrait } from "@/components/Portrait";
-import { ARCHETYPES } from "@/game/art/characters";
+import { ARCHETYPES } from "@/game/archetypes";
 import Link from "next/link";
 import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
@@ -113,12 +113,12 @@ export default function Home() {
                 onChange={(e) => setName(e.target.value)}
                 maxLength={20}
                 placeholder="Adventurer"
-                className="w-full border-[3px] border-ink bg-[#120c1c] px-3 py-2 text-lg outline-none focus:border-sky"
+                className="w-full border-[1.5px] border-ink bg-well px-3 py-2 text-lg outline-none focus:border-sky"
               />
               <h2 className="mb-2 mt-5 text-sm uppercase tracking-wider text-gold">Choose your contestant</h2>
               <CharacterPicker value={archetype} onChange={setArchetype} />
             </div>
-            <div className="flex flex-col items-center gap-3 border-[3px] border-ink bg-[#120c1c] p-4 text-center">
+            <div className="flex flex-col items-center gap-3 border-[1.5px] border-ink bg-well p-4 text-center">
               <Portrait archetype={archetype} scale={7} />
               <div className="text-xl font-bold text-gold">{chosen.label}</div>
               <p className="text-sm text-parchment/80">{chosen.blurb}</p>
@@ -144,16 +144,16 @@ export default function Home() {
             <h2 className="text-lg font-bold text-gold">Practice</h2>
             <p className="text-sm text-parchment/75">Solo match against AI contestants.</p>
             <label htmlFor="bots" className="text-sm">AI contestants: {bots}</label>
-            <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#f4c542]" />
+            <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#4b5734]" />
             <button className="btn mt-auto" onClick={practice}>▶ Play practice</button>
           </section>
           <section className="panel flex flex-col gap-3 p-5">
             <h2 className="text-lg font-bold text-gold">Create room</h2>
             <p className="text-sm text-parchment/75">Get a code to share with friends. AI fills empty seats.</p>
             <label htmlFor="fill" className="text-sm">Contestants: {fillTo}</label>
-            <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#f4c542]" />
+            <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#4b5734]" />
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#f4c542]" />
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#4b5734]" />
               List in public rooms
             </label>
             <button className="btn mt-auto" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create room"}</button>
@@ -167,7 +167,7 @@ export default function Home() {
               onChange={(e) => setCode(normalizeCode(e.target.value))}
               onKeyDown={(e) => e.key === "Enter" && join()}
               placeholder="ABC123"
-              className="w-full border-[3px] border-ink bg-[#120c1c] px-3 py-2 text-center text-2xl tracking-[0.3em] uppercase outline-none focus:border-sky"
+              className="w-full border-[1.5px] border-ink bg-well px-3 py-2 text-center text-2xl tracking-[0.3em] uppercase outline-none focus:border-sky"
             />
             <button className="btn mt-auto" onClick={join}>Join</button>
           </section>

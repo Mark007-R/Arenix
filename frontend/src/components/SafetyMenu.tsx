@@ -21,15 +21,15 @@ export function SafetyMenu({ client, store, id, onDone }: { client: GameClient; 
   const [note, setNote] = useState("");
   if (reporting) {
     return (
-      <div className="my-1 space-y-1 border-2 border-ink bg-[#120c1c] p-2 text-xs">
+      <div className="my-1 space-y-1 border-2 border-ink bg-well p-2 text-xs">
         <div className="text-gold">Report {client.name(id)}{isBot ? " (AI)" : ""} for…</div>
         <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} placeholder="Optional details"
           onKeyDown={(e) => e.stopPropagation()}
           onFocus={() => store.set({ typing: true })} onBlur={() => store.set({ typing: false })}
-          className="w-full border-2 border-ink bg-[#1f1630] px-1 py-0.5 outline-none focus:border-sky" />
+          className="w-full border-2 border-ink bg-night px-1 py-0.5 outline-none focus:border-sky" />
         <div className="grid grid-cols-2 gap-1">
           {REPORT_REASONS.map(([reason, label]) => (
-            <button key={reason} className="border-2 border-ink bg-[#1f1630] px-1 py-0.5 text-left hover:border-gold"
+            <button key={reason} className="border-2 border-ink bg-night px-1 py-0.5 text-left hover:border-gold"
               onClick={() => { client.report(id, reason, note || null); setReporting(false); onDone?.(); }}>
               {label}
             </button>

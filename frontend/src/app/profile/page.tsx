@@ -8,7 +8,7 @@ import { getProfile, MAP_NAMES, percent, ROLE_NAMES, type PublicProfile } from "
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="border-[3px] border-ink bg-[#120c1c] p-3 text-center">
+    <div className="border-[1.5px] border-ink bg-well p-3 text-center">
       <div className="text-2xl font-bold text-gold tabular-nums">{value}</div>
       <div className="text-xs uppercase tracking-wider text-parchment/60">{label}</div>
     </div>
@@ -63,7 +63,7 @@ function Profile() {
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2">
                 {p.achievements.map((a) => (
-                  <li key={a.id} className="border-[3px] border-ink bg-[#120c1c] p-2 text-sm">
+                  <li key={a.id} className="border-[1.5px] border-ink bg-well p-2 text-sm">
                     <span className="text-gold">🏆 {a.name}</span>
                     <span className="block text-xs text-parchment/70">{a.description}</span>
                   </li>

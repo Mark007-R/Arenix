@@ -19,14 +19,16 @@ and try to find out who among them is the **impostor** — while the impostor qu
 
 | | |
 |---|---|
-| ![Home screen](docs/screenshots/1-home.png) | ![Secret role reveal at the start of a match](docs/screenshots/2-role-reveal.png) |
-| **Home:** pick a contestant, then practice, create or join a room | **Role reveal:** your secret role and this match's skill |
-| ![Exploring Moonfall Isle as the impostor](docs/screenshots/3-exploring.png) | ![A council meeting with the chat room](docs/screenshots/4-meeting-chat.png) |
-| **In a match:** role and skill card, tasks, beacons, minimap, kill button | **Council meeting:** vote on the left, a real chat room on the right — the AI answers you |
-| ![A body on the ground with a report prompt](docs/screenshots/5-body.png) | ![Team results with every role revealed](docs/screenshots/6-results.png) |
-| **A body:** walk up and press E to report it | **Results:** winning team, every role and skill revealed |
-| ![Crates with their odds](docs/screenshots/7-collection.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/8-agent-lab.png) |
-| **Collection:** cosmetic crates with all odds shown | **Agent Lab:** interaction graph, replay and decision inspector |
+| ![Home screen](docs/screenshots/1-home.png) | ![Quick play lobby counting down](docs/screenshots/9-quick-play.png) |
+| **Home:** pick a contestant, then quick play, practice, or create / join a room | **Quick play:** one click into a public lobby that starts itself; AI fills the empty seats |
+| ![Secret role reveal at the start of a match](docs/screenshots/2-role-reveal.png) | ![The isometric 3D island as the impostor](docs/screenshots/3-exploring.png) |
+| **Role reveal:** your secret role and this match's skill | **In a match:** the 3D island, view cones, role card, tasks, minimap, sabotage and kill buttons |
+| ![A body on the ground with a report prompt](docs/screenshots/5-body.png) | ![A council meeting with the chat room](docs/screenshots/4-meeting-chat.png) |
+| **A body:** walk up and press E to report it | **Council meeting:** vote on the left, a real chat room on the right — the AI answers you |
+| ![Team results with every role revealed](docs/screenshots/6-results.png) | ![Crates with their odds](docs/screenshots/7-collection.png) |
+| **Results:** winning team, every role and skill revealed | **Collection:** cosmetic crates with all odds shown |
+| ![Leaderboard](docs/screenshots/10-leaderboard.png) | ![Agent Lab: interaction graph and replay](docs/screenshots/8-agent-lab.png) |
+| **Leaderboard:** wins, level and win rate (registered players) | **Agent Lab:** interaction graph, replay and decision inspector |
 
 ## What you can do today
 

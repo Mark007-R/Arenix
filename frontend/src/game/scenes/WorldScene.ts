@@ -21,6 +21,11 @@ const INTERP_DELAY_MS = 100;
 const ELEVATION = THREE.MathUtils.degToRad(35);
 const AZIMUTH = Math.PI / 4;
 const CAMERA_DIST = 60;
+const CAMERA_OFFSET = new THREE.Vector3(
+  Math.cos(ELEVATION) * Math.sin(AZIMUTH),
+  Math.sin(ELEVATION),
+  Math.cos(ELEVATION) * Math.cos(AZIMUTH),
+).multiplyScalar(CAMERA_DIST);
 const ZOOM_DEFAULT = 9; // world units visible vertically
 const ZOOM_MIN = 6;
 const ZOOM_MAX = 20;
@@ -28,6 +33,12 @@ const FACING_YAW: Record<Facing, number> = { down: 0, up: Math.PI, left: -Math.P
 const CONE_RADIUS = 2.4;
 const CONE_ANGLE = THREE.MathUtils.degToRad(70);
 const HEAD_Y = 1.45;
+// Carried wood/stone blocks share one geometry and two materials (no per-pickup allocations).
+const CARRY_GEO = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+const CARRY_MAT: Record<string, THREE.MeshLambertMaterial> = {
+  wood: new THREE.MeshLambertMaterial({ color: 0x8c6a52, flatShading: true }),
+  stone: new THREE.MeshLambertMaterial({ color: 0xb3ada0, flatShading: true }),
+};
 
 export interface SceneDeps {
   client: GameClient;
@@ -91,6 +102,7 @@ export class WorldScene {
   private pressed = new Set<string>();
   private zoom = ZOOM_DEFAULT;
   private target = new THREE.Vector3();
+  private scratch = new THREE.Vector3();
   private acc = 0;
   private lastFrame = 0;
   private localMoving = false;
@@ -394,10 +406,7 @@ export class WorldScene {
     if (a.carry.userData.key !== key) {
       a.carry.clear();
       units.forEach((res, i) => {
-        const m = new THREE.Mesh(
-          new THREE.BoxGeometry(0.16, 0.16, 0.16),
-          new THREE.MeshLambertMaterial({ color: res === "wood" ? 0x8c6a52 : 0xb3ada0, flatShading: true }),
-        );
+        const m = new THREE.Mesh(CARRY_GEO, CARRY_MAT[res] ?? CARRY_MAT.stone);
         m.position.set((i - (units.length - 1) / 2) * 0.2, 0, 0);
         a.carry.add(m);
       });
@@ -438,9 +447,7 @@ export class WorldScene {
       b.lit.visible = !!beacons?.[id];
       if (b.lit.visible && !reduced) b.flame.scale.y = 1 + Math.sin(now / 90 + id.length) * 0.15;
     }
-    w.root.traverse((o) => {
-      if (o.name === "spin" && !reduced) o.rotation.y = now / 800;
-    });
+    if (!reduced) for (const o of w.spinners) o.rotation.y = now / 800;
   }
 
   private updateBodies(bodies: BodyDTO[]): void {
@@ -479,19 +486,14 @@ export class WorldScene {
       this.target.x += (me.x - this.target.x) * k;
       this.target.z += (me.z - this.target.z) * k;
     }
-    const off = new THREE.Vector3(
-      Math.cos(ELEVATION) * Math.sin(AZIMUTH),
-      Math.sin(ELEVATION),
-      Math.cos(ELEVATION) * Math.cos(AZIMUTH),
-    ).multiplyScalar(CAMERA_DIST);
-    this.camera.position.copy(this.target).add(off);
+    this.camera.position.copy(this.target).add(CAMERA_OFFSET);
     this.camera.lookAt(this.target);
     this.sun.position.set(this.target.x - 10, 25, this.target.z + 6);
     this.sun.target.position.copy(this.target);
 
     // See-through hole: anything drawn in front of the player near them on screen dithers away.
     if (me) {
-      const v = new THREE.Vector3(me.x, 0.7, me.z).project(this.camera);
+      const v = this.scratch.set(me.x, 0.7, me.z).project(this.camera);
       const pr = this.renderer.getPixelRatio();
       const w = this.parent.clientWidth;
       const h = this.parent.clientHeight;
@@ -503,7 +505,7 @@ export class WorldScene {
 
   /** World point → CSS pixels in the overlay. */
   private toScreen(x: number, y: number, z: number): { x: number; y: number; on: boolean } {
-    const v = new THREE.Vector3(x, y, z).project(this.camera);
+    const v = this.scratch.set(x, y, z).project(this.camera);
     const w = this.parent.clientWidth;
     const h = this.parent.clientHeight;
     return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, on: Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1 };

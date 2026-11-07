@@ -17,6 +17,7 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<() => WorldScene | null>(() => null);
   const [tutorial, setTutorial] = useState(false);
+  const [no3d, setNo3d] = useState(false);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- first match ever: show the guide once
     if (!tutorialSeen()) setTutorial(true);
@@ -31,7 +32,15 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
       // The 3D engine (Three.js) loads lazily, only when a match starts.
       const { createGame } = await import("@/game/createGame");
       if (cancelled) return;
-      const { game, scene } = createGame(host, { client, reducedMotion: () => store.get().reducedMotion });
+      let created: ReturnType<typeof createGame>;
+      try {
+        created = createGame(host, { client, reducedMotion: () => store.get().reducedMotion });
+      } catch {
+        // No WebGL (very old device, or hardware acceleration turned off in the browser).
+        setNo3d(true);
+        return;
+      }
+      const { game, scene } = created;
       sceneRef.current = scene;
       const w = window as unknown as { __ARENIX__?: Record<string, unknown> };
       if (w.__ARENIX__) w.__ARENIX__.game = game;
@@ -69,6 +78,17 @@ export function GameStage({ client, store }: { client: GameClient; store: HudSto
       <GameAudio client={client} store={store} />
       <PortalBridge store={store} />
       {tutorial && <HowToPlay onClose={() => setTutorial(false)} />}
+      {no3d && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-paper p-4">
+          <div className="panel max-w-md p-6 text-center" role="alert">
+            <h2 className="text-xl font-bold text-gold">Your browser can&apos;t show the 3D island</h2>
+            <p className="mt-2 text-sm">
+              ARENIX needs WebGL. Turn on hardware acceleration in your browser settings, or try an up-to-date Chrome,
+              Edge, Firefox or Safari.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

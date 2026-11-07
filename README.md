@@ -107,7 +107,7 @@ Python 3.13 (`backend/.python-version`); uv downloads it automatically.
 | variable | where | default | purpose |
 |---|---|---|---|
 | `ARENIX_CORS_ORIGINS` | backend | `http://localhost:3000` | comma-separated allowed origins for REST |
-| `NEXT_PUBLIC_ARENIX_WS` | frontend (build time) | `ws://<page host>:8000` | WebSocket base URL of the game server |
+| `NEXT_PUBLIC_ARENIX_WS` | frontend (build time) | the page's own host (`:8000` when the page is served on `:3000` in local dev) | WebSocket base URL of the game server; only needed when the pages and the game server live on different hosts |
 | `ARENIX_AGENT_PROVIDER` | backend | `off` | classic-mode AI strategist: `off` (rule-based bots), `heuristic` (offline planner, no LLM), `anthropic` (LLM via the Anthropic API). Impostor mode always uses its rule-based bots |
 | `ARENIX_AGENT_MODEL` | backend | unset | model ID for strategists; required when the provider is `anthropic` |
 | `ARENIX_AGENT_PRICE_PER_MTOK` | backend | unset | `input,output` USD per million tokens (e.g. `4,20`); enables cost estimates and the cost budget |

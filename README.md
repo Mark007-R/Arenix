@@ -1,5 +1,8 @@
 # ARENIX
 
+**▶ Play now: [arenix-40v9.onrender.com](https://arenix-40v9.onrender.com)**
+(free hosting: if nobody has played for a while, the first load takes about a minute while the server wakes up)
+
 A real-time multiplayer social-deduction game in a clean isometric 3D "drafting table" style.
 Human players and autonomous AI contestants explore an island, do tasks, argue in council meetings
 and try to find out who among them is the **impostor** — while the impostor quietly picks them off.

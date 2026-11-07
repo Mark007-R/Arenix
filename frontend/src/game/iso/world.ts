@@ -45,6 +45,8 @@ function hash(x: number, y: number, salt = 0): number {
 export interface WorldHandles {
   root: THREE.Group;
   nodes: Map<string, { full: THREE.Object3D; empty: THREE.Object3D }>;
+  /** Decorations that slowly turn (the shrine crystal). */
+  spinners: THREE.Object3D[];
   beacons: Map<string, { lit: THREE.Object3D; flame: THREE.Mesh }>;
   tower: { ruined: THREE.Object3D; repaired: THREE.Object3D; top: number } | null;
   objects: Map<string, MapObjectDTO>;
@@ -230,6 +232,7 @@ function objectModel(o: MapObjectDTO, p: IsoPalette, h: WorldHandles): THREE.Obj
       );
       gem.position.y = 0.9;
       gem.name = "spin";
+      h.spinners.push(gem);
       g.add(gem);
       break;
     }
@@ -291,6 +294,7 @@ export function buildWorld(map: MapDTO): WorldHandles {
   const handles: WorldHandles = {
     root,
     nodes: new Map(),
+    spinners: [],
     beacons: new Map(),
     tower: null,
     objects: new Map(map.objects.map((o) => [o.id, o])),

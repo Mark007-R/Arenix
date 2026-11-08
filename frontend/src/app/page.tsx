@@ -9,9 +9,29 @@ import Link from "next/link";
 import { HowToPlay } from "@/components/HowToPlay";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { ensureAccount } from "@/lib/account";
+import { HomeDiorama } from "@/components/HomeDiorama";
 import { PublicRooms } from "@/components/PublicRooms";
 import { SupportLink } from "@/components/SupportLink";
 import { cleanName, createRoom, loadPrefs, normalizeCode, quickPlay, roomPath, savePrefs } from "@/lib/rooms";
+
+const TITLE: [string, string][] = [
+  ["A", "#e4572e"], ["R", "#f2a62b"], ["E", "#1f9d6b"], ["N", "#2f80ed"], ["I", "#7b5ba8"], ["X", "#e03e3e"],
+];
+
+const MODES = {
+  practice: { color: "#1f9d6b", icon: "🏝️" },
+  create: { color: "#2f80ed", icon: "🏰" },
+  join: { color: "#e4572e", icon: "🎟️" },
+};
+
+const HOW_TO = [
+  { icon: "🪓", title: "Do your tasks", text: "Gather wood and stone, repair the Watchtower, light all 5 beacons." },
+  { icon: "🗡️", title: "Someone's an impostor", text: "They strike when nobody's watching. Could be anyone. Could be you." },
+  { icon: "🔔", title: "Call the council", text: "Report a body or ring the bell, argue in the chat, then vote someone out." },
+  { icon: "✨", title: "Random skills", text: "Swift, Scout, Detective, Medic… a new power every match." },
+  { icon: "⭐", title: "Sheriff & Jester", text: "Bigger games add a sheriff with one bullet and a jester who wants to be voted out." },
+  { icon: "👻", title: "Ghosts keep playing", text: "Dead? Roam unseen and gossip with the other ghosts." },
+];
 
 export default function Home() {
   const router = useRouter();
@@ -94,8 +114,13 @@ export default function Home() {
       <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6">
         <div className="absolute right-0 top-0"><SettingsMenu /></div>
         <header className="text-center">
-          <h1 className="title-bob text-6xl font-bold tracking-widest text-gold sm:text-7xl">ARENIX</h1>
-          <p className="mt-2 text-lg text-parchment/85">Do your tasks. Find the impostor. Or be one.</p>
+          <h1 className="title-wave font-mono text-6xl font-bold tracking-widest sm:text-7xl" aria-label="ARENIX">
+            {TITLE.map(([letter, color], i) => (
+              <span key={i} style={{ color, animationDelay: `${i * 0.12}s` }} aria-hidden>{letter}</span>
+            ))}
+          </h1>
+          <p className="mt-2 text-lg text-parchment/85">Do your tasks. Find the impostor. <b className="text-ember">Or be one.</b></p>
+          <HomeDiorama archetype={archetype} />
           <button className="btn btn-ghost mt-3 text-sm" onClick={() => setHelp(true)}>📖 How to play</button>{" "}
           <Link href="/collection" className="btn btn-ghost mt-3 text-sm" onClick={() => valid && remember()}>🎁 Collection &amp; Crates</Link>{" "}
           <Link href="/lab" className="btn btn-ghost mt-3 text-sm">🔬 Agent Lab</Link>{" "}
@@ -140,15 +165,17 @@ export default function Home() {
         />
 
         <div className="grid w-full gap-4 md:grid-cols-3">
-          <section className="panel flex flex-col gap-3 p-5">
-            <h2 className="text-lg font-bold text-gold">Practice</h2>
+          <section className="panel mode-card flex flex-col gap-3 p-5" style={{ borderTopColor: MODES.practice.color }}>
+            <div className="mode-icon" aria-hidden>{MODES.practice.icon}</div>
+            <h2 className="text-lg font-bold" style={{ color: MODES.practice.color }}>Practice</h2>
             <p className="text-sm text-parchment/75">Solo match against AI contestants.</p>
             <label htmlFor="bots" className="text-sm">AI contestants: {bots}</label>
             <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#1f9d6b]" />
-            <button className="btn mt-auto" onClick={practice}>▶ Play practice</button>
+            <button className="btn mt-auto" style={{ background: MODES.practice.color }} onClick={practice}>▶ Play practice</button>
           </section>
-          <section className="panel flex flex-col gap-3 p-5">
-            <h2 className="text-lg font-bold text-gold">Create room</h2>
+          <section className="panel mode-card flex flex-col gap-3 p-5" style={{ borderTopColor: MODES.create.color }}>
+            <div className="mode-icon" aria-hidden>{MODES.create.icon}</div>
+            <h2 className="text-lg font-bold" style={{ color: MODES.create.color }}>Create room</h2>
             <p className="text-sm text-parchment/75">Get a code to share with friends. AI fills empty seats.</p>
             <label htmlFor="fill" className="text-sm">Contestants: {fillTo}</label>
             <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#1f9d6b]" />
@@ -156,10 +183,13 @@ export default function Home() {
               <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#1f9d6b]" />
               List in public rooms
             </label>
-            <button className="btn mt-auto" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create room"}</button>
+            <button className="btn mt-auto" style={{ background: MODES.create.color }} onClick={create} disabled={busy}>
+              {busy ? "Creating…" : "Create room"}
+            </button>
           </section>
-          <section className="panel flex flex-col gap-3 p-5">
-            <h2 className="text-lg font-bold text-gold">Join room</h2>
+          <section className="panel mode-card flex flex-col gap-3 p-5" style={{ borderTopColor: MODES.join.color }}>
+            <div className="mode-icon" aria-hidden>{MODES.join.icon}</div>
+            <h2 className="text-lg font-bold" style={{ color: MODES.join.color }}>Join room</h2>
             <p className="text-sm text-parchment/75">Enter the 6-character code from your host.</p>
             <input
               aria-label="Room code"
@@ -169,21 +199,27 @@ export default function Home() {
               placeholder="ABC123"
               className="w-full border-[1.5px] border-ink bg-well px-3 py-2 text-center text-2xl tracking-[0.3em] uppercase outline-none focus:border-sky"
             />
-            <button className="btn mt-auto" onClick={join}>Join</button>
+            <button className="btn mt-auto" style={{ background: MODES.join.color }} onClick={join}>Join</button>
           </section>
         </div>
 
         <section className="panel w-full p-5 text-sm leading-relaxed text-parchment/85">
-          <h2 className="mb-2 text-base font-bold text-gold">How to play</h2>
-          <ul className="grid gap-1 sm:grid-cols-2">
-            <li><b className="text-parchment">WASD / Arrows</b> move · <b className="text-parchment">E / Space</b> interact</li>
-            <li><b className="text-parchment">Enter</b> chat · <b className="text-parchment">K</b> eliminate (impostors) · click a name to ally</li>
-            <li>Someone is secretly the <b className="text-ember">impostor</b>. Everyone else is an islander.</li>
-            <li>Islanders: repair the <b className="text-parchment">Watchtower</b>, light the 5 <b className="text-parchment">beacons</b>, report bodies.</li>
-            <li>Impostor: eliminate islanders unseen, lie at the <b className="text-parchment">council</b>, don&apos;t get voted out.</li>
-            <li>Every match you get a random <b className="text-parchment">skill</b> — Swift, Scout, Detective, Medic…</li>
+          <h2 className="mb-3 text-base font-bold text-gold">How to play</h2>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {HOW_TO.map((h) => (
+              <li key={h.title} className="flex gap-3 border-[1.5px] border-ink bg-well p-3">
+                <span className="text-2xl leading-none" aria-hidden>{h.icon}</span>
+                <span className="min-w-0">
+                  <b className="block text-parchment">{h.title}</b>
+                  <span className="text-parchment/75">{h.text}</span>
+                </span>
+              </li>
+            ))}
           </ul>
-          <p className="mt-3 text-xs text-parchment/50">
+          <p className="mt-3 text-xs text-parchment/60">
+            <b>Keys:</b> WASD / arrows move · E interact · K eliminate (impostors) or shoot (sheriff) · Enter chat · Q quick-chat
+          </p>
+          <p className="mt-1 text-xs text-parchment/50">
             AI contestants are rule-based: they act and talk only from what they actually saw (no LLM in this mode).
           </p>
         </section>

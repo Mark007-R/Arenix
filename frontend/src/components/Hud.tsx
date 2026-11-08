@@ -170,7 +170,7 @@ function Feed({ store }: { store: HudStore }) {
   const feed = useHud(store, (s) => s.feed);
   const tone = { info: "text-parchment/80", good: "text-leaf", bad: "text-ember", mine: "text-[#a3591c]" } as const;
   return (
-    <ul className="w-80 max-w-[90vw] space-y-0.5 text-sm drop-shadow-[0_1px_0_#f7f2e6]" aria-live="polite">
+    <ul className="w-80 max-w-[90vw] space-y-0.5 text-sm drop-shadow-[0_1px_0_#fffaf0]" aria-live="polite">
       {feed.map((f) => <li key={f.id} className={tone[f.tone]}>{f.text}</li>)}
     </ul>
   );
@@ -232,7 +232,7 @@ export function Hud({
       <FogOverlay store={store} />
       <RoleIntro store={store} client={client} />
       <div className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-3 text-xs text-parchment/60">
-        <span className="hidden sm:inline">
+        <span className="hidden 2xl:inline">
           WASD move · E interact{impostor ? " · K eliminate" : sheriff ? " · K shoot" : ""} · Enter chat · Q quick-chat
         </span>
         {ping !== null && <span className="tabular-nums">{ping} ms</span>}

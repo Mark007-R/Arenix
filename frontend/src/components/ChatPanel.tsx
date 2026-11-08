@@ -61,7 +61,7 @@ export function ChatPanel({ client, store }: { client: GameClient; store: HudSto
 
   return (
     <div className="pointer-events-auto w-80 max-w-[90vw]">
-      <ul ref={logRef} className="mb-1 max-h-36 space-y-0.5 overflow-y-auto text-sm drop-shadow-[0_1px_0_#f7f2e6]" aria-live="polite" aria-label="Chat">
+      <ul ref={logRef} className="mb-1 max-h-36 space-y-0.5 overflow-y-auto text-sm drop-shadow-[0_1px_0_#fffaf0]" aria-live="polite" aria-label="Chat">
         {chat.map((c) => (
           <li key={c.id} className={c.ghost ? "text-[#6b4f8f] italic" : c.private ? "text-[#6b4f8f]" : c.mine ? "text-[#a3591c]" : "text-parchment"}>
             {c.ghost && "👻 "}

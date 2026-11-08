@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import type { MapDTO, MapObjectDTO } from "@/shared/protocol";
 import { block, mat } from "./figure";
-import { isoPalette, TILE, type IsoPalette } from "./palette3d";
+import { isoPalette, ROOFS, TILE, type IsoPalette } from "./palette3d";
 
 /** Shared uniforms for the "see-through" hole around the player (walls and trees in front fade). */
 export const XRAY = {
@@ -179,7 +179,7 @@ function objectModel(o: MapObjectDTO, p: IsoPalette, h: WorldHandles): THREE.Obj
   switch (o.kind) {
     case "house": {
       const v = Number(o.props.variant ?? 0);
-      const roof = [p.roof, p.brickDark, "#7d8466"][v % 3]!;
+      const roof = ROOFS[v % ROOFS.length]!;
       g.add(block(o.w - 0.1, 1.9, o.h - 0.1, p.brick));
       g.add(block(o.w + 0.1, 0.2, o.h + 0.1, roof, 0, 1.9));
       g.add(block(0.5, 1.05, 0.06, "#5b4a40", 0, 0, o.h / 2 - 0.02)); // door

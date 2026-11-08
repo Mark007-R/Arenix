@@ -33,7 +33,7 @@ export function MapPreview({ mapId }: { mapId: string }) {
     }
   }, [map]);
   return (
-    <div className="border-[1.5px] border-ink bg-[#a9bcbd]">
+    <div className="border-[1.5px] border-ink bg-[#7cc3e6]">
       {map ? (
         <canvas ref={ref} width={map.width * 3} height={map.height * 3} className="block h-auto w-full" aria-label={`${map.name} map preview`} />
       ) : (

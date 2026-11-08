@@ -144,16 +144,16 @@ export default function Home() {
             <h2 className="text-lg font-bold text-gold">Practice</h2>
             <p className="text-sm text-parchment/75">Solo match against AI contestants.</p>
             <label htmlFor="bots" className="text-sm">AI contestants: {bots}</label>
-            <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#4b5734]" />
+            <input id="bots" type="range" min={4} max={7} value={bots} onChange={(e) => setBots(Number(e.target.value))} className="accent-[#1f9d6b]" />
             <button className="btn mt-auto" onClick={practice}>▶ Play practice</button>
           </section>
           <section className="panel flex flex-col gap-3 p-5">
             <h2 className="text-lg font-bold text-gold">Create room</h2>
             <p className="text-sm text-parchment/75">Get a code to share with friends. AI fills empty seats.</p>
             <label htmlFor="fill" className="text-sm">Contestants: {fillTo}</label>
-            <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#4b5734]" />
+            <input id="fill" type="range" min={5} max={10} value={fillTo} onChange={(e) => setFillTo(Number(e.target.value))} className="accent-[#1f9d6b]" />
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#4b5734]" />
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="accent-[#1f9d6b]" />
               List in public rooms
             </label>
             <button className="btn mt-auto" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create room"}</button>

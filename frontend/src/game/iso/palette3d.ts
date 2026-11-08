@@ -1,5 +1,6 @@
 /**
- * Muted "drafting table" palette for the 3D view: warm paper, greys, olive and brick.
+ * Bright "drafting table" palette for the 3D view: warm paper, fresh greens, sky-blue water,
+ * coral roofs and sunny accents.
  * The same colours drive the minimap and map previews, so every view of the island matches.
  */
 
@@ -31,39 +32,42 @@ export const TILE = {
 } as const;
 
 const SUMMER: IsoPalette = {
-  paper: "#ece6d6",
-  grid: "#d9d1bd",
-  ink: "#3a3630",
+  paper: "#f4efe2",
+  grid: "#e3d9c2",
+  ink: "#2b2a33",
   floor: {
-    [TILE.WATER]: "#a9bcbd",
-    [TILE.SAND]: "#e9dfc4",
-    [TILE.GRASS]: "#d3d3b4",
-    [TILE.PATH]: "#efe8d6",
-    [TILE.BRIDGE]: "#a98a76",
-    [TILE.TREE]: "#c3c6a3",
-    [TILE.WALL]: "#b9b3a6",
-    [TILE.ROCK]: "#c6c0b2",
-    [TILE.FLOOR]: "#f2ecdd",
-    [TILE.FLOWERS]: "#cfd2ae",
-    [TILE.FOREST_FLOOR]: "#c3c6a3",
-    [TILE.DIRT]: "#d6c7ad",
-    [TILE.RUIN]: "#d8d1c2",
+    [TILE.WATER]: "#7cc3e6",
+    [TILE.SAND]: "#f6e2a8",
+    [TILE.GRASS]: "#b8dc8c",
+    [TILE.PATH]: "#f6ead0",
+    [TILE.BRIDGE]: "#c98a5e",
+    [TILE.TREE]: "#9fcf7c",
+    [TILE.WALL]: "#cfc6b4",
+    [TILE.ROCK]: "#cbc3b2",
+    [TILE.FLOOR]: "#fbf4e4",
+    [TILE.FLOWERS]: "#bfe08f",
+    [TILE.FOREST_FLOOR]: "#9fcf7c",
+    [TILE.DIRT]: "#e6c999",
+    [TILE.RUIN]: "#e4dccb",
   },
-  wall: "#a7a196",
-  wallTop: "#c9c3b6",
-  rock: "#9b958a",
-  ruin: "#bdb6a7",
-  canopy: ["#7b8657", "#6f7b4e", "#86915f", "#748050"],
-  trunk: "#6e5a4c",
-  brick: "#9c7468",
-  brickDark: "#7f5c52",
-  roof: "#8a6a5e",
-  wood: "#8c6a52",
-  stone: "#b3ada0",
-  gold: "#c99a3a",
-  fire: "#e9894a",
-  crystal: "#9d8cc4",
+  wall: "#c7bfae",
+  wallTop: "#ddd5c4",
+  rock: "#a9a196",
+  ruin: "#d2c9b6",
+  canopy: ["#5fb04f", "#4a9e47", "#7cc35a", "#3f9150"],
+  trunk: "#8a5a3c",
+  brick: "#e07a5f",
+  brickDark: "#c25e45",
+  roof: "#3d7bb6",
+  wood: "#a8693f",
+  stone: "#c9c1b2",
+  gold: "#f2b134",
+  fire: "#ff7b39",
+  crystal: "#a77bf2",
 };
+
+/** House roofs cycle through these (one per house variant). */
+export const ROOFS = ["#3d7bb6", "#e0563f", "#3f9a5e"];
 
 const WINTER: IsoPalette = {
   ...SUMMER,
@@ -71,17 +75,17 @@ const WINTER: IsoPalette = {
   grid: "#d5dbe1",
   floor: {
     ...SUMMER.floor,
-    [TILE.WATER]: "#9fb6c6",
-    [TILE.SAND]: "#dfe4ea",
-    [TILE.GRASS]: "#f1f3f6",
-    [TILE.TREE]: "#e3e8ee",
-    [TILE.FLOWERS]: "#eef1f5",
-    [TILE.FOREST_FLOOR]: "#e3e8ee",
-    [TILE.DIRT]: "#d4ccc4",
+    [TILE.WATER]: "#8fcdf0",
+    [TILE.SAND]: "#e4ecf3",
+    [TILE.GRASS]: "#f6f9fc",
+    [TILE.TREE]: "#e6eef6",
+    [TILE.FLOWERS]: "#f1f6fb",
+    [TILE.FOREST_FLOOR]: "#e6eef6",
+    [TILE.DIRT]: "#dccfc4",
     [TILE.PATH]: "#d9d2c9",
   },
-  canopy: ["#4f6b5e", "#45604f", "#5a7768", "#4a6457"],
-  rock: "#8f949b",
+  canopy: ["#3f8a6e", "#2f7a62", "#4e9e80", "#357f68"],
+  rock: "#9aa3ad",
   wall: "#a3a6ab",
   wallTop: "#cfd3d9",
 };
@@ -102,14 +106,14 @@ export function groundColors(theme?: string): Record<number, string> {
   };
 }
 
-/** Archetype colours, muted to sit in the drafting palette. */
+/** Archetype colours: bright vests and trims on light suits, so each contestant reads at a glance. */
 export const OUTFITS: Record<string, { suit: string; vest: string; accent: string; head: string }> = {
-  warrior: { suit: "#b8b3a6", vest: "#8c6a52", accent: "#a5543f", head: "wild" },
-  archer: { suit: "#b8b8a4", vest: "#5f7a46", accent: "#8c6a52", head: "hood" },
-  wizard: { suit: "#b4b6bd", vest: "#56688f", accent: "#c99a3a", head: "wizard" },
-  rogue: { suit: "#a9a6ad", vest: "#5d4f6b", accent: "#8f949b", head: "hoodMask" },
-  guardian: { suit: "#b6b8a0", vest: "#6c7a45", accent: "#93a865", head: "leaf" },
-  knight: { suit: "#b9bcc0", vest: "#5f6f8a", accent: "#a5543f", head: "helm" },
-  trickster: { suit: "#b8b09c", vest: "#8a6d4a", accent: "#7f9a52", head: "goblin" },
-  champion: { suit: "#c0b8a6", vest: "#9c5a4c", accent: "#c99a3a", head: "crown" },
+  warrior: { suit: "#dcd6cb", vest: "#c8643c", accent: "#f2b134", head: "wild" },
+  archer: { suit: "#dcdacd", vest: "#3f9e4d", accent: "#c8643c", head: "hood" },
+  wizard: { suit: "#d8dae2", vest: "#4a6fd1", accent: "#f2b134", head: "wizard" },
+  rogue: { suit: "#d2cfd8", vest: "#7b5ba8", accent: "#e05a8a", head: "hoodMask" },
+  guardian: { suit: "#dbdcc8", vest: "#6a9e3a", accent: "#b6dc6a", head: "leaf" },
+  knight: { suit: "#dcdfe4", vest: "#3d7bb6", accent: "#e05a47", head: "helm" },
+  trickster: { suit: "#ddd5c2", vest: "#d08a2e", accent: "#5fb04f", head: "goblin" },
+  champion: { suit: "#e2dccd", vest: "#d64545", accent: "#f2b134", head: "crown" },
 };

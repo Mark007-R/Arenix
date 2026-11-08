@@ -1,25 +1,27 @@
 @import "tailwindcss";
 
 /*
- * "Drafting table" theme: warm paper, ink outlines, olive and brick accents, monospace labels.
+ * "Drafting table" theme: warm paper, ink outlines, bright coral, emerald, sky and sun accents,
+ * monospace labels.
  * Component code uses the semantic tokens below (parchment = body text, ink = outlines,
  * night = panel paper, gold = accent), so the whole UI follows these values.
  */
 @theme {
   --font-pixel: "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
   --font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
-  --color-ink: #2d2a25;
-  --color-night: #f7f2e6;
-  --color-dusk: #d6cdb8;
-  --color-parchment: #2d2a25;
-  --color-gold: #b4512f;
-  --color-gold-dark: #8c3d22;
-  --color-leaf: #4e7a34;
-  --color-ember: #b23b2a;
-  --color-sky: #3f6f8f;
-  --color-olive: #4b5734;
-  --color-paper: #ece6d6;
-  --color-well: #ebe4d2;
+  --color-ink: #2b2a33;
+  --color-night: #fffaf0;
+  --color-dusk: #e6dcc6;
+  --color-parchment: #2b2a33;
+  --color-gold: #e4572e;
+  --color-gold-dark: #b8431f;
+  --color-leaf: #2f9e44;
+  --color-ember: #e03e3e;
+  --color-sky: #2f80ed;
+  --color-olive: #1f9d6b;
+  --color-sun: #ffc93c;
+  --color-paper: #f4efe2;
+  --color-well: #f5ecd8;
 }
 
 :root {
@@ -55,6 +57,7 @@ h3 {
 .panel {
   background: var(--color-night);
   border: 1.5px solid var(--color-ink);
+  border-top: 4px solid var(--color-sun);
   border-radius: 2px;
   box-shadow: 0 2px 0 0 rgba(45, 42, 37, 0.18), 0 8px 24px -12px rgba(45, 42, 37, 0.35);
 }
@@ -66,7 +69,7 @@ h3 {
   gap: 0.5rem;
   padding: 0.55rem 1.1rem;
   font-weight: 650;
-  color: #f7f2e6;
+  color: #fffaf0;
   background: var(--color-olive);
   border: 1.5px solid var(--color-ink);
   border-radius: 2px;
@@ -96,7 +99,7 @@ h3 {
   color: var(--color-ink);
 }
 .btn-ghost:hover:not(:disabled) {
-  background: #efe8d6;
+  background: #fff1cc;
 }
 
 .bar {
@@ -163,11 +166,15 @@ input::placeholder {
   overflow: hidden;
   background-color: var(--color-paper);
   background-image:
-    linear-gradient(rgba(45, 42, 37, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45, 42, 37, 0.07) 1px, transparent 1px),
-    linear-gradient(rgba(45, 42, 37, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45, 42, 37, 0.035) 1px, transparent 1px);
-  background-size: 96px 96px, 96px 96px, 16px 16px, 16px 16px;
+    linear-gradient(rgba(43, 42, 51, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43, 42, 51, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(43, 42, 51, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43, 42, 51, 0.03) 1px, transparent 1px),
+    radial-gradient(60rem 30rem at 10% -10%, rgba(255, 201, 60, 0.35), transparent 70%),
+    radial-gradient(50rem 30rem at 100% 10%, rgba(124, 195, 230, 0.35), transparent 70%),
+    radial-gradient(60rem 40rem at 50% 120%, rgba(95, 176, 79, 0.25), transparent 70%);
+  background-size: 96px 96px, 96px 96px, 16px 16px, 16px 16px, auto, auto, auto;
+  background-attachment: fixed;
 }
 .sky > :not(.cloud) {
   position: relative;
@@ -180,7 +187,11 @@ input::placeholder {
 .title-bob {
   font-family: var(--font-mono);
   letter-spacing: 0.35em;
-  color: var(--color-ink);
+  background: linear-gradient(90deg, #e4572e, #f2b134 30%, #1f9d6b 60%, #2f80ed 85%, #7b5ba8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(43, 42, 51, 0.25));
 }
 
 /* Confetti for a win. */

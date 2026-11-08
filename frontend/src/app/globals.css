@@ -326,3 +326,92 @@ input::placeholder {
 .iso-float-me {
   color: var(--color-gold);
 }
+
+/* ---------------------------------------------------------------- home page fun */
+.title-wave span {
+  display: inline-block;
+  animation: title-wave 2.4s ease-in-out infinite;
+  text-shadow: 0 3px 0 rgba(43, 42, 51, 0.18);
+}
+@keyframes title-wave {
+  0%, 60%, 100% { transform: translateY(0) rotate(0deg); }
+  20% { transform: translateY(-10px) rotate(-4deg); }
+  40% { transform: translateY(2px) rotate(2deg); }
+}
+
+.diorama-bubble {
+  max-width: 220px;
+  padding: 4px 10px;
+}
+.diorama-bubble .iso-bubble-text {
+  font-size: 13px;
+}
+@keyframes diorama-pop {
+  0% { opacity: 0; scale: 0.6; }
+  60% { opacity: 1; scale: 1.08; }
+  100% { opacity: 1; scale: 1; }
+}
+.diorama-pop {
+  animation: diorama-pop 260ms ease-out both;
+  transform-origin: bottom center;
+}
+.diorama-sus {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 18px;
+  color: #fffaf0;
+  background: var(--color-ember);
+  border: 1.5px solid var(--color-ink);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 0 var(--color-ink);
+  animation: sus-bob 1.2s ease-in-out infinite;
+}
+@keyframes sus-bob {
+  50% { margin-top: -5px; }
+}
+
+/* Character cards: tinted per contestant, lift and wiggle on hover. */
+.pick-card {
+  position: relative;
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out;
+}
+.pick-card:hover {
+  transform: translateY(-3px) rotate(-1.5deg);
+  box-shadow: 0 4px 0 var(--color-ink);
+}
+.pick-card[aria-checked="true"] {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 0 var(--color-ink), 0 0 0 3px var(--pick-ring);
+}
+.pick-check {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-sun);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Mode cards: a coloured band and a big icon each. */
+.mode-card {
+  border-top-width: 6px;
+  transition: transform 140ms ease-out;
+}
+.mode-card:hover {
+  transform: translateY(-3px);
+}
+.mode-icon {
+  font-size: 34px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 0 rgba(43, 42, 51, 0.2));
+}

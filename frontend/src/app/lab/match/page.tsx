@@ -166,7 +166,7 @@ function LabMatch() {
               <button className="btn px-2 py-1 text-xs" onClick={() => setCursor((c) => Math.min(data.events.length - 1, c + 1))}>▶</button>
               <button className="btn px-2 py-1 text-xs" onClick={() => setCursor(data.events.length - 1)}>⏭</button>
               <input type="range" min={0} max={data.events.length - 1} value={cursor} onChange={(e) => setCursor(Number(e.target.value))}
-                className="flex-1 accent-[#4b5734]" aria-label="Replay position" />
+                className="flex-1 accent-[#1f9d6b]" aria-label="Replay position" />
               <span className="tabular-nums text-xs">t{state.tick} · #{seq}</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_180px]">

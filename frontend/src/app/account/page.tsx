@@ -153,7 +153,7 @@ export default function AccountPage() {
                   <Field label="Confirm password" type="password" autoComplete="new-password" required value={confirm}
                     onChange={(e) => setConfirm(e.target.value)} />
                   <label className="flex items-start gap-2 text-sm">
-                    <input type="checkbox" checked={over13} onChange={(e) => setOver13(e.target.checked)} className="mt-1 accent-[#4b5734]" />
+                    <input type="checkbox" checked={over13} onChange={(e) => setOver13(e.target.checked)} className="mt-1 accent-[#1f9d6b]" />
                     <span>
                       I am 13 or older and agree to the <Link className="underline" href="/terms">Terms</Link> and{" "}
                       <Link className="underline" href="/privacy">Privacy Policy</Link>.

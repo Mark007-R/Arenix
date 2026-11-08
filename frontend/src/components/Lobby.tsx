@@ -75,7 +75,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                 type="checkbox"
                 checked={!!lobby.public}
                 onChange={(e) => client.send({ type: "set_public", public: e.target.checked })}
-                className="accent-[#4b5734]"
+                className="accent-[#1f9d6b]"
               />
               List this room in public rooms (anyone can join)
             </label>
@@ -149,7 +149,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
                     max={lobby.capacity}
                     value={Math.max(lobby.fill_to, minField)}
                     onChange={(e) => client.send({ type: "set_fill", fill_to: Number(e.target.value) })}
-                    className="w-40 accent-[#4b5734] align-middle"
+                    className="w-40 accent-[#1f9d6b] align-middle"
                   />
                 </label>
                 <button
@@ -191,7 +191,7 @@ export function Lobby({ client, store, you }: { client: GameClient; store: HudSt
               </div>
             )}
             {lobby.map_id === "random" ? (
-              <div className="flex aspect-[4/3] items-center justify-center border-[1.5px] border-ink bg-[#a9bcbd] text-center text-sm">
+              <div className="flex aspect-[4/3] items-center justify-center border-[1.5px] border-ink bg-[#7cc3e6] text-center text-sm">
                 🎲 A different island every match
               </div>
             ) : (

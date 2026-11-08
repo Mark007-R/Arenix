@@ -145,7 +145,7 @@ export class WorldScene {
 
     this.marker = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.28),
-      new THREE.MeshLambertMaterial({ color: 0xc0573e, emissive: 0xc0573e, emissiveIntensity: 0.4, flatShading: true }),
+      new THREE.MeshLambertMaterial({ color: 0xe4572e, emissive: 0xe4572e, emissiveIntensity: 0.4, flatShading: true }),
     );
     this.marker.visible = false;
     this.scene.add(this.marker);
@@ -363,7 +363,7 @@ export class WorldScene {
 
   private makeCone(mine: boolean): THREE.Group {
     const g = new THREE.Group();
-    const color = mine ? 0xc0573e : 0x6f6a60;
+    const color = mine ? 0xe4572e : 0x6f6a60;
     const fan = new THREE.Mesh(
       new THREE.CircleGeometry(CONE_RADIUS, 18, Math.PI / 2 - CONE_ANGLE / 2, CONE_ANGLE),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: mine ? 0.1 : 0.07, depthWrite: false }),

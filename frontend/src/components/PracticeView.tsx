@@ -24,7 +24,7 @@ export default function PracticeView({ params }: { params: JoinParams }) {
   const { store, client } = useGameClient(url, session);
   const matchId = useHud(store, (s) => s.matchId);
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#a9bcbd]">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#7cc3e6]">
       {client && matchId && <GameStage key={matchId} client={client} store={store} />}
       <ResultModal
         store={store}

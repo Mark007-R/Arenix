@@ -10,7 +10,7 @@ function Slider({ label, value, onChange }: { label: string; value: number; onCh
     <label className="block text-sm">
       <span className="flex justify-between"><span>{label}</span><span className="tabular-nums text-parchment/60">{Math.round(value * 100)}%</span></span>
       <input type="range" min={0} max={1} step={0.05} value={value} onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[#4b5734]" />
+        className="w-full accent-[#1f9d6b]" />
     </label>
   );
 }
@@ -18,7 +18,7 @@ function Slider({ label, value, onChange }: { label: string; value: number; onCh
 function Toggle({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 text-sm">
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-1 accent-[#4b5734]" />
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-1 accent-[#1f9d6b]" />
       <span>
         {label}
         {hint && <span className="block text-xs text-parchment/55">{hint}</span>}

@@ -7,7 +7,8 @@ import type { Diorama } from "@/game/iso/diorama";
 export function HomeDiorama({ archetype }: { archetype: string }) {
   const host = useRef<HTMLDivElement>(null);
   const diorama = useRef<Diorama | null>(null);
-  const first = useRef(archetype);
+  // Latest pick, read when the island finishes loading (the saved pick can arrive before that).
+  const latest = useRef(archetype);
 
   useEffect(() => {
     const el = host.current;
@@ -17,7 +18,7 @@ export function HomeDiorama({ archetype }: { archetype: string }) {
     void import("@/game/iso/diorama").then(({ createDiorama }) => {
       if (cancelled) return;
       try {
-        diorama.current = createDiorama(el, first.current, reduced);
+        diorama.current = createDiorama(el, latest.current, reduced);
       } catch {
         // No WebGL: the page still works, just without the island.
       }
@@ -30,6 +31,7 @@ export function HomeDiorama({ archetype }: { archetype: string }) {
   }, []);
 
   useEffect(() => {
+    latest.current = archetype;
     diorama.current?.setHero(archetype);
   }, [archetype]);
 

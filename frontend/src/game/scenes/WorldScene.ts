@@ -9,7 +9,9 @@
 import * as THREE from "three";
 import { ARCHETYPES } from "../archetypes";
 import type { GameClient } from "../net/client";
-import { buildFigure, type Figure } from "../iso/figure";
+import { Effects } from "../iso/effects";
+import { buildFigure, IMPACT, type Figure } from "../iso/figure";
+import { OUTFITS } from "../iso/palette3d";
 import { isoPalette } from "../iso/palette3d";
 import { buildWorld, XRAY, type WorldHandles } from "../iso/world";
 import { DT } from "@/shared/physics";
@@ -94,6 +96,7 @@ export class WorldScene {
   private world: WorldHandles | null = null;
   private actors = new Map<string, Actor>();
   private bodies = new Map<string, Figure>();
+  private effects = new Effects(this.scene);
   private marker: THREE.Mesh;
   private promptEl: HTMLDivElement;
   private killEl: HTMLDivElement;
@@ -221,6 +224,7 @@ export class WorldScene {
     this.unsub?.();
     this.resizeObs.disconnect();
     this.cleanups.forEach((c) => c());
+    this.effects.clear();
     this.world?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
@@ -328,6 +332,7 @@ export class WorldScene {
 
     this.updateWorldState(snap.nodes, snap.mission.status === "completed", snap.beacons, now, reduced);
     this.updateBodies(snap.bodies ?? []);
+    if (!reduced) this.effects.update(dt);
     this.updateCamera(dt);
     this.updatePrompts(now, reduced);
     this.pressed.clear();
@@ -683,6 +688,7 @@ export class WorldScene {
   private onGameEvent(ev: GameEventDTO): void {
     const client = this.deps.client;
     if (!this.world) return;
+    this.playAction(ev);
     if (ev.type === "chat") {
       const s = loadSettings();
       if (client.isMuted(String(ev.data.sender)) || !s.bubbles || (s.hideChat && ev.data.sender !== client.you)) return;
@@ -703,6 +709,39 @@ export class WorldScene {
       const t = [...this.world.objects.values()].find((o) => o.kind === "watchtower");
       if (t) this.floatText(t.x + t.w / 2, 4.6, t.y + t.h / 2, "Repaired!", true);
     }
+  }
+
+  /**
+   * Character animations for game events: the killer's own attack (with its hit effect) for kills
+   * and sheriff shots the player is allowed to see, a gathering swing, and a cheer for deliveries
+   * and lit beacons.
+   */
+  private playAction(ev: GameEventDTO): void {
+    const d = ev.data as Record<string, unknown>;
+    if (ev.type === "contestant_killed" || ev.type === "kill_witnessed") {
+      const killer = this.actors.get(String(d.killer));
+      const victim = this.actors.get(String(d.victim));
+      if (!killer) return;
+      const misfire = d.cause === "misfire" || d.killer === d.victim;
+      const to = victim && !misfire
+        ? new THREE.Vector3(victim.x, 0, victim.z)
+        : new THREE.Vector3(killer.x + Math.sin(killer.yaw), 0, killer.z + Math.cos(killer.yaw));
+      if (!misfire) {
+        killer.yaw = Math.atan2(to.x - killer.x, to.z - killer.z);
+        if (d.killer === this.deps.client.you) this.localYaw = killer.yaw;
+      }
+      killer.figure.perform("strike");
+      if (this.deps.reducedMotion()) return;
+      const archetype = killer.look.split("~")[0] ?? "";
+      const style = killer.figure.style;
+      const accent = archetype === "trickster" ? "pebble" : (OUTFITS[archetype]?.accent ?? "#ffffff");
+      this.effects.hit(style, new THREE.Vector3(killer.x, 0, killer.z), to, IMPACT[style], accent);
+      return;
+    }
+    const who = this.actors.get(String(d.contestant ?? d.by ?? ""));
+    if (!who) return;
+    if (ev.type === "resource_gathered") who.figure.perform("gather");
+    else if (ev.type === "resources_delivered" || ev.type === "beacon_lit") who.figure.perform("cheer");
   }
 
   private floatText(x: number, y: number, z: number, text: string, mine: boolean): void {

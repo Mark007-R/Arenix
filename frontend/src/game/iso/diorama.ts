@@ -180,6 +180,7 @@ export function createDiorama(host: HTMLElement, archetype: string, reduced: boo
 
   let raf = 0;
   let last = 0;
+  let lastMove = 0;
   let visible = true;
   const io = new IntersectionObserver(([e]) => {
     visible = !!e?.isIntersecting;
@@ -204,7 +205,10 @@ export function createDiorama(host: HTMLElement, archetype: string, reduced: boo
         w.figure.animate(dt, 0, { aim: false, reduced });
       } else {
         w.angle += (w.speed * dt) / w.radius * 2;
-        if (!reduced && Math.random() < dt * 0.15) w.pause = 1 + Math.random() * 1.5;
+        if (!reduced && Math.random() < dt * 0.15) {
+          w.pause = 1 + Math.random() * 1.5;
+          w.figure.perform("gather");
+        }
         w.figure.animate(dt, reduced ? 0 : 1, { aim: false, reduced });
       }
       const x = Math.cos(w.angle) * w.radius;
@@ -214,8 +218,12 @@ export function createDiorama(host: HTMLElement, archetype: string, reduced: boo
       w.figure.root.rotation.y = Math.atan2(-Math.sin(w.angle) * Math.sign(w.speed), Math.cos(w.angle) * Math.sign(w.speed));
     }
     if (hero) {
-      // The hero waves: arms up and down via the "ready" pose, on a gentle loop.
-      hero.animate(dt, 0, { aim: !reduced && Math.sin(t * 2.2) > 0.3, reduced });
+      // The hero shows off its signature attack every few seconds.
+      if (!reduced && t - lastMove > 3.2) {
+        lastMove = t;
+        hero.perform("strike");
+      }
+      hero.animate(dt, 0, { aim: false, reduced });
       hero.root.rotation.y = Math.PI / 4 + (reduced ? 0 : Math.sin(t * 0.8) * 0.3);
     }
     flame.scale.y = reduced ? 1 : 1 + Math.sin(t * 11) * 0.15;

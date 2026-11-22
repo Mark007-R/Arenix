@@ -135,7 +135,10 @@ export class Effects {
   }
 
   clear(): void {
-    for (const e of this.live) e.obj.removeFromParent();
+    for (const e of this.live) {
+      e.obj.removeFromParent();
+      ((e.obj as THREE.Mesh).material as THREE.Material | undefined)?.dispose();
+    }
     this.live = [];
   }
 }
